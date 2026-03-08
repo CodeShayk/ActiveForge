@@ -36,16 +36,12 @@ All connection types live in the `Turquoise.ORM` namespace, so a single `using T
 
 ### 💾 Data Management
 - **Transactions** — manual nested transactions via `BeginTransaction` / `CommitTransaction` / `RollbackTransaction`
-- **Unit of Work** — `IUnitOfWork`, `UnitOfWorkBase`, provider-specific implementations, `With.Transaction`, `[Transaction]` attribute, Castle DynamicProxy interceptor
-- **`[Transaction]`** — wraps a service method in a `IUnitOfWork` transaction via Castle DynamicProxy; combine with `[ConnectionScope]` for the full open → begin → commit → close lifecycle
-- **`[ConnectionScope]`** — marks service methods/classes where the `DataConnection` is opened before and closed after; nested calls share one connection via `IsOpen` state
-- **Connection-level lifecycle** — set `conn.UnitOfWork = uow` once; every write operation (`Insert`, `Update`, `Delete`, `ProcessActionQueue`, `ExecStoredProcedure`) automatically opens the connection, begins a transaction, commits, and closes — no proxy required; coordinates transparently with `[ConnectionScope]` via `IsOpen`
+- **Unit of Work** — `IUnitOfWork`, `UnitOfWorkBase`, provider-specific implementations, `With.Transaction`, `[Transaction]` attribute, Castle DynamicProxy interceptor. `[Transaction]` — wraps a service method in a `IUnitOfWork` transaction via Castle DynamicProxy; combine with `[ConnectionScope]` for the full open → begin → commit → close lifecycle
+- **Connection-level lifecycle** — set `conn.UnitOfWork = uow` once; every write operation (`Insert`, `Update`, `Delete`, `ProcessActionQueue`, `ExecStoredProcedure`) automatically opens the connection, begins a transaction, commits, and closes — no proxy required; coordinates transparently with `[ConnectionScope]` via `IsOpen`. `[ConnectionScope]` — marks service methods/classes where the `DataConnection` is opened before and closed after; nested calls share one connection via `IsOpen` state.
 - **Action queue** — batch operations via `QueueForInsert` / `QueueForUpdate` / `QueueForDelete` → `ProcessActionQueue`
 
 ### 🌐 DI & Service Proxy Integration
-- **`IService` marker** — implement on any service class for automatic discovery and proxy registration
-- **Auto-scan registration** — `AddTurquoiseSqlServer(...).AddServices(assembly)` discovers all `IService` implementations and registers them as interface-proxied scoped services in one call
-- **`ITurquoiseBuilder`** — fluent builder returned by all `AddTurquoise*` methods; chain `.AddServices()`, `.AddService<I, T>()` for granular control
+- **Auto-scan registration** — `AddTurquoiseSqlServer(...).AddServices(assembly)` discovers all `IService` implementations and registers them as interface-proxied scoped services in one call. `IService` marker — implement on any service class for automatic discovery and proxy registration. `ITurquoiseBuilder` — fluent builder returned by all `AddTurquoise*` methods; chain `.AddServices()`, `.AddService<I, T>()` for granular control.
 
 ---
 
