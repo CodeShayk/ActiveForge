@@ -274,5 +274,29 @@ With.SetLogger(loggerFactory.CreateLogger("Turquoise.ORM.Transactions.With"));
 | `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM` | `ILogger` abstraction used by `UnitOfWorkBase` |
 | `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM.SqlServer` | `ILogger<SqlServerUnitOfWork>` parameter |
 | `Microsoft.Data.SqlClient` 5.2.1 | `Turquoise.ORM.SqlServer` | ADO.NET SQL Server driver |
+| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM.PostgreSQL` | `ILogger<PostgreSQLUnitOfWork>` parameter |
+| `Npgsql` 8.0.3 | `Turquoise.ORM.PostgreSQL` | ADO.NET PostgreSQL driver |
 
-`SqlServerUnitOfWork` is part of `Turquoise.ORM.SqlServer`. All other Unit of Work types (`IUnitOfWork`, `UnitOfWorkBase`, `With`, `TransactionInterceptor`, `TurquoiseServiceLocator`) are in `Turquoise.ORM` and have no SQL Server dependency.
+`SqlServerUnitOfWork` is part of `Turquoise.ORM.SqlServer`; `PostgreSQLUnitOfWork` is part of `Turquoise.ORM.PostgreSQL`. All other Unit of Work types (`IUnitOfWork`, `UnitOfWorkBase`, `With`, `TransactionInterceptor`, `TurquoiseServiceLocator`) are in `Turquoise.ORM` and have no provider dependency.
+
+## PostgreSQL Unit of Work
+
+Usage is identical to the SQL Server form — just swap the connection and UoW types:
+
+```csharp
+using Turquoise.ORM;
+using Turquoise.ORM.Transactions;
+
+var conn = new PostgreSQLConnection("Host=localhost;Database=demo;Username=app;Password=secret;");
+conn.Connect();
+
+using IUnitOfWork uow = new PostgreSQLUnitOfWork(conn);
+
+With.Transaction(uow, () =>
+{
+    var product = new Product(conn);
+    product.name.SetValue("Widget");
+    product.price.SetValue(9.99m);
+    conn.Insert(product);
+});
+```

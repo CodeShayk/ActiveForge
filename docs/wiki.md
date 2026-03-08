@@ -120,31 +120,32 @@ Some teams use plain data transfer objects with a separate command/query handler
 
 ## 2. Architecture Overview
 
-Turquoise.ORM is a **lightweight Active Record ORM** for .NET 8. It is split across two assemblies to keep provider-specific concerns separate from the core abstractions.
+Turquoise.ORM is a **lightweight Active Record ORM** for .NET 8. It is split across provider assemblies to keep database-specific concerns separate from the core abstractions.
 
 ### 2.1 Assembly Split
 
-| Assembly | NuGet / Project | Contents |
-|----------|----------------|----------|
-| `Turquoise.ORM` | Core | Entities, TField types, QueryTerm predicates, LINQ layer, transactions (abstract), adapters (abstract) |
-| `Turquoise.ORM.SqlServer` | SQL Server provider | `SqlServerConnection`, SQL adapter implementations, `SqlServerUnitOfWork` |
+| Assembly | Contents |
+|----------|----------|
+| `Turquoise.ORM` | Core — entities, TField types, QueryTerm predicates, LINQ layer, transactions (abstract), adapters (abstract) |
+| `Turquoise.ORM.SqlServer` | SQL Server provider — `SqlServerConnection`, SQL adapters, `SqlServerUnitOfWork` |
+| `Turquoise.ORM.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork` |
 
-Your application references both. Entity classes only need `Turquoise.ORM`; `SqlServerConnection` is resolved at runtime from `Turquoise.ORM.SqlServer`.
+Entity classes only reference `Turquoise.ORM`. Applications add the appropriate provider package alongside it.
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│  Your Application                                                        │
-│                                                                          │
-│  DataObject subclass ──── CRUD ────► DataConnection (abstract, core)    │
-│  (fields, logic)                         │                               │
-│  QueryTerm / LINQ ─── query calls ───────┤                               │
-│                                          │ implemented by                │
-│                                    SqlServerConnection                   │
-│                                    (Turquoise.ORM.SqlServer)             │
-│                                          │                               │
-│                                          ▼                               │
-│                                    ADO.NET / SQL Server                  │
-└──────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────┐
+│  Your Application                                                              │
+│                                                                                │
+│  DataObject subclass ──── CRUD ────► DataConnection (abstract, core)          │
+│  (fields, logic)                         │                                     │
+│  QueryTerm / LINQ ─── query calls ───────┤                                     │
+│                                          │ implemented by (choose one)         │
+│                            ┌─────────────┴──────────────┐                     │
+│                     SqlServerConnection           PostgreSQLConnection         │
+│                  (Turquoise.ORM.SqlServer)   (Turquoise.ORM.PostgreSQL)        │
+│                            │                             │                     │
+│                      SQL Server                      PostgreSQL                │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2.2 Core Principles
@@ -153,7 +154,7 @@ Your application references both. Entity classes only need `Turquoise.ORM`; `Sql
 - **Type-safe fields** — every column is represented by a `TField` subclass, not a bare property. This tracks null/loaded state and enables predicate construction.
 - **Composable predicates** — `QueryTerm` objects compose with C# `&`, `|`, `!` operators to build arbitrary WHERE clauses.
 - **Connection-centric** — `DataConnection` is the single point of query execution; entities delegate to it.
-- **Provider-agnostic core** — `Turquoise.ORM` has no dependency on `Microsoft.Data.SqlClient`. Only `Turquoise.ORM.SqlServer` does.
+- **Provider-agnostic core** — `Turquoise.ORM` has no dependency on `Microsoft.Data.SqlClient` or `Npgsql`. Only the provider packages do.
 
 ---
 
@@ -364,16 +365,25 @@ if (!product.Name.IsLoaded()) { ... } // never set at all
 
 ### 5.1 Creating a Connection
 
-`SqlServerConnection` lives in the `Turquoise.ORM.SqlServer` assembly but uses the `Turquoise.ORM` namespace, so no extra `using` directive is needed once both assemblies are referenced.
+Both `SqlServerConnection` and `PostgreSQLConnection` live in the `Turquoise.ORM` namespace (in their respective provider assemblies), so no extra `using` directive is needed once the provider assembly is referenced.
 
 ```csharp
-// Project references: Turquoise.ORM + Turquoise.ORM.SqlServer
+// SQL Server (reference Turquoise.ORM + Turquoise.ORM.SqlServer)
 using Turquoise.ORM;
 
-var factory = new ShopFactory();   // your FactoryBase subclass (can be FactoryBase if no polymorphism)
 var conn = new SqlServerConnection(
     "Server=.;Database=MyDB;Integrated Security=True;TrustServerCertificate=True;",
-    factory);
+    new FactoryBase());
+conn.Connect();
+```
+
+```csharp
+// PostgreSQL (reference Turquoise.ORM + Turquoise.ORM.PostgreSQL)
+using Turquoise.ORM;
+
+var conn = new PostgreSQLConnection(
+    "Host=localhost;Database=mydb;Username=app;Password=secret;",
+    new FactoryBase());
 conn.Connect();
 ```
 
@@ -387,6 +397,25 @@ conn.Disconnect();  // closes it
 ### 5.3 Factory Pattern
 
 Pass a `FactoryBase` to control how the ORM instantiates objects. The default `FactoryBase` uses `Activator.CreateInstance`. Override `Create(Type)` for polymorphic mapping (see [§15](#15-polymorphic-mapping-factorybase)).
+
+### 5.4 Provider Dialect Comparison
+
+| Feature | SQL Server | PostgreSQL |
+|---------|-----------|------------|
+| Parameter mark | `@name` | `@name` |
+| Identifier quoting | `[Name]` | `"name"` |
+| Row limit syntax | `SELECT TOP n …` | `SELECT … LIMIT n` |
+| String concatenation | `+` | `\|\|` |
+| Identity retrieval | `SELECT SCOPE_IDENTITY()` | `SELECT LASTVAL()` |
+| Row lock hint | `WITH (UPDLOCK)` (table hint) | `FOR UPDATE` (end of SELECT) — returns `""` in current implementation |
+| Identity insert control | `SET IDENTITY_INSERT … ON/OFF` | Not needed — always allowed |
+| Schema introspection | `SYSOBJECTS` / `SYSCOLUMNS` / `SYSTYPES` | `information_schema.columns` |
+| Primary key discovery | `sp_pkeys` stored procedure | `information_schema.table_constraints` |
+| Identifier case | Case-insensitive | Case-sensitive (lower-case by default) |
+| Unit of Work class | `SqlServerUnitOfWork` | `PostgreSQLUnitOfWork` |
+| ADO.NET driver | `Microsoft.Data.SqlClient` | `Npgsql` |
+
+**PostgreSQL naming note:** PostgreSQL folds unquoted identifiers to lower-case at parse time. All `[Table]` and `[Column]` attribute values should be lower-case unless you created the table with quoted identifiers.
 
 ---
 
@@ -1296,7 +1325,7 @@ var categories = conn.QueryAll(new Category(conn), null, null, 0, null);
 ### 21.0 Assembly Boundaries
 
 ```
-Turquoise.ORM (core, no SQL Server dependency)
+Turquoise.ORM (core — no provider dependency)
 ├── DataObject / IdentDataObject / LookupDataObject
 ├── DataConnection (abstract) / DBDataConnection (abstract)
 ├── TField subtypes (25+)
@@ -1307,11 +1336,19 @@ Turquoise.ORM (core, no SQL Server dependency)
 
 Turquoise.ORM.SqlServer (depends on Turquoise.ORM + Microsoft.Data.SqlClient)
 ├── SqlServerConnection : DBDataConnection
-├── Adapters/SqlAdapterConnection   (wraps SqlConnection)
-├── Adapters/SqlAdapterCommand      (wraps SqlCommand)
-├── Adapters/SqlAdapterReader       (wraps SqlDataReader)
-├── Adapters/SqlAdapterTransaction  (wraps SqlTransaction)
-└── Transactions/SqlServerUnitOfWork : UnitOfWorkBase
+├── Adapters/SqlAdapterConnection     (wraps SqlConnection)
+├── Adapters/SqlAdapterCommand        (wraps SqlCommand)
+├── Adapters/SqlAdapterReader         (wraps SqlDataReader)
+├── Adapters/SqlAdapterTransaction    (wraps SqlTransaction)
+└── Transactions/SqlServerUnitOfWork  : UnitOfWorkBase
+
+Turquoise.ORM.PostgreSQL (depends on Turquoise.ORM + Npgsql)
+├── PostgreSQLConnection : DBDataConnection
+├── Adapters/NpgsqlAdapterConnection  (wraps NpgsqlConnection)
+├── Adapters/NpgsqlAdapterCommand     (wraps NpgsqlCommand)
+├── Adapters/NpgsqlAdapterReader      (wraps NpgsqlDataReader)
+├── Adapters/NpgsqlAdapterTransaction (wraps NpgsqlTransaction)
+└── Transactions/PostgreSQLUnitOfWork : UnitOfWorkBase
 ```
 
 All types in `Turquoise.ORM.SqlServer` use the `Turquoise.ORM` (or `Turquoise.ORM.Adapters.SqlServer` / `Turquoise.ORM.Transactions`) namespace — the same namespace as the core types they extend. This means consuming code only needs `using Turquoise.ORM;`.

@@ -2,25 +2,39 @@
 
 ## Installation
 
-Turquoise.ORM is split into two assemblies. Reference both in your application project:
+Turquoise.ORM consists of a core library and one or more provider packages. Reference the core plus the provider for your database:
+
+**SQL Server**
 
 ```xml
 <ItemGroup>
-  <!-- Core library: entities, fields, predicates, LINQ, transaction abstractions -->
   <ProjectReference Include="..\Turquoise.ORM\Turquoise.ORM.csproj" />
-  <!-- SQL Server provider: SqlServerConnection, adapter implementations, SqlServerUnitOfWork -->
   <ProjectReference Include="..\Turquoise.ORM.SqlServer\Turquoise.ORM.SqlServer.csproj" />
+</ItemGroup>
+```
+
+**PostgreSQL**
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\Turquoise.ORM\Turquoise.ORM.csproj" />
+  <ProjectReference Include="..\Turquoise.ORM.PostgreSQL\Turquoise.ORM.PostgreSQL.csproj" />
 </ItemGroup>
 ```
 
 If consuming published NuGet packages:
 
 ```xml
+<!-- SQL Server -->
 <PackageReference Include="Turquoise.ORM" Version="1.0.0" />
 <PackageReference Include="Turquoise.ORM.SqlServer" Version="1.0.0" />
+
+<!-- PostgreSQL -->
+<PackageReference Include="Turquoise.ORM" Version="1.0.0" />
+<PackageReference Include="Turquoise.ORM.PostgreSQL" Version="1.0.0" />
 ```
 
-`SqlServerConnection` lives in the `Turquoise.ORM` namespace (not `Turquoise.ORM.SqlServer`), so no extra `using` directive is required.
+Both `SqlServerConnection` and `PostgreSQLConnection` live in the `Turquoise.ORM` namespace, so no extra `using` directive is required beyond `using Turquoise.ORM;`.
 
 ## Concepts
 

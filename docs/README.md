@@ -8,6 +8,7 @@ A lightweight, Active Record-style ORM for .NET 8.
 |---------|-------------|
 | `Turquoise.ORM` | Core library — entities, fields, predicates, LINQ, transactions, abstractions |
 | `Turquoise.ORM.SqlServer` | SQL Server provider — `SqlServerConnection`, adapter implementations, `SqlServerUnitOfWork` |
+| `Turquoise.ORM.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, adapter implementations, `PostgreSQLUnitOfWork` |
 
 ## Features
 
@@ -19,7 +20,7 @@ A lightweight, Active Record-style ORM for .NET 8.
 - **Lazy streaming** — `LazyQueryAll<T>` streams rows without loading all into memory
 - **Field subsets** — partial SELECTs and partial UPDATEs using `FieldSubset`
 - **Transactions** — nested transaction support with `BeginTransaction` / `CommitTransaction` / `RollbackTransaction`
-- **Unit of Work** *(v1.1)* — `IUnitOfWork`, `UnitOfWorkBase`, `SqlServerUnitOfWork`, `With.Transaction`, `[Transaction]` attribute, Castle DynamicProxy interceptor
+- **Unit of Work** *(v1.1)* — `IUnitOfWork`, `UnitOfWorkBase`, `SqlServerUnitOfWork`, `PostgreSQLUnitOfWork`, `With.Transaction`, `[Transaction]` attribute, Castle DynamicProxy interceptor
 - **Action queue** — batch operations via `QueueForInsert` / `QueueForUpdate` / `QueueForDelete` then `ProcessActionQueue`
 - **Field encryption** — transparent encrypt/decrypt via `[Encrypted]` attribute
 - **Custom field mappers** — implement `IDBFieldMapper` for non-standard type conversions
@@ -29,49 +30,55 @@ A lightweight, Active Record-style ORM for .NET 8.
 
 - .NET 8.0
 - For SQL Server: `Turquoise.ORM.SqlServer` (wraps `Microsoft.Data.SqlClient` 5.2.1)
+- For PostgreSQL: `Turquoise.ORM.PostgreSQL` (wraps `Npgsql` 8.0.3)
 
 ## Quick Start
 
-### 1. Create a table
+### SQL Server
 
-```sql
-CREATE TABLE Products (
-    ID       INT            IDENTITY(1,1) PRIMARY KEY,
-    Name     NVARCHAR(200)  NOT NULL,
-    Price    DECIMAL(10,2)  NOT NULL,
-    InStock  BIT            NOT NULL DEFAULT 1
-);
+```csharp
+using Turquoise.ORM;          // SqlServerConnection is in this namespace
+
+var conn = new SqlServerConnection(
+    "Server=.;Database=Demo;Integrated Security=True;TrustServerCertificate=True;",
+    new FactoryBase());
+conn.Connect();
 ```
 
-### 2. Define an entity
+### PostgreSQL
+
+```csharp
+using Turquoise.ORM;          // PostgreSQLConnection is in this namespace
+
+var conn = new PostgreSQLConnection(
+    "Host=localhost;Database=demo;Username=app;Password=secret;",
+    new FactoryBase());
+conn.Connect();
+```
+
+### Define an entity (provider-agnostic)
 
 ```csharp
 using Turquoise.ORM;
 using Turquoise.ORM.Attributes;
 
-[Table("Products")]
+[Table("products")]
 public class Product : IdentDataObject
 {
-    [Column("Name")]    public TString  Name    = new TString();
-    [Column("Price")]   public TDecimal Price   = new TDecimal();
-    [Column("InStock")] public TBool    InStock = new TBool();
+    [Column("name")]     public TString  Name     = new TString();
+    [Column("price")]    public TDecimal Price    = new TDecimal();
+    [Column("in_stock")] public TBool    InStock  = new TBool();
 
     public Product() { }
     public Product(DataConnection conn) : base(conn) { }
 }
 ```
 
-### 3. Connect and use
+> **Note:** PostgreSQL folds unquoted identifiers to lower-case. Use lower-case `[Table]` and `[Column]` attribute values to match the default PostgreSQL naming convention.
+
+### Use (same API for both providers)
 
 ```csharp
-using Turquoise.ORM;          // core types
-// using Turquoise.ORM;       // SqlServerConnection lives here (same namespace, SqlServer assembly)
-
-var conn = new SqlServerConnection(
-    "Server=.;Database=Demo;Integrated Security=True;TrustServerCertificate=True;",
-    new FactoryBase());
-conn.Connect();
-
 // Insert
 var p = new Product(conn);
 p.Name.SetValue("Widget");
@@ -111,21 +118,26 @@ p.Delete();
 ```
 Turquoise.ORM/
 ├── src/
-│   ├── Turquoise.ORM/              ← Core library (provider-agnostic)
-│   │   ├── Attributes/             ← [Table], [Column], [Identity], etc.
-│   │   ├── Adapters/               ← Abstract adapter interfaces (ConnectionBase, etc.)
-│   │   ├── Fields/                 ← TString, TInt, TDecimal, ... (25+ types)
-│   │   ├── Linq/                   ← LINQ query support (OrmQueryable, ExpressionVisitor)
-│   │   ├── Query/                  ← QueryTerm, SortOrder, EqualTerm, ...
-│   │   └── Transactions/           ← IUnitOfWork, UnitOfWorkBase, With, TransactionInterceptor
-│   └── Turquoise.ORM.SqlServer/    ← SQL Server provider
-│       ├── Adapters/               ← SqlAdapterCommand/Connection/Reader/Transaction
-│       ├── Transactions/           ← SqlServerUnitOfWork
-│       └── SqlServerConnection.cs  ← Main SQL Server connection class
+│   ├── Turquoise.ORM/                  ← Core library (provider-agnostic)
+│   │   ├── Attributes/                 ← [Table], [Column], [Identity], etc.
+│   │   ├── Adapters/                   ← Abstract adapter interfaces (ConnectionBase, etc.)
+│   │   ├── Fields/                     ← TString, TInt, TDecimal, ... (25+ types)
+│   │   ├── Linq/                       ← LINQ query support
+│   │   ├── Query/                      ← QueryTerm, SortOrder, EqualTerm, ...
+│   │   └── Transactions/               ← IUnitOfWork, UnitOfWorkBase, With, interceptors
+│   ├── Turquoise.ORM.SqlServer/        ← SQL Server provider
+│   │   ├── Adapters/                   ← SqlAdapterCommand/Connection/Reader/Transaction
+│   │   ├── Transactions/               ← SqlServerUnitOfWork
+│   │   └── SqlServerConnection.cs
+│   └── Turquoise.ORM.PostgreSQL/       ← PostgreSQL provider
+│       ├── Adapters/                   ← NpgsqlAdapterCommand/Connection/Reader/Transaction
+│       ├── Transactions/               ← PostgreSQLUnitOfWork
+│       └── PostgreSQLConnection.cs
 ├── tests/
-│   ├── Turquoise.ORM.Tests/        ← xUnit tests for core library (314 tests)
-│   └── Turquoise.ORM.SqlServer.Tests/ ← xUnit tests for SQL Server provider (50 tests)
+│   ├── Turquoise.ORM.Tests/            ← Core library tests (314 tests)
+│   ├── Turquoise.ORM.SqlServer.Tests/  ← SQL Server provider tests (50 tests)
+│   └── Turquoise.ORM.PostgreSQL.Tests/ ← PostgreSQL provider tests (52 tests)
 ├── examples/
-│   └── Turquoise.ORM.Examples/     ← Runnable console examples
-└── docs/                           ← This documentation
+│   └── Turquoise.ORM.Examples/         ← Runnable console examples
+└── docs/                               ← This documentation
 ```
