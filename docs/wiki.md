@@ -1,4 +1,4 @@
-# Turquoise.ORM — Comprehensive Developer Wiki
+﻿# Turquoise.ORM — Comprehensive Developer Wiki
 
 A complete reference for every concept in Turquoise.ORM: architecture, field types, querying, transactions, unit of work, LINQ support, and advanced features.
 
@@ -6,31 +6,119 @@ A complete reference for every concept in Turquoise.ORM: architecture, field typ
 
 ## Table of Contents
 
-1. [Architecture Overview](#1-architecture-overview)
-2. [Entities — DataObject and IdentDataObject](#2-entities--dataobject-and-identdataobject)
-3. [Field Types (TField System)](#3-field-types-tfield-system)
-4. [DataConnection — The Gateway](#4-dataconnection--the-gateway)
-5. [CRUD Operations](#5-crud-operations)
-6. [Query Predicates (QueryTerm API)](#6-query-predicates-queryterm-api)
-7. [Sorting and Pagination](#7-sorting-and-pagination)
-8. [LINQ Query Support](#8-linq-query-support)
-9. [Transactions (Manual API)](#9-transactions-manual-api)
-10. [Unit of Work (IUnitOfWork)](#10-unit-of-work-iunitofwork)
-11. [Action Queue (Batch Operations)](#11-action-queue-batch-operations)
-12. [Field Subsets (Partial Fetch / Update)](#12-field-subsets-partial-fetch--update)
-13. [Field Encryption](#13-field-encryption)
-14. [Custom Field Mappers](#14-custom-field-mappers)
-15. [Polymorphic Mapping (FactoryBase)](#15-polymorphic-mapping-factorybase)
-16. [Optimistic Locking](#16-optimistic-locking)
-17. [Lazy Streaming](#17-lazy-streaming)
-18. [Raw SQL and Stored Procedures](#18-raw-sql-and-stored-procedures)
-19. [Lookup / Cached Reference Tables](#19-lookup--cached-reference-tables)
-20. [Architecture Deep Dive](#20-architecture-deep-dive)
-21. [Quick Reference Cheat Sheet](#21-quick-reference-cheat-sheet)
+1. [The Active Record Pattern](#1-the-active-record-pattern)
+2. [Architecture Overview](#2-architecture-overview)
+3. [Entities — DataObject and IdentDataObject](#3-entities--dataobject-and-identdataobject)
+4. [Field Types (TField System)](#4-field-types-tfield-system)
+5. [DataConnection — The Gateway](#5-dataconnection--the-gateway)
+6. [CRUD Operations](#6-crud-operations)
+7. [Query Predicates (QueryTerm API)](#7-query-predicates-queryterm-api)
+8. [Sorting and Pagination](#8-sorting-and-pagination)
+9. [LINQ Query Support](#9-linq-query-support)
+10. [Transactions (Manual API)](#10-transactions-manual-api)
+11. [Unit of Work (IUnitOfWork)](#11-unit-of-work-iunitofwork)
+12. [Action Queue (Batch Operations)](#12-action-queue-batch-operations)
+13. [Field Subsets (Partial Fetch / Update)](#13-field-subsets-partial-fetch--update)
+14. [Field Encryption](#14-field-encryption)
+15. [Custom Field Mappers](#15-custom-field-mappers)
+16. [Polymorphic Mapping (FactoryBase)](#16-polymorphic-mapping-factorybase)
+17. [Optimistic Locking](#17-optimistic-locking)
+18. [Lazy Streaming](#18-lazy-streaming)
+19. [Raw SQL and Stored Procedures](#19-raw-sql-and-stored-procedures)
+20. [Lookup / Cached Reference Tables](#20-lookup--cached-reference-tables)
+21. [Architecture Deep Dive](#21-architecture-deep-dive)
+22. [Quick Reference Cheat Sheet](#22-quick-reference-cheat-sheet)
 
 ---
 
-## 1. Architecture Overview
+## 1. The Active Record Pattern
+
+### 1.1 What is Active Record?
+
+Active Record is a design pattern first named by Martin Fowler in *Patterns of Enterprise Application Architecture* (2003). Its defining idea is simple: **an object that represents a database row also knows how to persist itself**. The class carries both the data (fields mapping to columns) and the behaviour that reads, writes, and deletes that data from the database. There is no separate layer sitting between the object and the database — the object *is* the persistence unit.
+
+In Turquoise.ORM every entity class inherits from `DataObject`. A `DataObject` instance holds typed field objects (`TString`, `TDecimal`, `TBool`, …) for each column, and exposes methods like `Insert()`, `Update()`, `Delete()`, and `Read()` that execute the corresponding SQL:
+
+```csharp
+// The object carries data AND knows how to save itself.
+var product = new Product(conn);
+product.Name.SetValue("Widget");
+product.Price.SetValue(9.99m);
+product.Insert();   // ← persistence behaviour on the object itself
+
+product.Price.SetValue(14.99m);
+product.Update();   // ← object tells the DB to update its own row
+```
+
+### 1.2 Why Use Active Record?
+
+**Simplicity for CRUD-heavy applications.** When the primary job of your code is creating, reading, updating and deleting records — as it is in the overwhelming majority of business applications — Active Record keeps the pattern count low. You work with one object that represents the row; you do not need to maintain a separate repository class, a separate mapping class, and a separate domain model class for each table.
+
+**Reduced boilerplate.** With Data Mapper (see §1.3) you write a `ProductRepository`, a `ProductMapper`, and a `Product` domain object for every entity. With Active Record you write one `Product` class and you are done. For applications with dozens of tables this is a meaningful reduction in total code.
+
+**Immediate navigability.** Because persistence methods live on the entity, any developer reading the code can see at a glance what a class can do. `product.Insert()` is self-evident in a way that `_unitOfWork.ProductRepository.Add(product)` is not.
+
+**Low cognitive overhead for queries.** The `QueryTerm` predicate tree and the LINQ layer translate directly into typed field references on the entity itself:
+
+```csharp
+conn.Query<Product>().Where(p => p.Price > 50m && p.InStock == true).ToList();
+```
+
+The field references (`p.Price`, `p.InStock`) are real `TField` objects on the same class you use everywhere else — not magic strings, not a separate query model.
+
+### 1.3 How Active Record Differs from Other Patterns
+
+#### Data Mapper
+
+Data Mapper separates domain objects completely from persistence logic. A plain `Product` POCO knows nothing about databases; a separate `ProductMapper` (or ORM configuration file) handles the translation. Entity Framework Core is the canonical .NET example.
+
+| Concern | Active Record (Turquoise) | Data Mapper (EF Core) |
+|---------|--------------------------|----------------------|
+| Where does persistence logic live? | On the entity class (`DataObject`) | In the ORM mapping layer, separate from the domain object |
+| Domain object awareness | Entity knows its own columns and how to save itself | Entity is a plain class with no ORM dependency |
+| Boilerplate per table | One class | Entity + mapping configuration (fluent or attributes) + optional repository |
+| Ideal for | CRUD-heavy applications, direct DB → object mapping | Complex domain models where business logic must be insulated from persistence concerns |
+| Testability | Test via a stub `DataConnection` | Test domain objects with no DB dependency at all |
+
+**When to prefer Data Mapper:** If your domain objects need to be completely ignorant of the database — for example in a DDD (Domain-Driven Design) project with a rich domain model, complex invariants, and a desire to keep the persistence mechanism fully swappable — Data Mapper gives a cleaner separation. The cost is more infrastructure code.
+
+**When Active Record wins:** When your application's entities largely mirror your database schema, the business logic is not so complex that it demands strict separation, and development speed matters. This covers the majority of line-of-business applications.
+
+#### Repository Pattern
+
+The Repository pattern is often used *on top of* a Data Mapper ORM to add a collection-like interface over the persistence layer:
+
+```csharp
+// Repository pattern (not Turquoise):
+IProductRepository repo = new SqlProductRepository(dbContext);
+Product p = await repo.GetByIdAsync(42);
+p.Price = 14.99m;
+await repo.SaveAsync(p);
+```
+
+With Active Record the entity already *is* its own repository in a sense. You can still add a separate service or repository class around Turquoise entities if you want to centralise query logic or enforce business rules — the ORM does not prevent it — but the pattern is not forced on you.
+
+#### Table Gateway
+
+Table Gateway assigns one object per *table* (not per *row*), and that object contains all the methods for querying that table. This is coarser-grained than Active Record: you call `ProductGateway.FindAll()` and receive raw data rows, rather than calling `product.Read()` and getting a fully hydrated typed object back.
+
+#### Record / DTO (plain classes)
+
+Some teams use plain data transfer objects with a separate command/query handler (CQRS style). This decouples read and write models completely but requires hand-written SQL or a micro-ORM (Dapper) and significant ceremony to wire up. Active Record is a better fit when the read model and the write model are the same thing, which is again the common case in business software.
+
+### 1.4 Active Record in Turquoise.ORM — Key Decisions
+
+**Fields, not properties.** Turquoise represents columns as public `TField` instance fields rather than auto-properties. This lets the ORM discover them by reflection without attributes on every getter, lets them carry null/loaded state independently of their value, and enables the predicate system (a `TField` reference in a `QueryTerm` constructor tells the ORM exactly which column to filter on).
+
+**Shared connection, not embedded connection.** The entity does not open its own database connection. Instead, one `DataConnection` is passed in at construction time and shared across all objects in a unit of work. This keeps connection management explicit and testable, while still letting the object call `Insert()` / `Update()` without the caller needing to think about the connection.
+
+**Delegation, not inheritance from the connection.** `DataObject.Insert()` delegates to `conn.Insert(this)`. The SQL generation, parameter binding, and result hydration live in `DataConnection` (and its SQL Server implementation), not in each entity. Entities therefore stay lean — they contain field declarations and business logic, nothing else.
+
+**Optional Unit of Work on top.** Pure Active Record is sometimes criticised for making it hard to batch multiple saves into a single transaction in a clean way. Turquoise addresses this with the `IUnitOfWork` / `With.Transaction` layer (§11), which can wrap any number of `Insert()` / `Update()` / `Delete()` calls in a managed transaction without changing the entity code at all.
+
+---
+
+## 2. Architecture Overview
 
 Turquoise.ORM is a **lightweight Active Record ORM** for .NET 8 targeting SQL Server.
 
@@ -56,16 +144,16 @@ Turquoise.ORM is a **lightweight Active Record ORM** for .NET 8 targeting SQL Se
 
 ---
 
-## 2. Entities — DataObject and IdentDataObject
+## 3. Entities — DataObject and IdentDataObject
 
-### 2.1 Base Classes
+### 3.1 Base Classes
 
 | Class | When to use |
 |-------|-------------|
 | `DataObject` | Tables without a single integer auto-identity primary key |
 | `IdentDataObject` | Tables with an `INT IDENTITY(1,1)` primary key (exposed as `ID: TPrimaryKey`) |
 
-### 2.2 Defining an Entity
+### 3.2 Defining an Entity
 
 ```csharp
 using Turquoise.ORM;
@@ -96,7 +184,7 @@ public class Product : IdentDataObject
 - Fields are **public instance fields**, not properties. The ORM finds them via reflection.
 - A no-arg constructor is mandatory; the ORM calls it when hydrating query results.
 
-### 2.3 IdentDataObject.ID
+### 3.3 IdentDataObject.ID
 
 `IdentDataObject` adds:
 
@@ -108,7 +196,7 @@ public TPrimaryKey ID = new TPrimaryKey();
 
 After `Insert()`, `ID.GetValue()` returns the new auto-generated integer.
 
-### 2.4 Embedded / Joined Objects
+### 3.4 Embedded / Joined Objects
 
 Embed another `DataObject` as a field to express a JOIN:
 
@@ -130,9 +218,9 @@ public class OrderLine : IdentDataObject
 
 ---
 
-## 3. Field Types (TField System)
+## 4. Field Types (TField System)
 
-### 3.1 Common API
+### 4.1 Common API
 
 Every `TField` subtype shares this interface:
 
@@ -162,7 +250,7 @@ product.Name.SetValue("Widget");     // always works (explicit)
 
 > **Note:** `TField.Value` is `protected`. Never assign `.Value =` directly from outside the class — use `SetValue()`.
 
-### 3.2 Numeric Types
+### 4.2 Numeric Types
 
 | Type | CLR type | DB type |
 |------|----------|---------|
@@ -185,7 +273,7 @@ decimal price = (decimal)product.Price.GetValue();
 decimal price2 = product.Price;
 ```
 
-### 3.3 String Types
+### 4.3 String Types
 
 | Type | Notes |
 |------|-------|
@@ -202,7 +290,7 @@ string name = (string)product.Name.GetValue();
 var term = new EqualTerm(template, template.Name, (TString)null); // IS NULL
 ```
 
-### 3.4 Key Types
+### 4.4 Key Types
 
 | Type | Notes |
 |------|-------|
@@ -214,7 +302,7 @@ int id = (int)order.ID.GetValue();          // primary key after insert
 orderLine.OrderID.SetValue(id);              // set foreign key
 ```
 
-### 3.5 Date / Time Types
+### 4.5 Date / Time Types
 
 | Type | CLR type | Notes |
 |------|----------|-------|
@@ -231,7 +319,7 @@ product.CreatedAt.SetValue(DateTime.UtcNow);
 DateTime created = (DateTime)product.CreatedAt.GetValue();
 ```
 
-### 3.6 Boolean and Binary
+### 4.6 Boolean and Binary
 
 ```csharp
 // TBool — maps to SQL BIT
@@ -247,7 +335,7 @@ record.ExternalId.SetValue(Guid.NewGuid());
 Guid id = (Guid)record.ExternalId.GetValue();
 ```
 
-### 3.7 Null Handling
+### 4.7 Null Handling
 
 ```csharp
 product.Name.SetNull();              // explicitly set to NULL
@@ -257,11 +345,11 @@ if (!product.Name.IsLoaded()) { ... } // never set at all
 
 ---
 
-## 4. DataConnection — The Gateway
+## 5. DataConnection — The Gateway
 
 `DataConnection` is the abstract base; `SqlServerConnection` is the concrete SQL Server implementation.
 
-### 4.1 Creating a Connection
+### 5.1 Creating a Connection
 
 ```csharp
 using Turquoise.ORM;
@@ -273,22 +361,22 @@ var conn = new SqlServerConnection(
 conn.Connect();
 ```
 
-### 4.2 Lifecycle
+### 5.2 Lifecycle
 
 ```csharp
 conn.Connect();     // opens the ADO.NET connection
 conn.Disconnect();  // closes it
 ```
 
-### 4.3 Factory Pattern
+### 5.3 Factory Pattern
 
 Pass a `FactoryBase` to control how the ORM instantiates objects. The default `FactoryBase` uses `Activator.CreateInstance`. Override `Create(Type)` for polymorphic mapping (see [§15](#15-polymorphic-mapping-factorybase)).
 
 ---
 
-## 5. CRUD Operations
+## 6. CRUD Operations
 
-### 5.1 Insert
+### 6.1 Insert
 
 ```csharp
 var product = new Product(conn);
@@ -304,7 +392,7 @@ Console.WriteLine(product.ID.GetValue()); // e.g. 42
 
 Alternatively, use `conn.Insert(product)`.
 
-### 5.2 Read (by Primary Key)
+### 6.2 Read (by Primary Key)
 
 ```csharp
 var product = new Product(conn);
@@ -316,7 +404,7 @@ Console.WriteLine(product.Name.GetValue()); // "Widget"
 
 Alternatively, use `conn.Read(product)`.
 
-### 5.3 Update
+### 6.3 Update
 
 ```csharp
 // Update all mapped columns:
@@ -331,7 +419,7 @@ product.UpdateChanged();
 product.Update(DataObjectLock.UpdateOption.IgnoreLock);
 ```
 
-### 5.4 Delete
+### 6.4 Delete
 
 ```csharp
 product.Delete();                    // deletes by PK
@@ -342,7 +430,7 @@ var term = new EqualTerm(template, template.InStock, false);
 template.Delete(term);               // DELETE WHERE InStock = 0
 ```
 
-### 5.5 ReadForUpdate (Advisory Lock)
+### 6.5 ReadForUpdate (Advisory Lock)
 
 ```csharp
 product.ID.SetValue(1);
@@ -353,9 +441,9 @@ product.Update();
 
 ---
 
-## 6. Query Predicates (QueryTerm API)
+## 7. Query Predicates (QueryTerm API)
 
-### 6.1 Equality
+### 7.1 Equality
 
 ```csharp
 var template = new Product(conn);
@@ -363,7 +451,7 @@ var term = new EqualTerm(template, template.Name, "Widget");
 // → WHERE Name = @Name
 ```
 
-### 6.2 Comparisons
+### 7.2 Comparisons
 
 ```csharp
 new GreaterThanTerm(template, template.Price, 50m)     // >
@@ -372,21 +460,21 @@ new LessThanTerm(template, template.Price, 10m)        // <
 new LessOrEqualTerm(template, template.Price, 10m)     // <=
 ```
 
-### 6.3 String Matching
+### 7.3 String Matching
 
 ```csharp
 new LikeTerm(template, template.Name, "%widget%")       // LIKE
 new ContainsTerm(template, template.Name, "widget")     // LIKE '%widget%' (built-in)
 ```
 
-### 6.4 Null Checks
+### 7.4 Null Checks
 
 ```csharp
 new IsNullTerm(template, template.Name)     // IS NULL
 !new IsNullTerm(template, template.Name)   // IS NOT NULL (via NotTerm)
 ```
 
-### 6.5 IN Clause
+### 7.5 IN Clause
 
 ```csharp
 var ids = new List<int> { 1, 2, 3 };
@@ -394,14 +482,14 @@ new InTerm(template, template.ID, ids)
 // → WHERE ID IN (@IN_ID0, @IN_ID1, @IN_ID2)
 ```
 
-### 6.6 Full-Text Search
+### 7.6 Full-Text Search
 
 ```csharp
 new FullTextTerm(template, template.Name, "widget NEAR gadget")
 // → WHERE CONTAINS(Name, 'widget NEAR gadget')
 ```
 
-### 6.7 EXISTS Sub-query
+### 7.7 EXISTS Sub-query
 
 ```csharp
 // "Products that have at least one OrderLine"
@@ -416,14 +504,14 @@ var exists = new ExistsTerm(
         .Where(new EqualTerm(orderLine, orderLine.OrderID, template.ID)));
 ```
 
-### 6.8 Raw SQL Predicate
+### 7.8 Raw SQL Predicate
 
 ```csharp
 new RawSqlTerm("Price BETWEEN 10 AND 50")
 // Injected verbatim — use sparingly; prefer parameterized terms.
 ```
 
-### 6.9 Logical Composition
+### 7.9 Logical Composition
 
 ```csharp
 var inStock = new EqualTerm(template, template.InStock, true);
@@ -443,7 +531,7 @@ QueryTerm notIn  = !inStock;
 QueryTerm complex = (inStock & cheap) | (named & !inStock);
 ```
 
-### 6.10 Executing Queries
+### 7.10 Executing Queries
 
 ```csharp
 var template = new Product(conn);
@@ -467,9 +555,9 @@ IEnumerable<Product> stream = conn.LazyQueryAll<Product>(template, term, sortOrd
 
 ---
 
-## 7. Sorting and Pagination
+## 8. Sorting and Pagination
 
-### 7.1 Sort Orders
+### 8.1 Sort Orders
 
 ```csharp
 var template = new Product(conn);
@@ -482,7 +570,7 @@ SortOrder byPriceDesc = new OrderDescending(template, template.Price);
 // and rely on secondary ORDER BY via SQL.
 ```
 
-### 7.2 QueryPage
+### 8.2 QueryPage
 
 ```csharp
 QueryPage page = conn.QueryPage(
@@ -500,11 +588,11 @@ page = conn.QueryPage(template, term, sort, startRecord: 20, pageSize: 20);
 
 ---
 
-## 8. LINQ Query Support
+## 9. LINQ Query Support
 
 *(Requires `using Turquoise.ORM.Linq;`)*
 
-### 8.1 Entry Point
+### 9.1 Entry Point
 
 ```csharp
 IQueryable<Product> q = conn.Query<Product>();
@@ -512,7 +600,7 @@ IQueryable<Product> q = conn.Query<Product>();
 
 Internally creates a template instance and wraps it in `OrmQueryable<T>`. The database is NOT queried until you enumerate.
 
-### 8.2 Where (Predicates)
+### 9.2 Where (Predicates)
 
 ```csharp
 // Equality / inequality
@@ -542,7 +630,7 @@ decimal minP   = 10m;
 conn.Query<Product>().Where(p => p.Name == target && p.Price >= minP).ToList();
 ```
 
-### 8.3 Chained Where (auto-ANDed)
+### 9.3 Chained Where (auto-ANDed)
 
 ```csharp
 conn.Query<Product>()
@@ -553,7 +641,7 @@ conn.Query<Product>()
 // Equivalent to: WHERE InStock = 1 AND Price > 10 AND Name <> 'Discontinued'
 ```
 
-### 8.4 Sorting
+### 9.4 Sorting
 
 ```csharp
 conn.Query<Product>().OrderBy(p => p.Name).ToList();
@@ -566,7 +654,7 @@ conn.Query<Product>()
     .ToList();
 ```
 
-### 8.5 Pagination
+### 9.5 Pagination
 
 ```csharp
 // Page 2, 20 items per page:
@@ -581,7 +669,7 @@ conn.Query<Product>()
 When `Take` or `Skip` is set, `QueryPage` is used internally.
 Without `Skip`/`Take`, `LazyQueryAll` is used (memory-efficient streaming).
 
-### 8.6 Full Chain
+### 9.6 Full Chain
 
 ```csharp
 using Turquoise.ORM.Linq;
@@ -599,7 +687,7 @@ List<Product> results = conn.Query<Product>()
     .ToList();
 ```
 
-### 8.7 Supported Operators
+### 9.7 Supported Operators
 
 | LINQ | Generated Term | Notes |
 |------|----------------|-------|
@@ -622,7 +710,7 @@ List<Product> results = conn.Query<Product>()
 | `Take(n)` | `pageSize` | |
 | `Skip(n)` | `startRecord` | |
 
-### 8.8 Limitations
+### 9.8 Limitations
 
 | Limitation | Workaround |
 |------------|-----------|
@@ -632,7 +720,7 @@ List<Product> results = conn.Query<Product>()
 | No `Count()`, `First()` | Use `conn.QueryCount()`, `conn.QueryFirst()` |
 | No async | Async planned for a future release |
 
-### 8.9 Mixing LINQ with QueryTerm
+### 9.9 Mixing LINQ with QueryTerm
 
 ```csharp
 OrmQueryable<Product> orm = (OrmQueryable<Product>)conn.Query<Product>()
@@ -648,9 +736,9 @@ var results = conn.QueryAll(template, combined, null, 0, null);
 
 ---
 
-## 9. Transactions (Manual API)
+## 10. Transactions (Manual API)
 
-### 9.1 Explicit Transaction
+### 10.1 Explicit Transaction
 
 ```csharp
 conn.BeginTransaction();
@@ -667,7 +755,7 @@ catch
 }
 ```
 
-### 9.2 Isolation Levels
+### 10.2 Isolation Levels
 
 ```csharp
 using System.Data;
@@ -679,7 +767,7 @@ conn.CommitTransaction();
 
 Available: `ReadUncommitted`, `ReadCommitted` (default), `RepeatableRead`, `Serializable`, `Snapshot`.
 
-### 9.3 Nested Transactions
+### 10.3 Nested Transactions
 
 Turquoise uses a **depth counter** internally. Outer `BeginTransaction` starts the real ADO.NET transaction; inner calls increment depth only:
 
@@ -692,7 +780,7 @@ conn.CommitTransaction();           // depth: 1→0, real COMMIT
 
 If any inner scope calls `RollbackTransaction()`, the entire outer transaction will roll back when it unwinds.
 
-### 9.4 TransactionState
+### 10.4 TransactionState
 
 ```csharp
 TransactionState state = conn.TransactionState();
@@ -701,18 +789,18 @@ TransactionState state = conn.TransactionState();
 
 ---
 
-## 10. Unit of Work (IUnitOfWork)
+## 11. Unit of Work (IUnitOfWork)
 
 *(Namespace: `Turquoise.ORM.Transactions`; requires Castle.Core NuGet for interceptors)*
 
-### 10.1 Overview
+### 11.1 Overview
 
 `IUnitOfWork` wraps a `DataConnection`'s transaction lifecycle behind a clean abstraction, enabling:
 - **`With.Transaction`** functional helper
 - **`[Transaction]`** attribute-based automatic interception via Castle DynamicProxy
 - **Ambient registration** via `TurquoiseServiceLocator`
 
-### 10.2 IUnitOfWork Interface
+### 11.2 IUnitOfWork Interface
 
 ```csharp
 public interface IUnitOfWork : IDisposable
@@ -724,7 +812,7 @@ public interface IUnitOfWork : IDisposable
 }
 ```
 
-### 10.3 SqlServerUnitOfWork
+### 11.3 SqlServerUnitOfWork
 
 ```csharp
 using IUnitOfWork uow = new SqlServerUnitOfWork(conn);
@@ -732,7 +820,7 @@ using IUnitOfWork uow = new SqlServerUnitOfWork(conn);
 
 Wraps the underlying `SqlServerConnection` and delegates `BeginTransaction` to it.
 
-### 10.4 With.Transaction
+### 11.4 With.Transaction
 
 ```csharp
 // Action overload — commits on success, rolls back on exception:
@@ -758,7 +846,7 @@ With.RepeatableReadTransaction(uow, () => { ... });
 With.SnapshotTransaction(uow, () => { ... });
 ```
 
-### 10.5 Nested Transactions
+### 11.5 Nested Transactions
 
 The depth counter is managed by `UnitOfWorkBase`. Inner `With.Transaction` calls reuse the existing ADO.NET transaction:
 
@@ -777,7 +865,7 @@ With.Transaction(uow, () =>         // depth 0→1, real tx begins
 
 **Rollback semantics:** If an inner scope rolls back (exception), `_rollbackOnly` is set. When the outermost scope tries to commit, it rolls back instead.
 
-### 10.6 [Transaction] Attribute
+### 11.6 [Transaction] Attribute
 
 Decorate virtual methods with `[Transaction]` to have them automatically wrapped in a transaction when proxied:
 
@@ -809,7 +897,7 @@ public class ProductService
 - Methods without the attribute are passed through unchanged.
 - The intercepted method must be **virtual** (required by Castle DynamicProxy).
 
-### 10.7 Setting Up Castle DynamicProxy Interception
+### 11.7 Setting Up Castle DynamicProxy Interception
 
 #### For Arbitrary Service Classes
 
@@ -835,7 +923,7 @@ SqlServerConnection proxied =
     DataConnectionProxyFactory.Create<SqlServerConnection>(conn, uow);
 ```
 
-### 10.8 TurquoiseServiceLocator (Ambient DI)
+### 11.8 TurquoiseServiceLocator (Ambient DI)
 
 Register a factory so `With.Transaction()` (no UoW argument) can resolve the UoW:
 
@@ -856,7 +944,7 @@ With.Transaction(() =>
 TurquoiseServiceLocator.Reset();
 ```
 
-### 10.9 Error Handling
+### 11.9 Error Handling
 
 | Scenario | Behaviour |
 |----------|-----------|
@@ -868,7 +956,7 @@ TurquoiseServiceLocator.Reset();
 
 ---
 
-## 11. Action Queue (Batch Operations)
+## 12. Action Queue (Batch Operations)
 
 The action queue batches DML without executing immediately:
 
@@ -889,11 +977,11 @@ conn.ClearActionQueue();
 
 ---
 
-## 12. Field Subsets (Partial Fetch / Update)
+## 13. Field Subsets (Partial Fetch / Update)
 
 `FieldSubset` specifies which columns are included in a SELECT or UPDATE.
 
-### 12.1 Creating Subsets
+### 13.1 Creating Subsets
 
 ```csharp
 var template = new Product(conn);
@@ -907,7 +995,7 @@ FieldSubset nameOnly = conn.FieldSubset(template, FieldSubsetInitialState.Exclud
 nameOnly += template.Name;  // add Name column only
 ```
 
-### 12.2 Composing Subsets
+### 13.2 Composing Subsets
 
 ```csharp
 FieldSubset base1 = conn.FieldSubset(template, FieldSubsetInitialState.IncludeAll);
@@ -919,7 +1007,7 @@ FieldSubset intersection = base1 & base2;  // intersection
 FieldSubset removed      = base1 - base2;  // difference
 ```
 
-### 12.3 Partial Fetch (SELECT)
+### 13.3 Partial Fetch (SELECT)
 
 ```csharp
 FieldSubset subset = conn.FieldSubset(template, FieldSubsetInitialState.ExcludeAll);
@@ -930,7 +1018,7 @@ subset += template.Price;
 var results = conn.QueryAll(template, null, null, 0, subset);
 ```
 
-### 12.4 Partial Update
+### 13.4 Partial Update
 
 ```csharp
 // UpdateChanged() only updates fields that changed since the initial snapshot:
@@ -942,7 +1030,7 @@ product.QueueForUpdate(priceSubset);
 conn.ProcessActionQueue();
 ```
 
-### 12.5 InitialState Values
+### 13.5 InitialState Values
 
 | Value | Meaning |
 |-------|---------|
@@ -954,9 +1042,9 @@ conn.ProcessActionQueue();
 
 ---
 
-## 13. Field Encryption
+## 14. Field Encryption
 
-### 13.1 Marking a Field for Encryption
+### 14.1 Marking a Field for Encryption
 
 ```csharp
 [Table("Customers")]
@@ -971,7 +1059,7 @@ public class Customer : IdentDataObject
 }
 ```
 
-### 13.2 Providing an Encryption Algorithm
+### 14.2 Providing an Encryption Algorithm
 
 Implement `IEncryptionAlgorithm` (or `EncryptionAlgorithm`) and register it with the connection:
 
@@ -993,7 +1081,7 @@ Once registered, all `[Encrypted]` fields are transparently encrypted on write a
 
 ---
 
-## 14. Custom Field Mappers
+## 15. Custom Field Mappers
 
 Implement `IDBFieldMapper` to handle non-standard CLR ↔ DB type conversions:
 
@@ -1022,7 +1110,7 @@ Register on a specific field type or globally via the connection.
 
 ---
 
-## 15. Polymorphic Mapping (FactoryBase)
+## 16. Polymorphic Mapping (FactoryBase)
 
 Override `FactoryBase.Create(Type)` to return concrete subtypes based on a discriminator:
 
@@ -1080,7 +1168,7 @@ var conn = new SqlServerConnection(connectionString, new ShapeFactory());
 
 ---
 
-## 16. Optimistic Locking
+## 17. Optimistic Locking
 
 `DataObjectLock.UpdateOption` controls what happens when another process has modified the row:
 
@@ -1114,7 +1202,7 @@ catch (ObjectLockException ex)
 
 ---
 
-## 17. Lazy Streaming
+## 18. Lazy Streaming
 
 `LazyQueryAll<T>` returns an `IEnumerable<T>` that streams rows one at a time — no full in-memory buffer:
 
@@ -1140,9 +1228,9 @@ foreach (Product p in conn.Query<Product>().Where(p => p.InStock == true))
 
 ---
 
-## 18. Raw SQL and Stored Procedures
+## 19. Raw SQL and Stored Procedures
 
-### 18.1 ExecSQL
+### 19.1 ExecSQL
 
 ```csharp
 // Returns DataTable:
@@ -1154,7 +1242,7 @@ foreach (DataRow row in table.Rows)
     Console.WriteLine($"{row["Name"]} — {row["Total"]}");
 ```
 
-### 18.2 Stored Procedures
+### 19.2 Stored Procedures
 
 ```csharp
 var parameters = new Dictionary<string, object>
@@ -1168,7 +1256,7 @@ DataTable result = conn.ExecStoredProcedure("usp_GetProductsByCategory", paramet
 
 ---
 
-## 19. Lookup / Cached Reference Tables
+## 20. Lookup / Cached Reference Tables
 
 `LookupDataObject` caches its rows after the first load, suitable for small reference tables:
 
@@ -1187,9 +1275,9 @@ var categories = conn.QueryAll(new Category(conn), null, null, 0, null);
 
 ---
 
-## 20. Architecture Deep Dive
+## 21. Architecture Deep Dive
 
-### 20.1 ObjectBinding — Reflection Cache
+### 21.1 ObjectBinding — Reflection Cache
 
 `ObjectBinding` is the ORM's per-type reflection cache. It holds:
 - The list of `TField` `FieldInfo` objects decorated with `[Column]`
@@ -1198,7 +1286,7 @@ var categories = conn.QueryAll(new Category(conn), null, null, 0, null);
 
 `ObjectCollection : List<DataObject>` is returned by bulk query methods.
 
-### 20.2 OrmQueryable<T> State Machine
+### 21.2 OrmQueryable<T> State Machine
 
 The LINQ pipeline accumulates state immutably in `OrmQueryable<T>`:
 
@@ -1214,7 +1302,7 @@ OrmQueryable<T>
 
 Each LINQ operator creates a new `OrmQueryable<T>` with updated state and sets its `Expression` property to the incoming `MethodCallExpression` — enabling correct recursive chain rebuilding.
 
-### 20.3 ExpressionToQueryTermVisitor
+### 21.3 ExpressionToQueryTermVisitor
 
 Translates a `LambdaExpression` predicate into a `QueryTerm` tree:
 
@@ -1230,7 +1318,7 @@ Translates a `LambdaExpression` predicate into a `QueryTerm` tree:
 
 Local variable capture is handled by compiling and invoking the captured sub-expression: `Expression.Lambda(expr).Compile().DynamicInvoke()`.
 
-### 20.4 UnitOfWorkBase Depth Counter
+### 21.4 UnitOfWorkBase Depth Counter
 
 ```
 State: _depth = 0, _rollbackOnly = false, _currentTransaction = null
@@ -1254,7 +1342,7 @@ Dispose():
   if _depth > 0: Rollback(); _currentTransaction.Dispose()
 ```
 
-### 20.5 CombinedSortOrder
+### 21.5 CombinedSortOrder
 
 When multiple `ThenBy`/`ThenByDescending` calls are chained, `CombinedSortOrder` wraps primary and secondary sorts:
 
@@ -1268,7 +1356,7 @@ public class CombinedSortOrder : SortOrder
 
 ---
 
-## 21. Quick Reference Cheat Sheet
+## 22. Quick Reference Cheat Sheet
 
 ### Entity Definition
 
