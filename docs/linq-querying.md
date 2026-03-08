@@ -1,6 +1,6 @@
 # LINQ Query Support
 
-This document covers the `Turquoise.ORM.Linq` namespace introduced in version 1.1.
+This document covers the `Turquoise.ORM.Linq` namespace.
 
 ---
 

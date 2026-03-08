@@ -42,7 +42,7 @@ namespace Turquoise.ORM
         /// begin/commit/rollback, honouring the current <see cref="UnitOfWork"/> and the
         /// current <see cref="IsOpen"/> state.
         /// </summary>
-        protected T RunWrite<T>(Func<T> operation)
+        protected virtual T RunWrite<T>(Func<T> operation)
         {
             bool openedConn = !IsOpen;
             if (openedConn) Connect();
@@ -58,13 +58,17 @@ namespace Turquoise.ORM
                 {
                     UnitOfWork.Commit();
                     committed = true;
+                    OnUoWCommitted();
                 }
                 return result;
             }
             catch
             {
                 if (startedTx && !committed)
+                {
                     try { UnitOfWork.Rollback(); } catch { /* swallow secondary failure */ }
+                    OnUoWRolledBack();
+                }
                 throw;
             }
             finally
@@ -76,6 +80,21 @@ namespace Turquoise.ORM
         /// <summary>Void overload of <see cref="RunWrite{T}"/>.</summary>
         protected void RunWrite(Action operation)
             => RunWrite<object>(() => { operation(); return null; });
+
+        /// <summary>
+        /// Called by <see cref="RunWrite{T}"/> after a <see cref="UnitOfWork"/>-managed
+        /// transaction is successfully committed.  Override in provider subclasses to sync
+        /// any internal transaction-depth counters that were incremented when the UoW
+        /// called <c>BeginTransaction</c> on this connection.
+        /// </summary>
+        protected virtual void OnUoWCommitted() { }
+
+        /// <summary>
+        /// Called by <see cref="RunWrite{T}"/> after a <see cref="UnitOfWork"/>-managed
+        /// transaction is rolled back due to an exception.  Override in provider subclasses
+        /// to sync internal state.
+        /// </summary>
+        protected virtual void OnUoWRolledBack() { }
 
         // ── CRUD ──────────────────────────────────────────────────────────────────────
 

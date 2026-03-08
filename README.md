@@ -12,6 +12,7 @@ A lightweight, Active Record-style ORM for .NET 8, with first-class support for 
 | `Turquoise.ORM.SqlServer` | SQL Server provider — `SqlServerConnection`, ADO.NET adapters, `SqlServerUnitOfWork`, DI extensions |
 | `Turquoise.ORM.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork`, DI extensions |
 | `Turquoise.ORM.MongoDB` | MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork`, DI extensions |
+| `Turquoise.ORM.SQLite` | SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork`, DI extensions |
 
 All connection types live in the `Turquoise.ORM` namespace, so a single `using Turquoise.ORM;` is sufficient regardless of the provider chosen.
 
@@ -28,25 +29,23 @@ All connection types live in the `Turquoise.ORM` namespace, so a single `using T
 
 ### 🔍 Querying
 - **Composable query predicates** — `EqualTerm`, `ContainsTerm`, `InTerm`, `GreaterThanTerm`, `LessThanTerm`, `LessOrEqualTerm`, `GreaterOrEqualTerm`, `IsNullTerm`, `LikeTerm`, composed with `&`, `|`, `!`
-- **LINQ query support** *(v1.1)* — `conn.Query<T>().Where(...).OrderBy(...).Take(...).Skip(...)` translated to native ORM predicates
+- **LINQ query support** — `conn.Query<T>().Where(...).OrderBy(...).Take(...).Skip(...)` translated to native ORM predicates
 - **Pagination** — `QueryPage` with `StartRecord`, `PageSize`, `IsMoreData`, `TotalRowCount`
 - **Lazy streaming** — `LazyQueryAll<T>` streams rows without buffering the full result set
 - **Field subsets** — partial SELECTs and partial UPDATEs via `FieldSubset`
 
 ### 💾 Data Management
 - **Transactions** — manual nested transactions via `BeginTransaction` / `CommitTransaction` / `RollbackTransaction`
-- **Unit of Work** *(v1.1)* — `IUnitOfWork`, `UnitOfWorkBase`, provider-specific implementations, `With.Transaction`, `[Transaction]` attribute, Castle DynamicProxy interceptor
+- **Unit of Work** — `IUnitOfWork`, `UnitOfWorkBase`, provider-specific implementations, `With.Transaction`, `[Transaction]` attribute, Castle DynamicProxy interceptor
+- **`[Transaction]`** — wraps a service method in a `IUnitOfWork` transaction via Castle DynamicProxy; combine with `[ConnectionScope]` for the full open → begin → commit → close lifecycle
+- **`[ConnectionScope]`** — marks service methods/classes where the `DataConnection` is opened before and closed after; nested calls share one connection via `IsOpen` state
+- **Connection-level lifecycle** — set `conn.UnitOfWork = uow` once; every write operation (`Insert`, `Update`, `Delete`, `ProcessActionQueue`, `ExecStoredProcedure`) automatically opens the connection, begins a transaction, commits, and closes — no proxy required; coordinates transparently with `[ConnectionScope]` via `IsOpen`
 - **Action queue** — batch operations via `QueueForInsert` / `QueueForUpdate` / `QueueForDelete` → `ProcessActionQueue`
 
-### 🌐 DI & Service Proxy Integration *(v1.1)*
+### 🌐 DI & Service Proxy Integration
 - **`IService` marker** — implement on any service class for automatic discovery and proxy registration
 - **Auto-scan registration** — `AddTurquoiseSqlServer(...).AddServices(assembly)` discovers all `IService` implementations and registers them as interface-proxied scoped services in one call
 - **`ITurquoiseBuilder`** — fluent builder returned by all `AddTurquoise*` methods; chain `.AddServices()`, `.AddService<I, T>()` for granular control
-- **Interface-first IoC** — services registered against their interface(s); consumers inject `IOrderService`, never `OrderService`; no virtual methods required
-- **`[ConnectionScope]`** — marks methods/classes where the `DataConnection` is opened before and closed after; depth-tracked so nested calls share one connection
-- **`[Transaction]`** — wraps a method in a `IUnitOfWork` transaction; combine with `[ConnectionScope]` for the full open → begin → commit → close lifecycle
-- **Connection-level lifecycle** — set `conn.UnitOfWork = uow` once; every write operation (`Insert`, `Update`, `Delete`, `ProcessActionQueue`, `ExecStoredProcedure`) automatically opens the connection, begins a transaction, commits, and closes — no proxy wrapping of individual entities required; coordinates transparently with `[ConnectionScope]` service proxies via `IsOpen` state
-- **MongoDB singleton pool** — `MongoClient` registered as a singleton so the connection pool is shared across all scoped `MongoDataConnection` instances
 
 ---
 
@@ -57,6 +56,7 @@ All connection types live in the `Turquoise.ORM` namespace, so a single `using T
   - SQL Server → `Turquoise.ORM.SqlServer` (wraps `Microsoft.Data.SqlClient` 5.2.1)
   - PostgreSQL → `Turquoise.ORM.PostgreSQL` (wraps `Npgsql` 8.0.3)
   - MongoDB → `Turquoise.ORM.MongoDB` (wraps `MongoDB.Driver` 2.28.0)
+  - SQLite → `Turquoise.ORM.SQLite` (wraps `Microsoft.Data.Sqlite` 8.0.0)
 
 ---
 
@@ -80,6 +80,9 @@ var conn = new MongoDataConnection(
     "mongodb://localhost:27017",
     "demo");
 
+// SQLite
+var conn = new SQLiteConnection("Data Source=app.db");
+
 conn.Connect();
 ```
 
@@ -102,6 +105,10 @@ builder.Services
 
 builder.Services
     .AddTurquoiseMongoDB("mongodb://localhost:27017", "demo")
+    .AddServices(typeof(Program).Assembly);
+
+builder.Services
+    .AddTurquoiseSQLite("Data Source=app.db")
     .AddServices(typeof(Program).Assembly);
 ```
 
@@ -235,10 +242,10 @@ With.Transaction(uow, () =>
 | [Field Types](docs/field-types.md) | All `TField` types and their operators |
 | [Query Builder](docs/query-builder.md) | Composing WHERE, ORDER BY, and pagination |
 | [Transactions](docs/transactions.md) | Manual transaction and action queue patterns |
-| [Unit of Work](docs/unit-of-work.md) | `IUnitOfWork`, `With.Transaction`, Castle interceptor *(v1.1)* |
-| [LINQ Querying](docs/linq-querying.md) | `conn.Query<T>()` LINQ support *(v1.1)* |
+| [Unit of Work](docs/unit-of-work.md) | `IUnitOfWork`, `With.Transaction`, Castle interceptor |
+| [LINQ Querying](docs/linq-querying.md) | `conn.Query<T>()` LINQ support |
 | [Field Subsets](docs/field-subsets.md) | Partial fetches and partial updates |
-| [DI & Service Proxies](docs/di-service-proxies.md) | `AddTurquoise*`, `AddTurquoiseService<T>`, `[ConnectionScope]`, `TurquoiseServiceFactory` *(v1.1)* |
+| [DI & Service Proxies](docs/di-service-proxies.md) | `AddTurquoise*`, `AddTurquoiseService<T>`, `[ConnectionScope]`, `TurquoiseServiceFactory` |
 | [Advanced](docs/advanced.md) | Encryption, custom mappers, polymorphism |
 | [**Wiki**](docs/wiki.md) | Comprehensive reference — all concepts with examples |
 
@@ -267,16 +274,22 @@ Turquoise.ORM/
 │   │   ├── Extensions/                 ← AddTurquoisePostgreSQL()
 │   │   ├── Transactions/               ← PostgreSQLUnitOfWork
 │   │   └── PostgreSQLConnection.cs
-│   └── Turquoise.ORM.MongoDB/          ← MongoDB provider
-│       ├── Extensions/                 ← AddTurquoiseMongoDB()
-│       ├── Internal/                   ← MongoMapper, MongoQueryTranslator, MongoTypeCache
-│       ├── Transactions/               ← MongoUnitOfWork
-│       └── MongoDataConnection.cs
+│   ├── Turquoise.ORM.MongoDB/          ← MongoDB provider
+│   │   ├── Extensions/                 ← AddTurquoiseMongoDB()
+│   │   ├── Internal/                   ← MongoMapper, MongoQueryTranslator, MongoTypeCache
+│   │   ├── Transactions/               ← MongoUnitOfWork
+│   │   └── MongoDataConnection.cs
+│   └── Turquoise.ORM.SQLite/           ← SQLite provider
+│       ├── Adapters/                   ← SQLiteAdapterCommand/Connection/Reader/Transaction
+│       ├── Extensions/                 ← AddTurquoiseSQLite()
+│       ├── Transactions/               ← SQLiteUnitOfWork
+│       └── SQLiteConnection.cs
 ├── tests/
 │   ├── Turquoise.ORM.Tests/            ← Core library tests        (314 tests)
 │   ├── Turquoise.ORM.SqlServer.Tests/  ← SQL Server provider tests  (50 tests)
 │   ├── Turquoise.ORM.PostgreSQL.Tests/ ← PostgreSQL provider tests  (52 tests)
-│   └── Turquoise.ORM.MongoDB.Tests/    ← MongoDB provider tests     (79 tests)
+│   ├── Turquoise.ORM.MongoDB.Tests/    ← MongoDB provider tests     (79 tests)
+│   └── Turquoise.ORM.SQLite.Tests/     ← SQLite provider tests      (in-memory integration)
 ├── examples/
 │   └── Turquoise.ORM.Examples/         ← Runnable console examples
 └── docs/                               ← Documentation

@@ -1,7 +1,7 @@
 # DI Integration & Service Proxies
 
 This document covers the DI extension methods, `IService` marker interface, and Castle
-DynamicProxy service abstraction introduced in version 1.1.  All features are
+DynamicProxy service abstraction.  All features are
 platform-agnostic — they work in ASP.NET Core, Worker Service, console, or any host that uses
 `Microsoft.Extensions.DependencyInjection`.
 
@@ -41,6 +41,11 @@ builder.Services
 // MongoDB:
 builder.Services
     .AddTurquoiseMongoDB("mongodb://localhost:27017", "demo")
+    .AddServices(typeof(Program).Assembly);
+
+// SQLite:
+builder.Services
+    .AddTurquoiseSQLite("Data Source=app.db")
     .AddServices(typeof(Program).Assembly);
 ```
 
@@ -385,4 +390,4 @@ Call `TurquoiseServiceLocator.Reset()` in test teardown to avoid leaking state b
 | `Turquoise.ORM` | `IService`, `ITurquoiseBuilder`, `ConnectionScopeAttribute`, `ConnectionScopeInterceptor`, `TurquoiseServiceFactory`, `DataConnection.UnitOfWork`, `AddTurquoiseService<T>()` |
 | `Castle.Core` 5.x | DynamicProxy runtime (auto-included with `Turquoise.ORM`) |
 | `Microsoft.Extensions.DependencyInjection.Abstractions` 8.x | DI integration (auto-included with `Turquoise.ORM`) |
-| One of: `Turquoise.ORM.SqlServer`, `Turquoise.ORM.PostgreSQL`, `Turquoise.ORM.MongoDB` | Provider + `AddTurquoise*` returning `ITurquoiseBuilder` |
+| One of: `Turquoise.ORM.SqlServer`, `Turquoise.ORM.PostgreSQL`, `Turquoise.ORM.MongoDB`, `Turquoise.ORM.SQLite` | Provider + `AddTurquoise*` returning `ITurquoiseBuilder` |

@@ -31,6 +31,15 @@ Turquoise.ORM consists of a core library and one or more provider packages. Refe
 </ItemGroup>
 ```
 
+**SQLite**
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\Turquoise.ORM\Turquoise.ORM.csproj" />
+  <ProjectReference Include="..\Turquoise.ORM.SQLite\Turquoise.ORM.SQLite.csproj" />
+</ItemGroup>
+```
+
 If consuming published NuGet packages:
 
 ```xml
@@ -45,9 +54,13 @@ If consuming published NuGet packages:
 <!-- MongoDB -->
 <PackageReference Include="Turquoise.ORM" Version="1.0.0" />
 <PackageReference Include="Turquoise.ORM.MongoDB" Version="1.0.0" />
+
+<!-- SQLite -->
+<PackageReference Include="Turquoise.ORM" Version="1.0.0" />
+<PackageReference Include="Turquoise.ORM.SQLite" Version="1.0.0" />
 ```
 
-`SqlServerConnection`, `PostgreSQLConnection`, and `MongoDataConnection` all live in the `Turquoise.ORM` namespace, so no extra `using` directive is required beyond `using Turquoise.ORM;`.
+`SqlServerConnection`, `PostgreSQLConnection`, `MongoDataConnection`, and `SQLiteConnection` all live in the `Turquoise.ORM` namespace, so no extra `using` directive is required beyond `using Turquoise.ORM;`.
 
 ## Concepts
 

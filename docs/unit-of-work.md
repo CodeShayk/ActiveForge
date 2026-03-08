@@ -1,6 +1,6 @@
 # Unit of Work & Automatic Transactions
 
-This document covers the `Turquoise.ORM.Transactions` namespace introduced in version 1.1.
+This document covers the `Turquoise.ORM.Transactions` namespace.
 
 ---
 

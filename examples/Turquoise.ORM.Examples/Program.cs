@@ -9,19 +9,26 @@ namespace Turquoise.ORM.Examples
     /// <summary>
     /// Turquoise.ORM — Interactive example runner.
     ///
-    /// SETUP
-    /// ─────
+    /// SETUP — SQL Server
+    /// ──────────────────
     /// 1. Create a SQL Server database (e.g. "TurquoiseDemo").
-    /// 2. Run the SQL in SetupSql.Ddl against that database to create the tables.
-    /// 3. Update the connection string below.
-    /// 4. Run this console application.
+    /// 2. Run the SQL in SetupSql.sql against that database to create the tables.
+    /// 3. Update SqlServerConnectionString below.
+    /// 4. Run this console application and choose provider S.
+    ///
+    /// SETUP — SQLite
+    /// ──────────────
+    /// 1. No external database required — SQLite creates the file automatically.
+    /// 2. Run this console application and choose provider L.
+    ///    The tables are created automatically from SetupSqlite.sql on first run.
     /// </summary>
     internal static class Program
     {
-        // ── Connection string — update to match your SQL Server ───────────────────────
-        private const string ConnectionString =
+        private const string SqlServerConnectionString =
             "Server=localhost;Database=TurquoiseDemo;Integrated Security=True;" +
             "TrustServerCertificate=True;";
+
+        private const string SQLiteConnectionString = "Data Source=TurquoiseDemo.db";
 
         static void Main(string[] args)
         {
@@ -30,19 +37,40 @@ namespace Turquoise.ORM.Examples
 
             var factory = new ShopFactory();
 
+            Console.WriteLine("  Choose provider:");
+            Console.WriteLine("  S — SQL Server");
+            Console.WriteLine("  L — SQLite (file-based, no setup required)");
+            Console.Write("\n  Enter S or L: ");
+            char providerKey = char.ToUpperInvariant(Console.ReadKey(intercept: true).KeyChar);
+            Console.WriteLine();
+
             DataConnection conn;
             try
             {
-                conn = new SqlServerConnection(ConnectionString, factory);
-                conn.Connect();
-                Console.WriteLine("  Connected to SQL Server.\n");
+                if (providerKey == 'L')
+                {
+                    var sqliteConn = new SQLiteConnection(SQLiteConnectionString, factory);
+                    sqliteConn.Connect();
+                    EnsureSQLiteSchema(sqliteConn);
+                    conn = sqliteConn;
+                    Console.WriteLine($"  Connected to SQLite ({SQLiteConnectionString}).\n");
+                }
+                else
+                {
+                    conn = new SqlServerConnection(SqlServerConnectionString, factory);
+                    conn.Connect();
+                    Console.WriteLine("  Connected to SQL Server.\n");
+                }
             }
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"\n  Cannot connect: {ex.Message}");
-                Console.WriteLine("\n  Please update the ConnectionString in Program.cs");
-                Console.WriteLine("  and run the DDL script first (see SetupSql.Ddl).");
+                if (providerKey != 'L')
+                {
+                    Console.WriteLine("\n  Please update SqlServerConnectionString in Program.cs");
+                    Console.WriteLine("  and run the DDL script first (see SetupSql.sql).");
+                }
                 Console.ResetColor();
                 return;
             }
@@ -62,8 +90,20 @@ namespace Turquoise.ORM.Examples
                         case '3': ExampleTransactions.Run(conn);                        break;
                         case '4': FieldSubsets.Run(conn);                               break;
                         case '5': LazyEnumeration.Run(conn);                            break;
-                        case '6': UnitOfWorkExample.Run((SqlServerConnection)conn);     break;
-                        case '7': LinqQueryingExample.Run((SqlServerConnection)conn);   break;
+                        case '6':
+                            if (conn is SqlServerConnection sqlConn)
+                                UnitOfWorkExample.Run(sqlConn);
+                            else if (conn is SQLiteConnection liteConn)
+                                SQLiteUnitOfWorkExample.Run(liteConn);
+                            else
+                                Console.WriteLine("  Unit of Work example requires SQL Server or SQLite.");
+                            break;
+                        case '7':
+                            if (conn is SqlServerConnection sqlConn2)
+                                LinqQueryingExample.Run(sqlConn2);
+                            else
+                                Console.WriteLine("  LINQ querying example requires SQL Server.");
+                            break;
                         case 'q':
                         case 'Q':
                             Console.WriteLine("  Goodbye!");
@@ -83,6 +123,27 @@ namespace Turquoise.ORM.Examples
                     Console.ResetColor();
                 }
             }
+        }
+
+        static void EnsureSQLiteSchema(SQLiteConnection conn)
+        {
+            // Create tables if they don't exist (idempotent).
+            conn.ExecSQL(
+                "CREATE TABLE IF NOT EXISTS Products (" +
+                "  ID         INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "  Name       TEXT    NOT NULL DEFAULT ''," +
+                "  Price      NUMERIC NOT NULL DEFAULT 0," +
+                "  InStock    INTEGER NOT NULL DEFAULT 1," +
+                "  Category   TEXT    NOT NULL DEFAULT ''," +
+                "  StockCount INTEGER NOT NULL DEFAULT 0)");
+
+            conn.ExecSQL(
+                "CREATE TABLE IF NOT EXISTS Orders (" +
+                "  ID         INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "  ProductID  INTEGER NOT NULL DEFAULT 0," +
+                "  Quantity   INTEGER NOT NULL DEFAULT 1," +
+                "  Status     TEXT    NOT NULL DEFAULT 'Pending'," +
+                "  OrderDate  TEXT    NOT NULL DEFAULT '')");
         }
 
         static void PrintBanner()
@@ -105,8 +166,8 @@ namespace Turquoise.ORM.Examples
             Console.WriteLine("  3 — Transactions and action queue");
             Console.WriteLine("  4 — Field subsets (partial fetch / partial update)");
             Console.WriteLine("  5 — Lazy enumeration (streaming large result sets)");
-            Console.WriteLine("  6 — Unit of Work (IUnitOfWork, With.Transaction, Castle interceptor)");
-            Console.WriteLine("  7 — LINQ querying (Where, OrderBy, Take, Skip, Contains)");
+            Console.WriteLine("  6 — Unit of Work (IUnitOfWork, With.Transaction)");
+            Console.WriteLine("  7 — LINQ querying (SQL Server only)");
             Console.WriteLine("  Q — Quit");
             Console.Write("\n  Enter 1–7 or Q: ");
         }

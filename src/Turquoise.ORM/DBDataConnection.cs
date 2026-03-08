@@ -254,6 +254,47 @@ namespace Turquoise.ORM
         public int GetTransactionDepth() => _transactionDepth;
         protected TransactionBase GetInnerTransaction() => _transaction;
 
+        /// <summary>
+        /// Decrements <see cref="_transactionDepth"/> and clears the internal transaction
+        /// reference after a UoW-managed transaction commits or rolls back via
+        /// <see cref="DataConnection.RunWrite{T}"/>.  This is necessary because
+        /// <see cref="UnitOfWorkBase"/> commits the underlying <see cref="TransactionBase"/>
+        /// directly rather than going through <see cref="CommitTransaction"/>, so the
+        /// provider's depth counter must be synced here.
+        /// </summary>
+        protected override void OnUoWCommitted()
+        {
+            lock (_syncRoot)
+            {
+                if (_transactionDepth > 0)
+                {
+                    _transactionDepth--;
+                    if (_transactionDepth == 0)
+                    {
+                        _transaction?.Dispose();
+                        _transaction       = null;
+                        _transactionFailed = false;
+                    }
+                }
+            }
+        }
+
+        protected override void OnUoWRolledBack()
+        {
+            lock (_syncRoot)
+            {
+                if (_transactionDepth > 0)
+                {
+                    _transactionDepth--;
+                    if (_transactionDepth == 0)
+                    {
+                        _transaction       = null;
+                        _transactionFailed = false;
+                    }
+                }
+            }
+        }
+
         // DataConnection abstract transaction interface
 
         public override TransactionBase BeginTransaction()

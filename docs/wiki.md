@@ -16,7 +16,7 @@ A complete reference for every concept in Turquoise.ORM: architecture, field typ
 8. [Sorting and Pagination](#8-sorting-and-pagination)
 9. [LINQ Query Support](#9-linq-query-support)
 10. [Transactions (Manual API)](#10-transactions-manual-api)
-11. [Unit of Work (IUnitOfWork)](#11-unit-of-work-iunitofwork)
+11. [Unit of Work, Transactions, and Connection Scope](#11-unit-of-work-iunitofwork)
 12. [Action Queue (Batch Operations)](#12-action-queue-batch-operations)
 13. [Field Subsets (Partial Fetch / Update)](#13-field-subsets-partial-fetch--update)
 14. [Field Encryption](#14-field-encryption)
@@ -29,6 +29,7 @@ A complete reference for every concept in Turquoise.ORM: architecture, field typ
 21. [Architecture Deep Dive](#21-architecture-deep-dive)
 22. [Quick Reference Cheat Sheet](#22-quick-reference-cheat-sheet)
 23. [MongoDB Provider](#23-mongodb-provider)
+24. [SQLite Provider](#24-sqlite-provider)
 
 ---
 
@@ -131,23 +132,24 @@ Turquoise.ORM is a **lightweight Active Record ORM** for .NET 8. It is split acr
 | `Turquoise.ORM.SqlServer` | SQL Server provider — `SqlServerConnection`, SQL adapters, `SqlServerUnitOfWork` |
 | `Turquoise.ORM.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork` |
 | `Turquoise.ORM.MongoDB` | MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork` |
+| `Turquoise.ORM.SQLite` | SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork` |
 
 Entity classes only reference `Turquoise.ORM`. Applications add the appropriate provider package alongside it.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│  Your Application                                                                   │
-│                                                                                     │
-│  DataObject subclass ──── CRUD ────► DataConnection (abstract, core)               │
-│  (fields, logic)                         │                                          │
-│  QueryTerm / LINQ ─── query calls ───────┤                                          │
-│                                          │ implemented by (choose one)              │
-│                  ┌───────────────────────┼───────────────────────┐                 │
-│           SqlServerConnection    PostgreSQLConnection    MongoDataConnection         │
-│        (Turquoise.ORM.SqlServer) (Turquoise.ORM.PostgreSQL) (Turquoise.ORM.MongoDB) │
-│                  │                       │                        │                 │
-│             SQL Server               PostgreSQL               MongoDB               │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│  Your Application                                                                        │
+│                                                                                          │
+│  DataObject subclass ──── CRUD ────► DataConnection (abstract, core)                    │
+│  (fields, logic)                         │                                               │
+│  QueryTerm / LINQ ─── query calls ───────┤                                               │
+│                                          │ implemented by (choose one)                   │
+│           ┌──────────────────────────────┼──────────────────────────────┐               │
+│  SqlServerConnection  PostgreSQLConnection  MongoDataConnection  SQLiteConnection         │
+│  (SqlServer provider) (PostgreSQL provider) (MongoDB provider)  (SQLite provider)         │
+│           │                   │                    │                    │               │
+│      SQL Server           PostgreSQL            MongoDB              SQLite             │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2.2 Core Principles
@@ -850,16 +852,25 @@ TransactionState state = conn.TransactionState();
 
 ---
 
-## 11. Unit of Work (IUnitOfWork)
+## 11. Unit of Work, Transactions, and Connection Scope
 
 *(Namespace: `Turquoise.ORM.Transactions`; requires Castle.Core NuGet for interceptors)*
 
 ### 11.1 Overview
 
+Turquoise.ORM provides two complementary Castle DynamicProxy interceptors for managing the
+connection and transaction lifecycle at the service-method boundary:
+
+| Interceptor | Attribute | What it does |
+|-------------|-----------|--------------|
+| `ConnectionScopeInterceptor` | `[ConnectionScope]` | Opens `DataConnection` before the method; closes it in `finally` |
+| `TransactionInterceptor` | `[Transaction]` | Wraps the method in a `IUnitOfWork` transaction |
+
 `IUnitOfWork` wraps a `DataConnection`'s transaction lifecycle behind a clean abstraction, enabling:
 - **`With.Transaction`** functional helper
 - **`[Transaction]`** attribute-based automatic interception via Castle DynamicProxy
 - **Ambient registration** via `TurquoiseServiceLocator`
+- **`[ConnectionScope]`** attribute for automatic connection open/close (§11.10)
 
 ### 11.2 IUnitOfWork Interface
 
@@ -1014,6 +1025,152 @@ TurquoiseServiceLocator.Reset();
 | `Dispose()` with open transaction | Transaction is rolled back automatically |
 | `Commit()` when `_rollbackOnly` | Silently converts to `Rollback()` |
 | `CreateTransaction()` when already active and same isolation level | Depth incremented; no new ADO.NET transaction |
+
+### 11.10 [ConnectionScope] — Connection Lifecycle for Service Methods
+
+`[ConnectionScope]` and its Castle DynamicProxy interceptor `ConnectionScopeInterceptor` complement
+`[Transaction]` by managing the connection open/close lifecycle at the service-method boundary,
+leaving the caller completely free of connection boilerplate.
+
+#### Attribute
+
+```csharp
+using Turquoise.ORM.Attributes;
+
+// Method level — only this method gets the scope
+[ConnectionScope]
+public void DoWork() { ... }
+
+// Class level — every method on the class gets the scope
+[ConnectionScope]
+public class OrderService : IOrderService, IService { ... }
+```
+
+Place the attribute on the **implementation class** (not the interface). When using an interface
+proxy (the default for `IService` services), `ConnectionScopeInterceptor` reads the attribute from
+`IInvocation.MethodInvocationTarget` — the concrete method — so attributes on the interface are
+supported as a fallback only.
+
+#### How it works
+
+```
+Call enters proxy
+  → ConnectionScopeInterceptor checks IsOpen
+      if NOT open → Connect()
+      → method body executes
+  → finally: if we opened the connection → Disconnect()
+```
+
+The interceptor uses `DataConnection.IsOpen` to decide whether to open/close — it never
+double-opens. This means:
+
+- A `[ConnectionScope]` method that calls another `[ConnectionScope]` method on the same proxy
+  reuses the already-open connection; the connection closes only when the outermost scope returns.
+- Entity writes inside a `[ConnectionScope]` method (`p.Insert()`, `p.Delete()`, …) use the
+  open connection transparently — `RunWrite` checks `IsOpen` and skips the re-connect.
+
+#### Combining with [Transaction]
+
+```csharp
+[ConnectionScope]   // opens connection before, closes after (in finally)
+[Transaction]       // begins UoW transaction after connection is open; commits on return
+public void Ship(int orderId)
+{
+    var order = new Order(_conn);
+    order.ID.SetValue(orderId);
+    _conn.Read(order);
+    order.Status.SetValue("Shipped");
+    order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    // commit on success; rollback + close on exception
+}
+```
+
+Interceptor execution order (outermost first):
+
+```
+ConnectionScopeInterceptor → Connect()
+  TransactionInterceptor    → UoW.CreateTransaction()
+    → real method executes
+  TransactionInterceptor    → UoW.Commit() (or Rollback on exception)
+ConnectionScopeInterceptor → Disconnect() [always, in finally]
+```
+
+#### IService auto-registration and DI
+
+Services that implement `IService` are registered by `AddServices()` as Castle **interface
+proxies** — no `virtual` keyword required on any method.
+
+```csharp
+// Program.cs
+builder.Services
+    .AddTurquoiseSqlServer("Server=...;...")
+    .AddServices(typeof(Program).Assembly);
+
+// Service definition
+public interface IOrderService
+{
+    Order GetById(int id);
+    void  Ship(int orderId);
+}
+
+public class OrderService : IOrderService, IService
+{
+    private readonly DataConnection _conn;
+    public OrderService(DataConnection conn) { _conn = conn; }
+
+    [ConnectionScope]
+    public Order GetById(int id) { ... }
+
+    [ConnectionScope]
+    [Transaction]
+    public void Ship(int orderId) { ... }
+}
+
+// Controller — injects by interface; proxy is transparent
+public class CheckoutController : ControllerBase
+{
+    public CheckoutController(IOrderService orders) { _orders = orders; }
+}
+```
+
+#### Standalone (no DI)
+
+```csharp
+var conn = new SqlServerConnection("Server=...;...");
+var uow  = new SqlServerUnitOfWork(conn);
+var svc  = TurquoiseServiceFactory.Create<IOrderService>(new OrderService(conn), conn, uow);
+
+svc.Ship(42);   // proxy opens connection, starts transaction, executes, commits, closes
+```
+
+#### Connection-level lifecycle without a proxy
+
+For code that doesn't go through a service proxy, assign `UnitOfWork` on the connection once. Every
+write operation (`Insert`, `Update`, `Delete`, `ProcessActionQueue`, `ExecStoredProcedure`)
+automatically opens the connection, begins a transaction, commits, and closes:
+
+```csharp
+var conn = new SqlServerConnection("...");
+var uow  = new SqlServerUnitOfWork(conn);
+conn.UnitOfWork = uow;   // wire once
+
+var product = new Product(conn);
+product.Name.SetValue("Widget");
+product.Price.SetValue(9.99m);
+product.Insert();   // opens connection → begins transaction → inserts → commits → closes
+```
+
+Read operations (`Read`, `QueryAll`, `QueryPage`, …) auto-connect and disconnect but do not start
+a transaction regardless of whether `UnitOfWork` is set.
+
+#### Proxy strategies summary
+
+| Scenario | Proxy type | Requirements |
+|----------|-----------|----|
+| `IService` + `AddServices()` (auto-scan) | `CreateInterfaceProxyWithTarget` | None — no virtual required |
+| `AddService<TInterface, TImpl>()` | `CreateInterfaceProxyWithTarget` | None |
+| `AddService<TClass>()` (class proxy) | `CreateClassProxyWithTarget` | Non-sealed; intercepted methods `virtual` |
+| `TurquoiseServiceFactory.Create<T>()` | Interface or class proxy (auto-detected) | See above |
 
 ---
 
@@ -1714,4 +1871,193 @@ The LINQ query interface (`conn.Query<T>()`) is not supported because its transl
 
 ---
 
-*Turquoise.ORM v1.1 — .NET 8 / SQL Server / PostgreSQL / MongoDB*
+## 24. SQLite Provider
+
+### 24.1 Overview
+
+`SQLiteConnection` extends `DBDataConnection` and adds the SQLite dialect on top of the standard SQL generation pipeline provided by the core.  It uses `Microsoft.Data.Sqlite` 8.0.0.
+
+SQLite specifics compared to the other SQL providers:
+
+| Aspect | SQL Server / PostgreSQL | SQLite |
+|--------|------------------------|--------|
+| Name quoting | `[…]` / `"…"` | `"…"` (double quotes) |
+| Row limiting | `SELECT TOP N …` / `LIMIT N` | `SELECT … LIMIT N` (appended) |
+| Identity after INSERT | `SCOPE_IDENTITY()` / `LASTVAL()` | `last_insert_rowid()` |
+| Schema introspection | `SYSOBJECTS` / `information_schema` | `PRAGMA table_info(table)` |
+| IDENTITY_INSERT toggle | `SET IDENTITY_INSERT … ON/OFF` | Not required (empty string) |
+| Update lock hint | `WITH (UPDLOCK)` / `FOR UPDATE` | Not applicable (empty string) |
+| String concatenation | `+` / `\|\|` | `\|\|` |
+| Stored procedures | Supported | `NotSupportedException` |
+| In-memory databases | Not supported | `Data Source=:memory:` |
+
+### 24.2 Connecting
+
+```csharp
+using Turquoise.ORM;
+
+// File-based database
+var conn = new SQLiteConnection("Data Source=app.db");
+conn.Connect();
+
+// In-memory database (connection must stay open; destroyed when closed)
+var conn = new SQLiteConnection("Data Source=:memory:");
+conn.Connect();
+
+// Named shared-cache in-memory (can be reopened)
+var conn = new SQLiteConnection("Data Source=mydb;Mode=Memory;Cache=Shared");
+conn.Connect();
+```
+
+### 24.3 Schema Setup
+
+SQLite does not auto-create tables.  Create the schema before inserting data:
+
+```csharp
+conn.ExecSQL(
+    "CREATE TABLE IF NOT EXISTS products (" +
+    "  id       INTEGER PRIMARY KEY AUTOINCREMENT," +
+    "  name     TEXT    NOT NULL," +
+    "  price    NUMERIC NOT NULL DEFAULT 0," +
+    "  in_stock INTEGER NOT NULL DEFAULT 1)");
+```
+
+`INTEGER PRIMARY KEY` in SQLite is an alias for the internal rowid — it auto-increments without `AUTOINCREMENT`.  `INTEGER PRIMARY KEY AUTOINCREMENT` prevents rowid reuse after deletes.
+
+### 24.4 Defining Entities
+
+Entity definitions are provider-agnostic — the same class works with any provider:
+
+```csharp
+using Turquoise.ORM;
+using Turquoise.ORM.Attributes;
+
+[Table("products")]
+public class Product : IdentDataObject
+{
+    [Column("name")]     public TString  Name    = new TString();
+    [Column("price")]    public TDecimal Price   = new TDecimal();
+    [Column("in_stock")] public TBool    InStock = new TBool();
+
+    public Product() { }
+    public Product(DataConnection conn) : base(conn) { }
+}
+```
+
+> **Naming convention:** SQLite is case-insensitive for identifiers by default, but it
+> stores names as given.  Using lower-case `[Table]` and `[Column]` values is safest
+> for portability.
+
+### 24.5 CRUD
+
+```csharp
+// INSERT — ID populated via last_insert_rowid()
+var p = new Product(conn);
+p.Name.SetValue("Widget");
+p.Price.SetValue(9.99m);
+p.InStock.SetValue(true);
+p.Insert();
+// p.ID now holds the generated rowid
+
+// READ by primary key
+var p2 = new Product(conn);
+p2.ID.SetValue(1);
+bool found = p2.Read();
+
+// UPDATE
+p.Price.SetValue(14.99m);
+p.Update(DataObjectLock.UpdateOption.IgnoreLock);
+
+// DELETE by primary key
+p.Delete();
+
+// DELETE by query
+var template = new Product(conn);
+var term = new EqualTerm(template, template.InStock, false);
+template.Delete(term);
+```
+
+### 24.6 Transactions
+
+SQLite supports `ReadCommitted` and `Serializable` isolation levels natively. Other levels are mapped to the nearest supported equivalent by `SQLiteAdapterConnection`:
+
+| Requested level | Mapped to |
+|----------------|-----------|
+| `ReadUncommitted` | `ReadCommitted` |
+| `RepeatableRead` | `Serializable` |
+| `Snapshot` | `Serializable` |
+| `ReadCommitted` | `ReadCommitted` (no mapping) |
+| `Serializable` | `Serializable` (no mapping) |
+
+```csharp
+// Manual transaction
+conn.BeginTransaction();
+try
+{
+    order.Status.SetValue("Shipped");
+    order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    shipment.Insert();
+    conn.CommitTransaction();
+}
+catch
+{
+    conn.RollbackTransaction();
+    throw;
+}
+
+// With.Transaction helper
+var uow = new SQLiteUnitOfWork(conn);
+With.Transaction(uow, () =>
+{
+    order.Status.SetValue("Shipped");
+    order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    shipment.Insert();
+});
+
+// Automatic via conn.UnitOfWork
+conn.UnitOfWork = new SQLiteUnitOfWork(conn);
+product.Insert();  // auto: connect → begin tx → insert → commit → disconnect
+```
+
+### 24.7 DI Registration
+
+```csharp
+// Program.cs
+builder.Services
+    .AddTurquoiseSQLite("Data Source=app.db")
+    .AddServices(typeof(Program).Assembly);
+```
+
+Or with an in-memory database for testing:
+
+```csharp
+builder.Services
+    .AddTurquoiseSQLite("Data Source=testdb;Mode=Memory;Cache=Shared");
+```
+
+### 24.8 Type Affinity Mapping
+
+SQLite uses type affinity rather than strict types. `SQLiteConnection.MapNativeType` applies the following mapping rules (first match wins):
+
+| Declared type contains | Mapped CLR type |
+|------------------------|-----------------|
+| `INT` | `long` |
+| `REAL`, `FLOA`, `DOUB` | `double` |
+| `NUM`, `DEC`, `MONEY` | `decimal` |
+| `BOOL` | `bool` |
+| `DATE`, `TIME` | `DateTime` |
+| `GUID`, `UUID` | `Guid` |
+| `BLOB` or empty | `byte[]` |
+| Anything else (TEXT, VARCHAR, …) | `string` |
+
+### 24.9 Limitations
+
+- **Stored procedures** — SQLite has no stored procedure support. Calling `ExecStoredProcedure` throws `NotSupportedException`.
+- **`GetUpdateLock()`** — SQLite uses file-level locking, not row-level locks. The method returns an empty string (no hint appended to SELECT).
+- **`IDENTITY_INSERT` toggle** — not needed; `PreInsertIdentityCommand`/`PostInsertIdentityCommand` return empty strings.
+- **Isolation level mapping** — levels not supported by SQLite are silently promoted (see §24.6).
+- **In-memory lifetime** — a `Data Source=:memory:` connection is destroyed when it closes.  Use a named shared-cache string (`Mode=Memory;Cache=Shared`) when the connection must be reopened or shared.
+
+---
+
+*Turquoise.ORM — .NET 8 / SQL Server / PostgreSQL / MongoDB / SQLite*

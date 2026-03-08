@@ -19,6 +19,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turquoise.ORM.MongoDB", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turquoise.ORM.MongoDB.Tests", "tests\Turquoise.ORM.MongoDB.Tests\Turquoise.ORM.MongoDB.Tests.csproj", "{D1E2F3A4-B5C6-7890-1234-567890123456}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turquoise.ORM.SQLite", "src\Turquoise.ORM.SQLite\Turquoise.ORM.SQLite.csproj", "{E3F4A5B6-C7D8-9012-EF01-234567890123}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turquoise.ORM.SQLite.Tests", "tests\Turquoise.ORM.SQLite.Tests\Turquoise.ORM.SQLite.Tests.csproj", "{F5A6B7C8-D9E0-1234-F012-345678901234}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turquoise.ORM.Examples", "examples\Turquoise.ORM.Examples\Turquoise.ORM.Examples.csproj", "{C3D4E5F6-A7B8-9012-CDEF-123456789012}"
 EndProject
 Global
@@ -59,6 +63,14 @@ Global
 		{D1E2F3A4-B5C6-7890-1234-567890123456}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D1E2F3A4-B5C6-7890-1234-567890123456}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D1E2F3A4-B5C6-7890-1234-567890123456}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E3F4A5B6-C7D8-9012-EF01-234567890123}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E3F4A5B6-C7D8-9012-EF01-234567890123}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E3F4A5B6-C7D8-9012-EF01-234567890123}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E3F4A5B6-C7D8-9012-EF01-234567890123}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5A6B7C8-D9E0-1234-F012-345678901234}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5A6B7C8-D9E0-1234-F012-345678901234}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5A6B7C8-D9E0-1234-F012-345678901234}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5A6B7C8-D9E0-1234-F012-345678901234}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C3D4E5F6-A7B8-9012-CDEF-123456789012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C3D4E5F6-A7B8-9012-CDEF-123456789012}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3D4E5F6-A7B8-9012-CDEF-123456789012}.Release|Any CPU.ActiveCfg = Release|Any CPU
