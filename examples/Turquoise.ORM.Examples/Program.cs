@@ -2,6 +2,7 @@ using System;
 using Turquoise.ORM;
 using Turquoise.ORM.Examples.Domain;
 using Turquoise.ORM.Examples.Examples;
+using ExampleTransactions = Turquoise.ORM.Examples.Examples.Transactions;
 
 namespace Turquoise.ORM.Examples
 {
@@ -27,11 +28,8 @@ namespace Turquoise.ORM.Examples
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             PrintBanner();
 
-            // The FactoryBase controls polymorphic type mapping.
-            // ShopFactory is our application-specific subclass.
             var factory = new ShopFactory();
 
-            // SqlServerConnection is the SQL Server implementation of DataConnection.
             DataConnection conn;
             try
             {
@@ -59,18 +57,20 @@ namespace Turquoise.ORM.Examples
                 {
                     switch (key.KeyChar)
                     {
-                        case '1': BasicCrud.Run(conn);          break;
-                        case '2': QueryBuilding.Run(conn);      break;
-                        case '3': Transactions.Run(conn);       break;
-                        case '4': FieldSubsets.Run(conn);       break;
-                        case '5': LazyEnumeration.Run(conn);    break;
+                        case '1': BasicCrud.Run(conn);                                  break;
+                        case '2': QueryBuilding.Run(conn);                              break;
+                        case '3': ExampleTransactions.Run(conn);                        break;
+                        case '4': FieldSubsets.Run(conn);                               break;
+                        case '5': LazyEnumeration.Run(conn);                            break;
+                        case '6': UnitOfWorkExample.Run((SqlServerConnection)conn);     break;
+                        case '7': LinqQueryingExample.Run((SqlServerConnection)conn);   break;
                         case 'q':
                         case 'Q':
                             Console.WriteLine("  Goodbye!");
                             conn.Disconnect();
                             return;
                         default:
-                            Console.WriteLine("  Unknown option — press 1-5 or Q.");
+                            Console.WriteLine("  Unknown option — press 1-7 or Q.");
                             break;
                     }
                 }
@@ -105,8 +105,10 @@ namespace Turquoise.ORM.Examples
             Console.WriteLine("  3 — Transactions and action queue");
             Console.WriteLine("  4 — Field subsets (partial fetch / partial update)");
             Console.WriteLine("  5 — Lazy enumeration (streaming large result sets)");
+            Console.WriteLine("  6 — Unit of Work (IUnitOfWork, With.Transaction, Castle interceptor)");
+            Console.WriteLine("  7 — LINQ querying (Where, OrderBy, Take, Skip, Contains)");
             Console.WriteLine("  Q — Quit");
-            Console.Write("\n  > ");
+            Console.Write("\n  Enter 1–7 or Q: ");
         }
     }
 }

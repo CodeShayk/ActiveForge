@@ -7,10 +7,12 @@ A lightweight, Active Record-style ORM for .NET 8 targeting SQL Server.
 - **Active Record pattern** — entities manage their own persistence
 - **Type-safe field wrappers** — `TString`, `TInt`, `TDecimal`, `TPrimaryKey`, `TForeignKey`, and 25 more
 - **Composable query predicates** — `EqualTerm`, `ContainsTerm`, `InTerm`, `ExistsTerm`, composed with `&`, `|`, `!`
+- **LINQ query support** *(v1.1)* — `conn.Query<T>().Where(...).OrderBy(...).Take(...).Skip(...)` translated to native ORM predicates
 - **Pagination** — `QueryPage` with `StartRecord`, `PageSize`, `IsMoreData`, `TotalRowCount`
 - **Lazy streaming** — `LazyQueryAll<T>` streams rows without loading all into memory
 - **Field subsets** — partial SELECTs and partial UPDATEs using `FieldSubset`
 - **Transactions** — nested transaction support with `BeginTransaction` / `CommitTransaction` / `RollbackTransaction`
+- **Unit of Work** *(v1.1)* — `IUnitOfWork`, `UnitOfWorkBase`, `SqlServerUnitOfWork`, `With.Transaction`, `[Transaction]` attribute, Castle DynamicProxy interceptor
 - **Action queue** — batch operations via `QueueForInsert` / `QueueForUpdate` / `QueueForDelete` then `ProcessActionQueue`
 - **Field encryption** — transparent encrypt/decrypt via `[Encrypted]` attribute
 - **Custom field mappers** — implement `IDBFieldMapper` for non-standard type conversions
@@ -90,8 +92,11 @@ p.Delete();
 | [Field Types](field-types.md) | All `TField` types and their operators |
 | [Query Builder](query-builder.md) | Composing WHERE, ORDER BY, and pagination |
 | [Transactions](transactions.md) | Transaction and action queue patterns |
+| [Unit of Work](unit-of-work.md) | IUnitOfWork, With.Transaction, Castle interceptor *(v1.1)* |
+| [LINQ Querying](linq-querying.md) | `conn.Query<T>()` LINQ support *(v1.1)* |
 | [Field Subsets](field-subsets.md) | Partial fetches and partial updates |
 | [Advanced](advanced.md) | Encryption, custom mappers, polymorphism |
+| [**Wiki**](wiki.md) | Comprehensive reference — all concepts with examples |
 
 ## Project Layout
 
