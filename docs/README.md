@@ -9,6 +9,7 @@ A lightweight, Active Record-style ORM for .NET 8.
 | `Turquoise.ORM` | Core library — entities, fields, predicates, LINQ, transactions, abstractions |
 | `Turquoise.ORM.SqlServer` | SQL Server provider — `SqlServerConnection`, adapter implementations, `SqlServerUnitOfWork` |
 | `Turquoise.ORM.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, adapter implementations, `PostgreSQLUnitOfWork` |
+| `Turquoise.ORM.MongoDB` | MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork` |
 
 ## Features
 
@@ -31,6 +32,7 @@ A lightweight, Active Record-style ORM for .NET 8.
 - .NET 8.0
 - For SQL Server: `Turquoise.ORM.SqlServer` (wraps `Microsoft.Data.SqlClient` 5.2.1)
 - For PostgreSQL: `Turquoise.ORM.PostgreSQL` (wraps `Npgsql` 8.0.3)
+- For MongoDB: `Turquoise.ORM.MongoDB` (wraps `MongoDB.Driver` 2.28.0)
 
 ## Quick Start
 
@@ -53,6 +55,17 @@ using Turquoise.ORM;          // PostgreSQLConnection is in this namespace
 var conn = new PostgreSQLConnection(
     "Host=localhost;Database=demo;Username=app;Password=secret;",
     new FactoryBase());
+conn.Connect();
+```
+
+### MongoDB
+
+```csharp
+using Turquoise.ORM;          // MongoDataConnection is in this namespace
+
+var conn = new MongoDataConnection(
+    "mongodb://localhost:27017",
+    "myDatabase");
 conn.Connect();
 ```
 
@@ -129,14 +142,19 @@ Turquoise.ORM/
 │   │   ├── Adapters/                   ← SqlAdapterCommand/Connection/Reader/Transaction
 │   │   ├── Transactions/               ← SqlServerUnitOfWork
 │   │   └── SqlServerConnection.cs
-│   └── Turquoise.ORM.PostgreSQL/       ← PostgreSQL provider
-│       ├── Adapters/                   ← NpgsqlAdapterCommand/Connection/Reader/Transaction
-│       ├── Transactions/               ← PostgreSQLUnitOfWork
-│       └── PostgreSQLConnection.cs
+│   ├── Turquoise.ORM.PostgreSQL/       ← PostgreSQL provider
+│   │   ├── Adapters/                   ← NpgsqlAdapterCommand/Connection/Reader/Transaction
+│   │   ├── Transactions/               ← PostgreSQLUnitOfWork
+│   │   └── PostgreSQLConnection.cs
+│   └── Turquoise.ORM.MongoDB/          ← MongoDB provider
+│       ├── Internal/                   ← MongoFieldDescriptor, MongoMapper, MongoQueryTranslator
+│       ├── Transactions/               ← MongoUnitOfWork
+│       └── MongoDataConnection.cs
 ├── tests/
 │   ├── Turquoise.ORM.Tests/            ← Core library tests (314 tests)
 │   ├── Turquoise.ORM.SqlServer.Tests/  ← SQL Server provider tests (50 tests)
-│   └── Turquoise.ORM.PostgreSQL.Tests/ ← PostgreSQL provider tests (52 tests)
+│   ├── Turquoise.ORM.PostgreSQL.Tests/ ← PostgreSQL provider tests (52 tests)
+│   └── Turquoise.ORM.MongoDB.Tests/   ← MongoDB provider tests (79 tests)
 ├── examples/
 │   └── Turquoise.ORM.Examples/         ← Runnable console examples
 └── docs/                               ← This documentation

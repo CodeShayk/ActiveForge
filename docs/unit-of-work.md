@@ -276,8 +276,10 @@ With.SetLogger(loggerFactory.CreateLogger("Turquoise.ORM.Transactions.With"));
 | `Microsoft.Data.SqlClient` 5.2.1 | `Turquoise.ORM.SqlServer` | ADO.NET SQL Server driver |
 | `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM.PostgreSQL` | `ILogger<PostgreSQLUnitOfWork>` parameter |
 | `Npgsql` 8.0.3 | `Turquoise.ORM.PostgreSQL` | ADO.NET PostgreSQL driver |
+| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM.MongoDB` | `ILogger` parameter for `MongoUnitOfWork` |
+| `MongoDB.Driver` 2.28.0 | `Turquoise.ORM.MongoDB` | MongoDB driver |
 
-`SqlServerUnitOfWork` is part of `Turquoise.ORM.SqlServer`; `PostgreSQLUnitOfWork` is part of `Turquoise.ORM.PostgreSQL`. All other Unit of Work types (`IUnitOfWork`, `UnitOfWorkBase`, `With`, `TransactionInterceptor`, `TurquoiseServiceLocator`) are in `Turquoise.ORM` and have no provider dependency.
+`SqlServerUnitOfWork` is part of `Turquoise.ORM.SqlServer`; `PostgreSQLUnitOfWork` is part of `Turquoise.ORM.PostgreSQL`; `MongoUnitOfWork` is part of `Turquoise.ORM.MongoDB`. All other Unit of Work types (`IUnitOfWork`, `UnitOfWorkBase`, `With`, `TransactionInterceptor`, `TurquoiseServiceLocator`) are in `Turquoise.ORM` and have no provider dependency.
 
 ## PostgreSQL Unit of Work
 
@@ -300,3 +302,30 @@ With.Transaction(uow, () =>
     conn.Insert(product);
 });
 ```
+
+## MongoDB Unit of Work
+
+`MongoUnitOfWork` wraps `MongoDataConnection` in the same nested-transaction model:
+
+```csharp
+using Turquoise.ORM;
+using Turquoise.ORM.Transactions;
+
+var conn = new MongoDataConnection("mongodb://localhost:27017", "demo");
+conn.Connect();
+
+using IUnitOfWork uow = new MongoUnitOfWork(conn);
+
+With.Transaction(uow, () =>
+{
+    var product = new Product(conn);
+    product.name.SetValue("Widget");
+    product.price.SetValue(9.99m);
+    conn.Insert(product);
+});
+```
+
+> **Note:** MongoDB multi-document transactions require a replica set or sharded cluster.
+> On a standalone server the `BeginTransaction` call will throw a MongoDB driver error.
+> For single-document atomicity no transaction is required — individual CRUD operations
+> are inherently atomic in MongoDB.

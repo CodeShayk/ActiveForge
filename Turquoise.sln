@@ -15,6 +15,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turquoise.ORM.SqlServer.Tes
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turquoise.ORM.PostgreSQL.Tests", "tests\Turquoise.ORM.PostgreSQL.Tests\Turquoise.ORM.PostgreSQL.Tests.csproj", "{A7B8C9D0-E1F2-3456-0123-567890123456}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turquoise.ORM.MongoDB", "src\Turquoise.ORM.MongoDB\Turquoise.ORM.MongoDB.csproj", "{B9C0D1E2-F3A4-5678-9012-345678901234}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turquoise.ORM.MongoDB.Tests", "tests\Turquoise.ORM.MongoDB.Tests\Turquoise.ORM.MongoDB.Tests.csproj", "{D1E2F3A4-B5C6-7890-1234-567890123456}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turquoise.ORM.Examples", "examples\Turquoise.ORM.Examples\Turquoise.ORM.Examples.csproj", "{C3D4E5F6-A7B8-9012-CDEF-123456789012}"
 EndProject
 Global
@@ -47,6 +51,14 @@ Global
 		{A7B8C9D0-E1F2-3456-0123-567890123456}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A7B8C9D0-E1F2-3456-0123-567890123456}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A7B8C9D0-E1F2-3456-0123-567890123456}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9C0D1E2-F3A4-5678-9012-345678901234}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9C0D1E2-F3A4-5678-9012-345678901234}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9C0D1E2-F3A4-5678-9012-345678901234}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9C0D1E2-F3A4-5678-9012-345678901234}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1E2F3A4-B5C6-7890-1234-567890123456}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1E2F3A4-B5C6-7890-1234-567890123456}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1E2F3A4-B5C6-7890-1234-567890123456}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1E2F3A4-B5C6-7890-1234-567890123456}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C3D4E5F6-A7B8-9012-CDEF-123456789012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C3D4E5F6-A7B8-9012-CDEF-123456789012}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3D4E5F6-A7B8-9012-CDEF-123456789012}.Release|Any CPU.ActiveCfg = Release|Any CPU

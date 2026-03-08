@@ -28,6 +28,7 @@ A complete reference for every concept in Turquoise.ORM: architecture, field typ
 20. [Lookup / Cached Reference Tables](#20-lookup--cached-reference-tables)
 21. [Architecture Deep Dive](#21-architecture-deep-dive)
 22. [Quick Reference Cheat Sheet](#22-quick-reference-cheat-sheet)
+23. [MongoDB Provider](#23-mongodb-provider)
 
 ---
 
@@ -129,23 +130,24 @@ Turquoise.ORM is a **lightweight Active Record ORM** for .NET 8. It is split acr
 | `Turquoise.ORM` | Core — entities, TField types, QueryTerm predicates, LINQ layer, transactions (abstract), adapters (abstract) |
 | `Turquoise.ORM.SqlServer` | SQL Server provider — `SqlServerConnection`, SQL adapters, `SqlServerUnitOfWork` |
 | `Turquoise.ORM.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork` |
+| `Turquoise.ORM.MongoDB` | MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork` |
 
 Entity classes only reference `Turquoise.ORM`. Applications add the appropriate provider package alongside it.
 
 ```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│  Your Application                                                              │
-│                                                                                │
-│  DataObject subclass ──── CRUD ────► DataConnection (abstract, core)          │
-│  (fields, logic)                         │                                     │
-│  QueryTerm / LINQ ─── query calls ───────┤                                     │
-│                                          │ implemented by (choose one)         │
-│                            ┌─────────────┴──────────────┐                     │
-│                     SqlServerConnection           PostgreSQLConnection         │
-│                  (Turquoise.ORM.SqlServer)   (Turquoise.ORM.PostgreSQL)        │
-│                            │                             │                     │
-│                      SQL Server                      PostgreSQL                │
-└────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│  Your Application                                                                   │
+│                                                                                     │
+│  DataObject subclass ──── CRUD ────► DataConnection (abstract, core)               │
+│  (fields, logic)                         │                                          │
+│  QueryTerm / LINQ ─── query calls ───────┤                                          │
+│                                          │ implemented by (choose one)              │
+│                  ┌───────────────────────┼───────────────────────┐                 │
+│           SqlServerConnection    PostgreSQLConnection    MongoDataConnection         │
+│        (Turquoise.ORM.SqlServer) (Turquoise.ORM.PostgreSQL) (Turquoise.ORM.MongoDB) │
+│                  │                       │                        │                 │
+│             SQL Server               PostgreSQL               MongoDB               │
+└─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2.2 Core Principles
@@ -365,7 +367,7 @@ if (!product.Name.IsLoaded()) { ... } // never set at all
 
 ### 5.1 Creating a Connection
 
-Both `SqlServerConnection` and `PostgreSQLConnection` live in the `Turquoise.ORM` namespace (in their respective provider assemblies), so no extra `using` directive is needed once the provider assembly is referenced.
+`SqlServerConnection`, `PostgreSQLConnection`, and `MongoDataConnection` all live in the `Turquoise.ORM` namespace (in their respective provider assemblies), so no extra `using` directive is needed once the provider assembly is referenced.
 
 ```csharp
 // SQL Server (reference Turquoise.ORM + Turquoise.ORM.SqlServer)
@@ -387,6 +389,16 @@ var conn = new PostgreSQLConnection(
 conn.Connect();
 ```
 
+```csharp
+// MongoDB (reference Turquoise.ORM + Turquoise.ORM.MongoDB)
+using Turquoise.ORM;
+
+var conn = new MongoDataConnection(
+    "mongodb://localhost:27017",
+    "myDatabase");
+conn.Connect();
+```
+
 ### 5.2 Lifecycle
 
 ```csharp
@@ -400,22 +412,26 @@ Pass a `FactoryBase` to control how the ORM instantiates objects. The default `F
 
 ### 5.4 Provider Dialect Comparison
 
-| Feature | SQL Server | PostgreSQL |
-|---------|-----------|------------|
-| Parameter mark | `@name` | `@name` |
-| Identifier quoting | `[Name]` | `"name"` |
-| Row limit syntax | `SELECT TOP n …` | `SELECT … LIMIT n` |
-| String concatenation | `+` | `\|\|` |
-| Identity retrieval | `SELECT SCOPE_IDENTITY()` | `SELECT LASTVAL()` |
-| Row lock hint | `WITH (UPDLOCK)` (table hint) | `FOR UPDATE` (end of SELECT) — returns `""` in current implementation |
-| Identity insert control | `SET IDENTITY_INSERT … ON/OFF` | Not needed — always allowed |
-| Schema introspection | `SYSOBJECTS` / `SYSCOLUMNS` / `SYSTYPES` | `information_schema.columns` |
-| Primary key discovery | `sp_pkeys` stored procedure | `information_schema.table_constraints` |
-| Identifier case | Case-insensitive | Case-sensitive (lower-case by default) |
-| Unit of Work class | `SqlServerUnitOfWork` | `PostgreSQLUnitOfWork` |
-| ADO.NET driver | `Microsoft.Data.SqlClient` | `Npgsql` |
+| Feature | SQL Server | PostgreSQL | MongoDB |
+|---------|-----------|------------|---------|
+| Parameter mark | `@name` | `@name` | N/A |
+| Identifier quoting | `[Name]` | `"name"` | N/A |
+| Row limit syntax | `SELECT TOP n …` | `SELECT … LIMIT n` | `.Limit(n)` |
+| String concatenation | `+` | `\|\|` | N/A |
+| Identity retrieval | `SELECT SCOPE_IDENTITY()` | `SELECT LASTVAL()` | Counter collection |
+| Row lock hint | `WITH (UPDLOCK)` | `FOR UPDATE` (end) | N/A |
+| Identity insert control | `SET IDENTITY_INSERT … ON/OFF` | Not needed | Not needed |
+| Schema introspection | `SYSOBJECTS` / `SYSCOLUMNS` | `information_schema.columns` | `[Table]` attribute |
+| Identity storage | Auto-generated int column | Auto-generated int (`serial`) | `_id` field (int) |
+| Identifier case | Case-insensitive | Case-sensitive (lower-case) | Exact match |
+| Unit of Work class | `SqlServerUnitOfWork` | `PostgreSQLUnitOfWork` | `MongoUnitOfWork` |
+| Driver | `Microsoft.Data.SqlClient` | `Npgsql` | `MongoDB.Driver` |
+| SQL operations | Full | Full | `NotSupportedException` |
+| Transaction scope | RDBMS transaction | RDBMS transaction | Requires replica set |
 
 **PostgreSQL naming note:** PostgreSQL folds unquoted identifiers to lower-case at parse time. All `[Table]` and `[Column]` attribute values should be lower-case unless you created the table with quoted identifiers.
+
+**MongoDB naming note:** `[Table("collectionName")]` maps to the MongoDB collection name. `[Column("fieldName")]` maps to the BSON field name. The `[Identity]` field maps to the special `_id` BSON field and is stored as an integer using a counter document for auto-increment simulation.
 
 ---
 
@@ -1349,9 +1365,19 @@ Turquoise.ORM.PostgreSQL (depends on Turquoise.ORM + Npgsql)
 ├── Adapters/NpgsqlAdapterReader      (wraps NpgsqlDataReader)
 ├── Adapters/NpgsqlAdapterTransaction (wraps NpgsqlTransaction)
 └── Transactions/PostgreSQLUnitOfWork : UnitOfWorkBase
+
+Turquoise.ORM.MongoDB (depends on Turquoise.ORM + MongoDB.Driver)
+├── MongoDataConnection : DataConnection   ← extends DataConnection directly (not DBDataConnection)
+├── Internal/MongoFieldDescriptor          (per-field BSON name cache)
+├── Internal/MongoTypeCache                (per-type collection name + field descriptors)
+├── Internal/MongoMapper                   (DataObject ↔ BsonDocument serialization)
+├── Internal/MongoQueryTranslator          (QueryTerm → FilterDefinition, SortOrder → SortDefinition)
+└── Transactions/MongoUnitOfWork : UnitOfWorkBase
 ```
 
-All types in `Turquoise.ORM.SqlServer` use the `Turquoise.ORM` (or `Turquoise.ORM.Adapters.SqlServer` / `Turquoise.ORM.Transactions`) namespace — the same namespace as the core types they extend. This means consuming code only needs `using Turquoise.ORM;`.
+All provider types use the `Turquoise.ORM` namespace — the same namespace as the core types they extend. This means consuming code only needs `using Turquoise.ORM;`.
+
+**MongoDB vs SQL architecture:** SQL providers extend `DBDataConnection`, which inherits `DataConnection` and adds SQL generation, ADO.NET adapter management, and the `ObjectBinding` cache. `MongoDataConnection` extends `DataConnection` directly because there is no SQL to generate. It builds its own minimal `ObjectBinding` from reflection for QueryTerm lookup, and performs all CRUD via `MongoDB.Driver` API calls.
 
 ### 21.1 ObjectBinding — Reflection Cache
 
@@ -1533,4 +1559,159 @@ foreach (MyEntity e in conn.LazyQueryAll<MyEntity>(template, term, null))
 
 ---
 
-*Turquoise.ORM v1.1 — .NET 8 / SQL Server*
+## 23. MongoDB Provider
+
+### 23.1 Overview
+
+`MongoDataConnection` brings the standard Turquoise.ORM CRUD and query API to MongoDB. It extends `DataConnection` directly (not `DBDataConnection`, which is SQL-specific) and uses the `MongoDB.Driver` 2.28.0 library.
+
+Key differences from SQL providers:
+
+| Aspect | SQL Providers | MongoDB |
+|--------|--------------|---------|
+| Base class | `DBDataConnection` (SQL generation) | `DataConnection` (no SQL) |
+| Storage | Relational tables | BSON documents in collections |
+| `[Table]` attribute | SQL table name | Collection name |
+| `[Column]` attribute | Column name | BSON field name |
+| `[Identity]` field | Auto-increment int (DB-generated) | `_id` (int via counter collection) |
+| Query translation | SQL `WHERE` clause | `FilterDefinition<BsonDocument>` |
+| Sort translation | SQL `ORDER BY` | `SortDefinition<BsonDocument>` |
+| Transactions | RDBMS transactions | `IClientSessionHandle` (requires replica set) |
+| `ExecSQL` / `ExecStoredProcedure` | Supported | `NotSupportedException` |
+
+### 23.2 Connecting
+
+```csharp
+using Turquoise.ORM;
+
+var conn = new MongoDataConnection(
+    connectionString: "mongodb://localhost:27017",
+    databaseName:     "myDatabase");
+conn.Connect();
+```
+
+### 23.3 Defining Entities
+
+Entity definitions are provider-agnostic — use the same `[Table]` / `[Column]` / `[Identity]` attributes:
+
+```csharp
+using Turquoise.ORM;
+using Turquoise.ORM.Attributes;
+
+[Table("products")]
+public class Product : IdentDataObject
+{
+    [Column("name")]     public TString  Name    = new TString();
+    [Column("price")]    public TDecimal Price   = new TDecimal();
+    [Column("in_stock")] public TBool    InStock = new TBool();
+
+    public Product() { }
+    public Product(DataConnection conn) : base(conn) { }
+}
+```
+
+The `[Identity]` field (added by `IdentDataObject`) maps to MongoDB's `_id` field stored as `int32`. Auto-increment is simulated via a `__turquoise_counters` collection.
+
+### 23.4 CRUD
+
+```csharp
+// INSERT (auto-generates _id)
+var p = new Product(conn);
+p.Name.SetValue("Widget");
+p.Price.SetValue(9.99m);
+p.InStock.SetValue(true);
+p.Insert();
+// p.ID now has the generated _id value
+
+// READ by primary key
+var p2 = new Product(conn);
+p2.ID.SetValue(1);
+bool found = p2.Read();
+
+// UPDATE
+p.Price.SetValue(14.99m);
+p.Update(DataObjectLock.UpdateOption.IgnoreLock);
+
+// DELETE by primary key
+p.Delete();
+
+// DELETE by query
+var template = new Product(conn);
+var term = new EqualTerm(template, template.InStock, false);
+template.Delete(term);
+```
+
+### 23.5 Querying
+
+The full `QueryAll`, `QueryFirst`, `QueryCount`, `QueryPage`, and `LazyQueryAll` methods are supported. QueryTerms are translated to `FilterDefinition<BsonDocument>` internally:
+
+```csharp
+var template = new Product(conn);
+
+// All in-stock products
+var inStock  = new EqualTerm(template, template.InStock, true);
+var results  = conn.QueryAll(template, inStock, null, 0, null);
+
+// Price range
+var lowPrice  = new GreaterThanTerm(template, template.Price, 5.00m);
+var highPrice = new LessThanTerm(template, template.Price, 50.00m);
+var range     = conn.QueryAll(template, lowPrice & highPrice, null, 0, null);
+
+// Count
+int count = conn.QueryCount(template, inStock);
+
+// Paged results (skip 20, take 10)
+var page = conn.QueryPage(template, inStock, null, 20, 10, null);
+
+// Streaming
+foreach (Product item in conn.LazyQueryAll<Product>(template, inStock, null, 0, null))
+    Console.WriteLine(item.Name.GetValue());
+```
+
+### 23.6 Supported QueryTerms
+
+| QueryTerm | MongoDB translation |
+|-----------|-------------------|
+| `EqualTerm` | `Filter.Eq(field, value)` |
+| `GreaterThanTerm` | `Filter.Gt(field, value)` |
+| `LessThanTerm` | `Filter.Lt(field, value)` |
+| `IsNullTerm` | `Filter.Eq(field, BsonNull.Value)` |
+| `InTerm` | `Filter.In(field, values)` |
+| `ContainsTerm` | `Filter.Regex(field, /value/i)` |
+| `AndTerm` (`&`) | `Filter.And(left, right)` |
+| `OrTerm` (`\|`) | `Filter.Or(left, right)` |
+| `NotTerm` (`!`) | `Filter.Not(inner)` |
+
+### 23.7 Transactions
+
+MongoDB multi-document transactions require a **replica set** or **sharded cluster**. On a standalone `mongod` they are not supported.
+
+```csharp
+using IUnitOfWork uow = new MongoUnitOfWork(conn);
+
+With.Transaction(uow, () =>
+{
+    product.Status.SetValue("Shipped");
+    product.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    shipment.Insert();
+});
+```
+
+For single-document operations no transaction is needed — MongoDB's document model guarantees atomicity per document.
+
+### 23.8 Unsupported Features
+
+The following operations throw `NotSupportedException` on `MongoDataConnection`:
+
+- `ExecSQL(...)` — no SQL dialect
+- `ExecStoredProcedure(...)` — MongoDB has no stored procedures
+- `GetDynamicObjectBinding(...)` — SQL-specific reader-based binding
+- `GetTargetFieldInfo(string, string, string)` — SQL-specific schema introspection
+- `ExistsTerm` / `GenerateExistsSQLQuery` — SQL sub-query syntax
+- LINQ `ExistsTerm` (translated via SQL correlated subquery)
+
+The LINQ query interface (`conn.Query<T>()`) is not supported because its translation layer generates SQL expressions.
+
+---
+
+*Turquoise.ORM v1.1 — .NET 8 / SQL Server / PostgreSQL / MongoDB*

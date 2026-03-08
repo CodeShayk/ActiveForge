@@ -9,5 +9,6 @@
     <ProjectReference Include="..\..\src\Turquoise.ORM\Turquoise.ORM.csproj" />
     <ProjectReference Include="..\..\src\Turquoise.ORM.SqlServer\Turquoise.ORM.SqlServer.csproj" />
     <ProjectReference Include="..\..\src\Turquoise.ORM.PostgreSQL\Turquoise.ORM.PostgreSQL.csproj" />
+    <ProjectReference Include="..\..\src\Turquoise.ORM.MongoDB\Turquoise.ORM.MongoDB.csproj" />
   </ItemGroup>
 </Project>
