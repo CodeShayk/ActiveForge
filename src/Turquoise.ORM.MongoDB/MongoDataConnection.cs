@@ -31,10 +31,13 @@ namespace Turquoise.ORM
     {
         // ── State ─────────────────────────────────────────────────────────────────────
 
-        private readonly string         _connectionString;
+        private readonly string?        _connectionString;
         private readonly string         _databaseName;
         private readonly FactoryBase    _factory;
         private readonly ILogger        _logger;
+
+        // When injected via DI, an external singleton MongoClient is provided; we must not dispose it.
+        private readonly MongoClient?   _externalClient;
 
         private MongoClient?      _client;
         private IMongoDatabase?   _database;
@@ -45,8 +48,14 @@ namespace Turquoise.ORM
         private readonly List<(DataObject obj, char op, QueryTerm? term)> _actionQueue
             = new List<(DataObject, char, QueryTerm?)>();
 
-        // ── Constructor ───────────────────────────────────────────────────────────────
+        // ── Constructors ──────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Creates a connection using a MongoDB connection string.
+        /// Each call to <see cref="Connect"/> creates a new <see cref="MongoClient"/>.
+        /// Prefer <see cref="MongoDataConnection(MongoClient,string,FactoryBase,ILogger)"/> in DI scenarios
+        /// so the singleton <see cref="MongoClient"/> (which owns the connection pool) is shared.
+        /// </summary>
         /// <param name="connectionString">MongoDB connection string, e.g. <c>mongodb://localhost:27017</c>.</param>
         /// <param name="databaseName">Name of the MongoDB database to target.</param>
         /// <param name="factory">Optional polymorphic type factory. Pass <c>new FactoryBase()</c> for no mapping.</param>
@@ -63,12 +72,44 @@ namespace Turquoise.ORM
             _logger           = logger           ?? NullLogger.Instance;
         }
 
+        /// <summary>
+        /// Creates a connection using a pre-built <see cref="MongoClient"/> singleton.
+        /// Use this overload in DI registrations so that the connection-pool-owning client
+        /// is shared across all scoped <see cref="MongoDataConnection"/> instances.
+        /// The provided <paramref name="mongoClient"/> is <b>not</b> disposed when
+        /// <see cref="Disconnect"/> is called.
+        /// </summary>
+        /// <param name="mongoClient">Singleton <see cref="MongoClient"/> managed externally.</param>
+        /// <param name="databaseName">Name of the MongoDB database to target.</param>
+        /// <param name="factory">Optional polymorphic type factory.</param>
+        /// <param name="logger">Optional logger; <c>NullLogger</c> used when omitted.</param>
+        public MongoDataConnection(
+            MongoClient mongoClient,
+            string databaseName,
+            FactoryBase? factory = null,
+            ILogger? logger      = null)
+        {
+            _externalClient   = mongoClient ?? throw new ArgumentNullException(nameof(mongoClient));
+            _databaseName     = databaseName ?? throw new ArgumentNullException(nameof(databaseName));
+            _factory          = factory ?? new FactoryBase();
+            _logger           = logger  ?? NullLogger.Instance;
+        }
+
         // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
         public override bool Connect()
         {
-            _client   = new MongoClient(_connectionString);
-            _database = _client.GetDatabase(_databaseName);
+            if (_externalClient != null)
+            {
+                // DI path: use the injected singleton client; do not store it in _client so
+                // Disconnect() does not null it out (it belongs to the container).
+                _database = _externalClient.GetDatabase(_databaseName);
+            }
+            else
+            {
+                _client   = new MongoClient(_connectionString);
+                _database = _client.GetDatabase(_databaseName);
+            }
             _logger.LogDebug("Connected to MongoDB database '{Database}'", _databaseName);
             return true;
         }
@@ -77,14 +118,16 @@ namespace Turquoise.ORM
         {
             _session?.Dispose();
             _session = null;
-            // MongoClient is designed to be long-lived; disposing it stops the connection pool.
-            _client  = null;
+            // Only null out the self-created client; the external/injected client is managed externally.
+            _client   = null;
             _database = null;
             _logger.LogDebug("Disconnected from MongoDB database '{Database}'", _databaseName);
             return true;
         }
 
         public void Dispose() => Disconnect();
+
+        public override bool IsOpen => _database != null;
 
         private IMongoDatabase Database
             => _database ?? throw new InvalidOperationException("Not connected. Call Connect() first.");
@@ -97,7 +140,9 @@ namespace Turquoise.ORM
 
         // ── CRUD — Insert ─────────────────────────────────────────────────────────────
 
-        public override bool Insert(DataObject obj)
+        public override bool Insert(DataObject obj) => RunWrite(() => InsertCore(obj));
+
+        private bool InsertCore(DataObject obj)
         {
             var entry = MongoTypeCache.GetEntry(obj.GetType());
             var coll  = GetCollection(entry.CollectionName);
@@ -127,7 +172,9 @@ namespace Turquoise.ORM
 
         // ── CRUD — Delete ─────────────────────────────────────────────────────────────
 
-        public override bool Delete(DataObject obj)
+        public override bool Delete(DataObject obj) => RunWrite(() => DeleteCore(obj));
+
+        private bool DeleteCore(DataObject obj)
         {
             var coll   = GetCollection(obj);
             var filter = BuildPkFilter(obj);
@@ -139,7 +186,9 @@ namespace Turquoise.ORM
             return result.DeletedCount > 0;
         }
 
-        public override bool Delete(DataObject obj, QueryTerm term)
+        public override bool Delete(DataObject obj, QueryTerm term) => RunWrite(() => DeleteTermCore(obj, term));
+
+        private bool DeleteTermCore(DataObject obj, QueryTerm term)
         {
             var coll   = GetCollection(obj);
             var filter = MongoQueryTranslator.Translate(term, obj);
@@ -166,7 +215,9 @@ namespace Turquoise.ORM
         internal override FieldSubset UpdateChanged(DataObject obj)
             => UpdateInternal(obj);
 
-        private FieldSubset UpdateInternal(DataObject obj)
+        private FieldSubset UpdateInternal(DataObject obj) => RunWrite(() => UpdateCore(obj));
+
+        private FieldSubset UpdateCore(DataObject obj)
         {
             var coll    = GetCollection(obj);
             var filter  = BuildPkFilter(obj);

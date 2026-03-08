@@ -86,6 +86,7 @@ namespace Turquoise.ORM
 
         protected bool IsConnectCreated;
         protected bool IsConnected => IsConnectCreated && _connection != null && _connection.IsConnected();
+        public override bool IsOpen => IsConnected;
 
         // ── Constructors ──────────────────────────────────────────────────────────
 
@@ -355,7 +356,9 @@ namespace Turquoise.ORM
 
         // ── INSERT ────────────────────────────────────────────────────────────────
 
-        public override bool Insert(DataObject obj)
+        public override bool Insert(DataObject obj) => RunWrite(() => InsertCore(obj));
+
+        private bool InsertCore(DataObject obj)
         {
             lock (_syncRoot)
             {
@@ -421,7 +424,9 @@ namespace Turquoise.ORM
 
         // ── DELETE ────────────────────────────────────────────────────────────────
 
-        public override bool Delete(DataObject obj)
+        public override bool Delete(DataObject obj) => RunWrite(() => DeleteCore(obj));
+
+        private bool DeleteCore(DataObject obj)
         {
             lock (_syncRoot)
             {
@@ -480,7 +485,9 @@ namespace Turquoise.ORM
             }
         }
 
-        public override bool Delete(DataObject obj, QueryTerm term)
+        public override bool Delete(DataObject obj, QueryTerm term) => RunWrite(() => DeleteTermCore(obj, term));
+
+        private bool DeleteTermCore(DataObject obj, QueryTerm term)
         {
             lock (_syncRoot)
             {
@@ -583,7 +590,9 @@ namespace Turquoise.ORM
         internal override FieldSubset Update(DataObject obj, DataObjectLock.UpdateOption option)
             => UpdateAll(obj);
 
-        internal override FieldSubset UpdateAll(DataObject obj)
+        internal override FieldSubset UpdateAll(DataObject obj) => RunWrite(() => UpdateAllCore(obj));
+
+        private FieldSubset UpdateAllCore(DataObject obj)
         {
             lock (_syncRoot)
             {
@@ -1028,6 +1037,9 @@ namespace Turquoise.ORM
         // ── STORED PROCEDURES ─────────────────────────────────────────────────────
 
         public override ObjectCollection ExecStoredProcedure(DataObject obj, string spName, int start, int count, params DataObject.SPParameter[] spParameters)
+            => RunWrite(() => ExecStoredProcedureCore(obj, spName, start, count, spParameters));
+
+        private ObjectCollection ExecStoredProcedureCore(DataObject obj, string spName, int start, int count, DataObject.SPParameter[] spParameters)
         {
             lock (_syncRoot)
             {
@@ -1878,7 +1890,9 @@ namespace Turquoise.ORM
         protected List<ActionQueueEntry> GetActionQueue()
             => _actionQueue ??= new List<ActionQueueEntry>();
 
-        public override void ProcessActionQueue()
+        public override void ProcessActionQueue() => RunWrite(() => ProcessActionQueueCore());
+
+        private void ProcessActionQueueCore()
         {
             lock (_syncRoot)
             {

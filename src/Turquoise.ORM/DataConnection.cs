@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Turquoise.ORM.Query;
+using Turquoise.ORM.Transactions;
 
 namespace Turquoise.ORM
 {
@@ -18,6 +19,63 @@ namespace Turquoise.ORM
 
         public abstract bool Connect();
         public abstract bool Disconnect();
+
+        /// <summary>
+        /// Returns <c>true</c> when the underlying physical connection is open.
+        /// Overridden by <c>DBDataConnection</c> and <c>MongoDataConnection</c>.
+        /// </summary>
+        public virtual bool IsOpen => false;
+
+        // ── Automatic lifecycle management ────────────────────────────────────────────
+
+        /// <summary>
+        /// Optional <see cref="IUnitOfWork"/> to use for automatic transaction management.
+        /// When set, write operations (Insert, Update, Delete, …) automatically begin a
+        /// transaction if one is not already active and commit (or roll back) it when the
+        /// operation completes.  If the connection is not open when a write is attempted it
+        /// is opened first and closed when the operation finishes.
+        /// </summary>
+        public IUnitOfWork UnitOfWork { get; set; }
+
+        /// <summary>
+        /// Wraps a write operation with automatic connection open/close and transaction
+        /// begin/commit/rollback, honouring the current <see cref="UnitOfWork"/> and the
+        /// current <see cref="IsOpen"/> state.
+        /// </summary>
+        protected T RunWrite<T>(Func<T> operation)
+        {
+            bool openedConn = !IsOpen;
+            if (openedConn) Connect();
+
+            bool startedTx = UnitOfWork != null && !UnitOfWork.InTransaction;
+            if (startedTx) UnitOfWork.CreateTransaction();
+
+            bool committed = false;
+            try
+            {
+                T result = operation();
+                if (startedTx)
+                {
+                    UnitOfWork.Commit();
+                    committed = true;
+                }
+                return result;
+            }
+            catch
+            {
+                if (startedTx && !committed)
+                    try { UnitOfWork.Rollback(); } catch { /* swallow secondary failure */ }
+                throw;
+            }
+            finally
+            {
+                if (openedConn) Disconnect();
+            }
+        }
+
+        /// <summary>Void overload of <see cref="RunWrite{T}"/>.</summary>
+        protected void RunWrite(Action operation)
+            => RunWrite<object>(() => { operation(); return null; });
 
         // ── CRUD ──────────────────────────────────────────────────────────────────────
 

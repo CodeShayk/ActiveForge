@@ -17,6 +17,12 @@ namespace Turquoise.ORM.Transactions
     /// ambient transaction instead of starting a new one; the depth counter in
     /// <see cref="UnitOfWorkBase"/> handles the nesting safely.
     /// </para>
+    /// <para>
+    /// <b>Interface proxy support:</b> attribute resolution checks
+    /// <c>IInvocation.MethodInvocationTarget</c> (the concrete implementation method) first,
+    /// then the interface method.  Place <c>[Transaction]</c> on the implementing class or
+    /// the interface — both are detected correctly.
+    /// </para>
     /// </summary>
     public class TransactionInterceptor : IInterceptor
     {
@@ -31,7 +37,7 @@ namespace Turquoise.ORM.Transactions
 
         public void Intercept(IInvocation invocation)
         {
-            TransactionAttribute attr = GetTransactionAttribute(invocation.Method);
+            TransactionAttribute attr = GetTransactionAttribute(invocation);
 
             if (attr == null)
             {
@@ -61,14 +67,30 @@ namespace Turquoise.ORM.Transactions
 
         // ── Attribute resolution ─────────────────────────────────────────────────────
 
-        private static TransactionAttribute GetTransactionAttribute(MethodInfo method)
+        private static TransactionAttribute GetTransactionAttribute(IInvocation invocation)
         {
-            // Method-level attribute takes precedence.
-            var methodAttr = method.GetCustomAttribute<TransactionAttribute>(inherit: true);
-            if (methodAttr != null) return methodAttr;
+            // Prefer the concrete implementation method so that attributes placed on the
+            // implementing class (not the interface) are found correctly for interface proxies.
+            var implMethod = invocation.MethodInvocationTarget ?? invocation.Method;
 
-            // Fall back to class-level attribute.
-            return method.DeclaringType?.GetCustomAttribute<TransactionAttribute>(inherit: true);
+            var attr = implMethod.GetCustomAttribute<TransactionAttribute>(inherit: true);
+            if (attr != null) return attr;
+
+            attr = implMethod.DeclaringType?.GetCustomAttribute<TransactionAttribute>(inherit: true);
+            if (attr != null) return attr;
+
+            // Fall back to the interface/proxy method.
+            if (implMethod != invocation.Method)
+            {
+                attr = invocation.Method.GetCustomAttribute<TransactionAttribute>(inherit: true);
+                if (attr != null) return attr;
+
+                attr = invocation.Method.DeclaringType?
+                                 .GetCustomAttribute<TransactionAttribute>(inherit: true);
+                if (attr != null) return attr;
+            }
+
+            return null;
         }
     }
 }
