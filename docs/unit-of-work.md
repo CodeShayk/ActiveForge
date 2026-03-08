@@ -268,9 +268,11 @@ With.SetLogger(loggerFactory.CreateLogger("Turquoise.ORM.Transactions.With"));
 
 ## NuGet packages
 
-| Package | Purpose |
-|---------|---------|
-| `Castle.Core` 5.1.1 | DynamicProxy runtime |
-| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `ILogger` abstraction |
+| Package | Assembly | Purpose |
+|---------|----------|---------|
+| `Castle.Core` 5.1.1 | `Turquoise.ORM` | DynamicProxy runtime for `TransactionInterceptor` / `DataConnectionProxyFactory` |
+| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM` | `ILogger` abstraction used by `UnitOfWorkBase` |
+| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM.SqlServer` | `ILogger<SqlServerUnitOfWork>` parameter |
+| `Microsoft.Data.SqlClient` 5.2.1 | `Turquoise.ORM.SqlServer` | ADO.NET SQL Server driver |
 
-Both are included automatically when you reference `Turquoise.ORM`.
+`SqlServerUnitOfWork` is part of `Turquoise.ORM.SqlServer`. All other Unit of Work types (`IUnitOfWork`, `UnitOfWorkBase`, `With`, `TransactionInterceptor`, `TurquoiseServiceLocator`) are in `Turquoise.ORM` and have no SQL Server dependency.

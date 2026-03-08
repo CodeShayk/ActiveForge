@@ -1,6 +1,13 @@
 # Turquoise.ORM
 
-A lightweight, Active Record-style ORM for .NET 8 targeting SQL Server.
+A lightweight, Active Record-style ORM for .NET 8.
+
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| `Turquoise.ORM` | Core library — entities, fields, predicates, LINQ, transactions, abstractions |
+| `Turquoise.ORM.SqlServer` | SQL Server provider — `SqlServerConnection`, adapter implementations, `SqlServerUnitOfWork` |
 
 ## Features
 
@@ -21,7 +28,7 @@ A lightweight, Active Record-style ORM for .NET 8 targeting SQL Server.
 ## Requirements
 
 - .NET 8.0
-- SQL Server (via `Microsoft.Data.SqlClient` 5.2.1)
+- For SQL Server: `Turquoise.ORM.SqlServer` (wraps `Microsoft.Data.SqlClient` 5.2.1)
 
 ## Quick Start
 
@@ -57,7 +64,8 @@ public class Product : IdentDataObject
 ### 3. Connect and use
 
 ```csharp
-using Turquoise.ORM;
+using Turquoise.ORM;          // core types
+// using Turquoise.ORM;       // SqlServerConnection lives here (same namespace, SqlServer assembly)
 
 var conn = new SqlServerConnection(
     "Server=.;Database=Demo;Integrated Security=True;TrustServerCertificate=True;",
@@ -103,14 +111,21 @@ p.Delete();
 ```
 Turquoise.ORM/
 ├── src/
-│   └── Turquoise.ORM/
-│       ├── Attributes/         ← [Table], [Column], [Identity], etc.
-│       ├── Adapters/           ← Adapter interfaces + SQL Server impl
-│       ├── Fields/             ← TString, TInt, TDecimal, ... (25+ types)
-│       └── Query/              ← QueryTerm, SortOrder, EqualTerm, ...
+│   ├── Turquoise.ORM/              ← Core library (provider-agnostic)
+│   │   ├── Attributes/             ← [Table], [Column], [Identity], etc.
+│   │   ├── Adapters/               ← Abstract adapter interfaces (ConnectionBase, etc.)
+│   │   ├── Fields/                 ← TString, TInt, TDecimal, ... (25+ types)
+│   │   ├── Linq/                   ← LINQ query support (OrmQueryable, ExpressionVisitor)
+│   │   ├── Query/                  ← QueryTerm, SortOrder, EqualTerm, ...
+│   │   └── Transactions/           ← IUnitOfWork, UnitOfWorkBase, With, TransactionInterceptor
+│   └── Turquoise.ORM.SqlServer/    ← SQL Server provider
+│       ├── Adapters/               ← SqlAdapterCommand/Connection/Reader/Transaction
+│       ├── Transactions/           ← SqlServerUnitOfWork
+│       └── SqlServerConnection.cs  ← Main SQL Server connection class
 ├── tests/
-│   └── Turquoise.ORM.Tests/    ← xUnit tests (232 tests)
+│   ├── Turquoise.ORM.Tests/        ← xUnit tests for core library (314 tests)
+│   └── Turquoise.ORM.SqlServer.Tests/ ← xUnit tests for SQL Server provider (50 tests)
 ├── examples/
-│   └── Turquoise.ORM.Examples/ ← Runnable console examples
-└── docs/                       ← This documentation
+│   └── Turquoise.ORM.Examples/     ← Runnable console examples
+└── docs/                           ← This documentation
 ```

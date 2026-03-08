@@ -36,7 +36,7 @@ namespace Turquoise.ORM.Transactions
         /// </summary>
         /// <typeparam name="TConnection">
         /// A concrete, non-sealed subclass of <see cref="DataConnection"/> whose CRUD methods
-        /// are virtual (e.g. <see cref="SqlServerConnection"/>).
+        /// are virtual (e.g. <c>SqlServerConnection</c> from <c>Turquoise.ORM.SqlServer</c>).
         /// </typeparam>
         /// <param name="connection">The real connection instance to wrap.</param>
         /// <param name="unitOfWork">The unit-of-work that manages the transaction lifecycle.</param>

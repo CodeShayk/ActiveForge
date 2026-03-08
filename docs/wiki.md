@@ -120,27 +120,40 @@ Some teams use plain data transfer objects with a separate command/query handler
 
 ## 2. Architecture Overview
 
-Turquoise.ORM is a **lightweight Active Record ORM** for .NET 8 targeting SQL Server.
+Turquoise.ORM is a **lightweight Active Record ORM** for .NET 8. It is split across two assemblies to keep provider-specific concerns separate from the core abstractions.
+
+### 2.1 Assembly Split
+
+| Assembly | NuGet / Project | Contents |
+|----------|----------------|----------|
+| `Turquoise.ORM` | Core | Entities, TField types, QueryTerm predicates, LINQ layer, transactions (abstract), adapters (abstract) |
+| `Turquoise.ORM.SqlServer` | SQL Server provider | `SqlServerConnection`, SQL adapter implementations, `SqlServerUnitOfWork` |
+
+Your application references both. Entity classes only need `Turquoise.ORM`; `SqlServerConnection` is resolved at runtime from `Turquoise.ORM.SqlServer`.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Your Application                                               │
-│                                                                 │
-│  DataObject subclass  ──── CRUD calls ────► DataConnection      │
-│  (fields, business logic)                   (SqlServerConnection)│
-│                                                 │               │
-│  QueryTerm tree  ──────── query calls ──────────┤               │
-│  LINQ (conn.Query<T>())  ─ translated ──────────┤               │
-│                                                 ▼               │
-│                                           ADO.NET / SQL Server  │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Your Application                                                        │
+│                                                                          │
+│  DataObject subclass ──── CRUD ────► DataConnection (abstract, core)    │
+│  (fields, logic)                         │                               │
+│  QueryTerm / LINQ ─── query calls ───────┤                               │
+│                                          │ implemented by                │
+│                                    SqlServerConnection                   │
+│                                    (Turquoise.ORM.SqlServer)             │
+│                                          │                               │
+│                                          ▼                               │
+│                                    ADO.NET / SQL Server                  │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Core principles:**
+### 2.2 Core Principles
+
 - **Active Record** — `DataObject` instances know how to persist themselves via a shared `DataConnection`.
 - **Type-safe fields** — every column is represented by a `TField` subclass, not a bare property. This tracks null/loaded state and enables predicate construction.
 - **Composable predicates** — `QueryTerm` objects compose with C# `&`, `|`, `!` operators to build arbitrary WHERE clauses.
 - **Connection-centric** — `DataConnection` is the single point of query execution; entities delegate to it.
+- **Provider-agnostic core** — `Turquoise.ORM` has no dependency on `Microsoft.Data.SqlClient`. Only `Turquoise.ORM.SqlServer` does.
 
 ---
 
@@ -351,7 +364,10 @@ if (!product.Name.IsLoaded()) { ... } // never set at all
 
 ### 5.1 Creating a Connection
 
+`SqlServerConnection` lives in the `Turquoise.ORM.SqlServer` assembly but uses the `Turquoise.ORM` namespace, so no extra `using` directive is needed once both assemblies are referenced.
+
 ```csharp
+// Project references: Turquoise.ORM + Turquoise.ORM.SqlServer
 using Turquoise.ORM;
 
 var factory = new ShopFactory();   // your FactoryBase subclass (can be FactoryBase if no polymorphism)
@@ -1276,6 +1292,29 @@ var categories = conn.QueryAll(new Category(conn), null, null, 0, null);
 ---
 
 ## 21. Architecture Deep Dive
+
+### 21.0 Assembly Boundaries
+
+```
+Turquoise.ORM (core, no SQL Server dependency)
+├── DataObject / IdentDataObject / LookupDataObject
+├── DataConnection (abstract) / DBDataConnection (abstract)
+├── TField subtypes (25+)
+├── QueryTerm tree (EqualTerm, AndTerm, InTerm, …)
+├── LINQ layer (OrmQueryable, ExpressionToQueryTermVisitor, …)
+├── Adapter abstractions (ConnectionBase, CommandBase, ReaderBase, TransactionBase)
+└── Transactions (IUnitOfWork, UnitOfWorkBase, With, TransactionInterceptor, …)
+
+Turquoise.ORM.SqlServer (depends on Turquoise.ORM + Microsoft.Data.SqlClient)
+├── SqlServerConnection : DBDataConnection
+├── Adapters/SqlAdapterConnection   (wraps SqlConnection)
+├── Adapters/SqlAdapterCommand      (wraps SqlCommand)
+├── Adapters/SqlAdapterReader       (wraps SqlDataReader)
+├── Adapters/SqlAdapterTransaction  (wraps SqlTransaction)
+└── Transactions/SqlServerUnitOfWork : UnitOfWorkBase
+```
+
+All types in `Turquoise.ORM.SqlServer` use the `Turquoise.ORM` (or `Turquoise.ORM.Adapters.SqlServer` / `Turquoise.ORM.Transactions`) namespace — the same namespace as the core types they extend. This means consuming code only needs `using Turquoise.ORM;`.
 
 ### 21.1 ObjectBinding — Reflection Cache
 

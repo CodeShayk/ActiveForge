@@ -2,13 +2,25 @@
 
 ## Installation
 
-Reference the project directly (or package it as a NuGet):
+Turquoise.ORM is split into two assemblies. Reference both in your application project:
 
 ```xml
 <ItemGroup>
+  <!-- Core library: entities, fields, predicates, LINQ, transaction abstractions -->
   <ProjectReference Include="..\Turquoise.ORM\Turquoise.ORM.csproj" />
+  <!-- SQL Server provider: SqlServerConnection, adapter implementations, SqlServerUnitOfWork -->
+  <ProjectReference Include="..\Turquoise.ORM.SqlServer\Turquoise.ORM.SqlServer.csproj" />
 </ItemGroup>
 ```
+
+If consuming published NuGet packages:
+
+```xml
+<PackageReference Include="Turquoise.ORM" Version="1.0.0" />
+<PackageReference Include="Turquoise.ORM.SqlServer" Version="1.0.0" />
+```
+
+`SqlServerConnection` lives in the `Turquoise.ORM` namespace (not `Turquoise.ORM.SqlServer`), so no extra `using` directive is required.
 
 ## Concepts
 

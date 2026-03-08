@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Turquoise.ORM\Turquoise.ORM.csproj" />
+    <ProjectReference Include="..\..\src\Turquoise.ORM.SqlServer\Turquoise.ORM.SqlServer.csproj" />
   </ItemGroup>
 </Project>
