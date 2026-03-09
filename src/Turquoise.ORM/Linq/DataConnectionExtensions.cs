@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 
 namespace Turquoise.ORM.Linq
 {
@@ -15,18 +14,26 @@ namespace Turquoise.ORM.Linq
     ///     .Take(20)
     ///     .ToList();
     /// </code>
+    ///
+    /// <para>Join-type overrides:</para>
+    /// <code>
+    /// var products = conn.Query&lt;ProductWithCategory&gt;()
+    ///     .LeftOuterJoin&lt;Category&gt;()          // override class-level INNER JOIN
+    ///     .Where(p => p.Category.Name == "Books")
+    ///     .ToList();
+    /// </code>
     /// </summary>
     public static class DataConnectionExtensions
     {
         /// <summary>
-        /// Returns an <see cref="IQueryable{T}"/> for <typeparamref name="T"/> backed by
+        /// Returns an <see cref="OrmQueryable{T}"/> for <typeparamref name="T"/> backed by
         /// <paramref name="connection"/>. Compose LINQ operators (Where, OrderBy, Take, Skip)
-        /// before iterating — each operator is translated to the equivalent
-        /// <see cref="Turquoise.ORM.Query.QueryTerm"/> and executed in a single ORM query.
+        /// and optional join-type overrides (<see cref="OrmQueryable{T}.InnerJoin{TJoined}"/>,
+        /// <see cref="OrmQueryable{T}.LeftOuterJoin{TJoined}"/>) before iterating.
         /// </summary>
         /// <typeparam name="T">A concrete <see cref="DataObject"/> subclass.</typeparam>
         /// <param name="connection">The open database connection to query against.</param>
-        public static IQueryable<T> Query<T>(this DataConnection connection) where T : DataObject
+        public static OrmQueryable<T> Query<T>(this DataConnection connection) where T : DataObject
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
             T template = (T)connection.Create(typeof(T));
@@ -37,7 +44,7 @@ namespace Turquoise.ORM.Linq
         /// Overload that accepts a pre-constructed template object.
         /// Useful when the entity type requires a non-default factory or owner.
         /// </summary>
-        public static IQueryable<T> Query<T>(this DataConnection connection, T template) where T : DataObject
+        public static OrmQueryable<T> Query<T>(this DataConnection connection, T template) where T : DataObject
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
             if (template   == null) throw new ArgumentNullException(nameof(template));

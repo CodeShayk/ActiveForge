@@ -21,9 +21,9 @@ namespace Turquoise.ORM.Linq
     /// </list>
     ///
     /// <para>
-    /// Field accessor: the left-hand side of a comparison must be a direct field access on
-    /// the LINQ parameter (e.g. <c>x.Name</c> where <c>Name</c> is a <see cref="TField"/>
-    /// instance on the template <see cref="DataObject"/>).
+    /// Field accessor: the left-hand side of a comparison must be a <see cref="TField"/>
+    /// field access on the LINQ parameter, either direct (<c>x.Name</c>) or via an
+    /// embedded <see cref="DataObject"/> (<c>x.Category.Name</c> for joined entities).
     /// </para>
     /// </summary>
     public sealed class ExpressionToQueryTermVisitor : ExpressionVisitor
@@ -83,34 +83,41 @@ namespace Turquoise.ORM.Linq
                     if (v == null)
                     {
                         // x.Field != null  →  NOT IsNull
-                        TField field = ExtractField(b.Left);
-                        return !new IsNullTerm(_template, field);
+                        var (target, field) = ExtractField(b.Left);
+                        return !new IsNullTerm(target, field);
                     }
-                    return !new EqualTerm(_template, ExtractField(b.Left), v);
+                    {
+                        var (target, field) = ExtractField(b.Left);
+                        return !new EqualTerm(target, field, v);
+                    }
                 }
 
                 case ExpressionType.GreaterThan:
                 {
                     var b = (BinaryExpression)expr;
-                    return new GreaterThanTerm(_template, ExtractField(b.Left), ExtractValue(b.Right));
+                    var (target, field) = ExtractField(b.Left);
+                    return new GreaterThanTerm(target, field, ExtractValue(b.Right));
                 }
 
                 case ExpressionType.GreaterThanOrEqual:
                 {
                     var b = (BinaryExpression)expr;
-                    return new GreaterOrEqualTerm(_template, ExtractField(b.Left), ExtractValue(b.Right));
+                    var (target, field) = ExtractField(b.Left);
+                    return new GreaterOrEqualTerm(target, field, ExtractValue(b.Right));
                 }
 
                 case ExpressionType.LessThan:
                 {
                     var b = (BinaryExpression)expr;
-                    return new LessThanTerm(_template, ExtractField(b.Left), ExtractValue(b.Right));
+                    var (target, field) = ExtractField(b.Left);
+                    return new LessThanTerm(target, field, ExtractValue(b.Right));
                 }
 
                 case ExpressionType.LessThanOrEqual:
                 {
                     var b = (BinaryExpression)expr;
-                    return new LessOrEqualTerm(_template, ExtractField(b.Left), ExtractValue(b.Right));
+                    var (target, field) = ExtractField(b.Left);
+                    return new LessOrEqualTerm(target, field, ExtractValue(b.Right));
                 }
 
                 case ExpressionType.Call:
@@ -137,12 +144,12 @@ namespace Turquoise.ORM.Linq
             }
 
             object value = ExtractValue(right);
+            var (target, field) = ExtractField(left);
 
             if (value == null && allowNull)
-                return new IsNullTerm(_template, ExtractField(left));
+                return new IsNullTerm(target, field);
 
-            TField field = ExtractField(left);
-            return new EqualTerm(_template, field, value);
+            return new EqualTerm(target, field, value);
         }
 
         // ── Method call translation ───────────────────────────────────────────────────
@@ -158,26 +165,26 @@ namespace Turquoise.ORM.Linq
                 // Enumerable.Contains(source, element) — static extension method
                 if (mc.Method.IsStatic && mc.Arguments.Count == 2)
                 {
-                    TField        field  = ExtractField(mc.Arguments[1]);
+                    var (target, field) = ExtractField(mc.Arguments[1]);
                     IList<object> values = EvaluateAsObjectList(mc.Arguments[0]);
-                    return new InTerm(_template, field, values);
+                    return new InTerm(target, field, values);
                 }
 
                 // instance.Contains(x.Field) — instance method on a list/collection
                 if (!mc.Method.IsStatic && mc.Arguments.Count == 1)
                 {
-                    TField        field  = ExtractField(mc.Arguments[0]);
+                    var (target, field) = ExtractField(mc.Arguments[0]);
                     IList<object> values = EvaluateAsObjectList(mc.Object);
-                    return new InTerm(_template, field, values);
+                    return new InTerm(target, field, values);
                 }
             }
 
             // TString / string field.Contains("...") — translate to LikeTerm with %...%
             if (name == "Contains" && mc.Object != null && IsFieldAccess(mc.Object))
             {
-                TField field = ExtractField(mc.Object);
+                var (target, field) = ExtractField(mc.Object);
                 string value = (string)EvaluateExpression(mc.Arguments[0]);
-                return new ContainsTerm(_template, (TString)field, value);
+                return new ContainsTerm(target, (TString)field, value);
             }
 
             throw new NotSupportedException(
@@ -193,7 +200,12 @@ namespace Turquoise.ORM.Linq
             return false;
         }
 
-        private TField ExtractField(Expression expr)
+        /// <summary>
+        /// Extracts the (containing DataObject, TField) pair from an expression.
+        /// Supports direct field access on the parameter (<c>x.Name</c>) and cross-join
+        /// navigation through embedded DataObject fields (<c>x.Category.Name</c>).
+        /// </summary>
+        private (DataObject target, TField field) ExtractField(Expression expr)
         {
             // Handle implicit conversions (Convert node) wrapping the field access.
             if (expr is UnaryExpression ue && ue.NodeType == ExpressionType.Convert)
@@ -202,14 +214,20 @@ namespace Turquoise.ORM.Linq
             if (expr is MemberExpression me && me.Member is FieldInfo fi
                 && fi.FieldType.IsSubclassOf(typeof(TField)))
             {
-                // The member access must be on the LINQ parameter (x.SomeField).
+                // The member access must be on the LINQ parameter (x.SomeField)
+                // or on a DataObject field reachable from the parameter (x.Category.Name).
                 if (me.Expression == _parameter || IsChainedOnParameter(me.Expression))
-                    return (TField)fi.GetValue(_template);
+                {
+                    DataObject container = ResolveContainer(me.Expression);
+                    return (container, (TField)fi.GetValue(container));
+                }
             }
 
             throw new NotSupportedException(
                 $"Cannot extract TField from expression '{expr}'. " +
-                "The left-hand side of a comparison must be a direct TField field access on the query parameter.");
+                "The left-hand side of a comparison must be a TField field access on the " +
+                "query parameter (e.g. 'x.Name') or on an embedded DataObject " +
+                "(e.g. 'x.Category.Name' for a joined entity).");
         }
 
         // ── Value extraction ──────────────────────────────────────────────────────────
@@ -254,14 +272,36 @@ namespace Turquoise.ORM.Linq
                 $"Expected an enumerable collection, got '{raw?.GetType().Name}'.");
         }
 
-        // ── Navigation ────────────────────────────────────────────────────────────────
+        // ── Navigation helpers ────────────────────────────────────────────────────────
 
         private bool IsChainedOnParameter(Expression expr)
         {
-            // Allows x.NestedObj.Field for E2 navigation (partial support).
+            // Allows x.NestedObj.Field for join navigation.
             if (expr == _parameter) return true;
             if (expr is MemberExpression me) return IsChainedOnParameter(me.Expression);
             return false;
+        }
+
+        /// <summary>
+        /// Walks the member-access chain rooted at <see cref="_parameter"/> on the
+        /// template object, resolving each DataObject field along the way.
+        /// For <c>x.Category.Name</c> the chain is: parameter → Category (DataObject) → Name (TField);
+        /// this method resolves the "Category" step and returns <c>_template.Category</c>.
+        /// </summary>
+        private DataObject ResolveContainer(Expression expr)
+        {
+            if (expr == _parameter) return _template;
+
+            if (expr is MemberExpression me && me.Member is FieldInfo fi
+                && fi.FieldType.IsSubclassOf(typeof(DataObject)))
+            {
+                DataObject parent = ResolveContainer(me.Expression);
+                return (DataObject)fi.GetValue(parent);
+            }
+
+            throw new NotSupportedException(
+                $"Cannot resolve DataObject container from expression '{expr}'. " +
+                "Navigation must go through DataObject fields on the query parameter.");
         }
     }
 }

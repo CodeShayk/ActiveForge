@@ -49,13 +49,24 @@ namespace Turquoise.ORM
             => string.Join(GetStringConnectionOperator(), parts);
 
         /// <summary>
-        /// SQLite uses <c>LIMIT N</c> appended at the end of the query.
-        /// The <paramref name="fieldsAndFrom"/> argument already contains the fields list
-        /// and FROM clause; this method wraps it in a sub-select so that LIMIT applies
-        /// correctly regardless of other clauses appended later.
+        /// SQLite uses <c>LIMIT N OFFSET M</c> as a suffix appended after WHERE and
+        /// ORDER BY.  Row-count limiting is therefore handled by
+        /// <see cref="GetPageSuffix"/> rather than by embedding it in the SELECT stub.
+        /// This override strips the row-limit from the stub so that the query SQL
+        /// remains syntactically valid when WHERE / ORDER BY are appended later.
         /// </summary>
         public override string LimitRowCount(int count, string fieldsAndFrom)
-            => $"SELECT {fieldsAndFrom} LIMIT {count}";
+            => $"SELECT {fieldsAndFrom}";
+
+        /// <summary>
+        /// Returns a <c>LIMIT count [OFFSET start]</c> clause appended after the full
+        /// WHERE and ORDER BY SQL.  SQLite handles pagination entirely as a suffix.
+        /// </summary>
+        protected override string GetPageSuffix(int start, int count)
+        {
+            if (count <= 0 || count >= int.MaxValue) return "";
+            return start > 0 ? $" LIMIT {count} OFFSET {start}" : $" LIMIT {count}";
+        }
 
         /// <summary>SQLite does not require IDENTITY_INSERT toggling.</summary>
         public override string PreInsertIdentityCommand(string sourceName)  => "";

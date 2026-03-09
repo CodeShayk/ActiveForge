@@ -42,15 +42,19 @@ var items = conn.Query<Product>()
 
 ```csharp
 // DataConnectionExtensions (Turquoise.ORM.Linq namespace)
-public static IQueryable<T> Query<T>(this DataConnection connection)
+public static OrmQueryable<T> Query<T>(this DataConnection connection)
     where T : DataObject;
 
-// Overload with pre-constructed template (useful with custom factories)
-public static IQueryable<T> Query<T>(this DataConnection connection, T template)
+// Overload with pre-constructed template (useful with custom factories or join queries)
+public static OrmQueryable<T> Query<T>(this DataConnection connection, T template)
     where T : DataObject;
 ```
 
-Internally, `Query<T>()` creates a template instance (`conn.Create(typeof(T))`), wraps it in an `OrmQueryable<T>`, and returns an `IQueryable<T>`.
+Internally, `Query<T>()` creates a template instance (`conn.Create(typeof(T))`), wraps it in an `OrmQueryable<T>`, and returns it.
+
+> **Tip for join queries**: use the template overload with an explicitly-connected template:
+> `conn.Query(new ProductWithCategory(conn))`. This ensures `QueryTerm` initialisation
+> has a live connection to resolve column metadata.
 
 ---
 
@@ -216,6 +220,62 @@ foreach (var product in products)
 
 ---
 
+## Querying Across Joins
+
+When your entity embeds another `DataObject` (triggering a JOIN), LINQ predicates and sort selectors can navigate into the joined type directly.
+
+### Cross-Join `Where` Predicates
+
+```csharp
+// x.Category.Name navigates the embedded DataObject → maps to Categories.Name
+conn.Query(new ProductWithCategory(conn))
+    .Where(x => x.Category.Name == "Books")
+    .ToList();
+
+// Null check on a joined column
+conn.Query(new ProductWithOptionalCategory(conn))
+    .Where(x => x.Category.Name == (TString)null)   // IS NULL
+    .ToList();
+
+// Mixed: own column AND joined column
+conn.Query(new ProductWithCategory(conn))
+    .Where(x => x.Price < 20m && x.Category.Name == "Books")
+    .ToList();
+```
+
+### Cross-Join `OrderBy` Selectors
+
+```csharp
+conn.Query(new ProductWithCategory(conn))
+    .OrderBy(x => x.Category.Name)
+    .ThenByDescending(x => x.Price)
+    .ToList();
+```
+
+### Query-Time Join-Type Override
+
+Use `.InnerJoin<T>()` or `.LeftOuterJoin<T>()` to override the join type for a single query without modifying the entity class:
+
+```csharp
+// Entity class uses INNER JOIN by convention — override to LEFT OUTER for this query
+conn.Query(new ProductWithCategory(conn))
+    .LeftOuterJoin<Category>()
+    .Where(x => x.Price > 5m)
+    .OrderBy(x => x.Category.Name)
+    .ToList();
+
+// Entity class has [JoinSpec(LeftOuterJoin)] — restore INNER JOIN for this query
+conn.Query(new ProductWithOptionalCategory(conn))
+    .InnerJoin<Category>()
+    .ToList();
+```
+
+Override calls can appear anywhere in the chain; calling the same type twice replaces the earlier override.
+
+See [joins.md](joins.md) for the full joins reference including convention-based joins, `[JoinSpec]` attributes, multi-FK joins, and EXISTS sub-queries.
+
+---
+
 ## Combining with QueryTerm API
 
 You can mix LINQ and the existing `QueryTerm` API:
@@ -251,7 +311,7 @@ The expression tree is traversed **at execution time**, so local variables are c
 | Limitation | Notes |
 |------------|-------|
 | No `GroupBy` | Not supported; use raw SQL or `ExecSQL`. |
-| No `Join` clause | Joins are handled through embedded `DataObject` fields (E1 strategy). See [query-builder.md](query-builder.md). |
+| No `Join` clause | Cross-join predicates and sorts work via embedded `DataObject` fields. See [joins.md](joins.md). |
 | No `Select` projection | Returns full typed `DataObject` instances; field subsets can be applied at the `conn.Query<T>(template)` level. |
 | No `Count()`, `First()`, etc. | Call the standard ORM methods (`conn.QueryCount(...)`, `conn.QueryFirst(...)`) directly. |
 | No async support | Use the synchronous API; async is planned for a future release. |
@@ -268,3 +328,4 @@ The expression tree is traversed **at execution time**, so local variables are c
 | `ExpressionToSortVisitor` | Translates key-selector lambdas to `SortOrder` |
 | `CombinedSortOrder` | Composes multiple `SortOrder` instances for multi-column ORDER BY |
 | `DataConnectionExtensions` | Adds `.Query<T>()` extension method to `DataConnection` |
+| `JoinOverride` | Struct holding a `(Type, JoinTypeEnum)` pair for query-time join type overrides |

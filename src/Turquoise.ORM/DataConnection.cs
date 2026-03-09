@@ -142,6 +142,26 @@ namespace Turquoise.ORM
         public abstract IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset) where T : DataObject;
         public abstract IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset) where T : DataObject;
 
+        // ── Query with join-type overrides (virtual; default ignores overrides) ────────
+
+        /// <summary>
+        /// Executes a QueryAll query with optional query-time join-type overrides.
+        /// Overrides change the join type (INNER/LEFT OUTER) for specific embedded
+        /// <see cref="DataObject"/> types without modifying the entity class.
+        /// The default implementation ignores <paramref name="joinOverrides"/> and
+        /// falls back to the standard <see cref="QueryAll(DataObject,QueryTerm,SortOrder,int,FieldSubset)"/>.
+        /// </summary>
+        public virtual ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+            => QueryAll(obj, term, sortOrder, pageSize, fieldSubset);
+
+        /// <inheritdoc cref="QueryAll(DataObject,QueryTerm,SortOrder,int,FieldSubset,IReadOnlyList{JoinOverride})"/>
+        public virtual IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides) where T : DataObject
+            => LazyQueryAll<T>(obj, term, sortOrder, pageSize, fieldSubset);
+
+        /// <inheritdoc cref="QueryAll(DataObject,QueryTerm,SortOrder,int,FieldSubset,IReadOnlyList{JoinOverride})"/>
+        public virtual ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+            => QueryPage(obj, term, sortOrder, start, count, fieldSubset);
+
         // ── QueryPage ─────────────────────────────────────────────────────────────────
 
         public abstract ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset);

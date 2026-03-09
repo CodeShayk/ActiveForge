@@ -104,13 +104,25 @@ namespace Turquoise.ORM.Examples
                             else
                                 Console.WriteLine("  LINQ querying example requires SQL Server.");
                             break;
+                        case '8':
+                            if (conn is SqlServerConnection sqlConn3)
+                                JoinsExample.Run(sqlConn3);
+                            else
+                                Console.WriteLine("  Joins example requires SQL Server.");
+                            break;
+                        case '9':
+                            if (conn is SqlServerConnection sqlConn4)
+                                LinqJoinsExample.Run(sqlConn4);
+                            else
+                                Console.WriteLine("  LINQ joins example requires SQL Server.");
+                            break;
                         case 'q':
                         case 'Q':
                             Console.WriteLine("  Goodbye!");
                             conn.Disconnect();
                             return;
                         default:
-                            Console.WriteLine("  Unknown option — press 1-7 or Q.");
+                            Console.WriteLine("  Unknown option — press 1-9 or Q.");
                             break;
                     }
                 }
@@ -168,8 +180,10 @@ namespace Turquoise.ORM.Examples
             Console.WriteLine("  5 — Lazy enumeration (streaming large result sets)");
             Console.WriteLine("  6 — Unit of Work (IUnitOfWork, With.Transaction)");
             Console.WriteLine("  7 — LINQ querying (SQL Server only)");
+            Console.WriteLine("  8 — Joins (INNER, LEFT OUTER, multi-FK, EXISTS sub-query — SQL Server only)");
+            Console.WriteLine("  9 — LINQ joins (cross-join Where/OrderBy, join-type overrides — SQL Server only)");
             Console.WriteLine("  Q — Quit");
-            Console.Write("\n  Enter 1–7 or Q: ");
+            Console.Write("\n  Enter 1–9 or Q: ");
         }
     }
 }

@@ -965,6 +965,43 @@ namespace Turquoise.ORM
                 yield return (T)item;
         }
 
+        // ── QUERY ALL / LAZY QUERY ALL — JOIN OVERRIDES ───────────────────────────
+
+        public override ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+        {
+            if (joinOverrides == null || joinOverrides.Count == 0)
+                return QueryAll(obj, term, sortOrder, pageSize, fieldSubset);
+            var node = new QueryNode(this, obj);
+            node.SetTerm(term);
+            node.SetSortOrder(sortOrder);
+            node.SetCount(pageSize);
+            node.SetFieldSubset(fieldSubset);
+            node.SetJoinOverrides(joinOverrides);
+            return node.QueryAll();
+        }
+
+        public override IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+        {
+            if (joinOverrides == null || joinOverrides.Count == 0)
+                return LazyQueryAll<T>(obj, term, sortOrder, pageSize, fieldSubset);
+            var results = QueryAll(obj, term, sortOrder, pageSize, fieldSubset, joinOverrides);
+            return System.Linq.Enumerable.Cast<T>(results);
+        }
+
+        public override ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+        {
+            if (joinOverrides == null || joinOverrides.Count == 0)
+                return QueryPage(obj, term, sortOrder, start, count, fieldSubset);
+            var node = new QueryNode(this, obj);
+            node.SetTerm(term);
+            node.SetSortOrder(sortOrder);
+            node.SetStart(start);
+            node.SetCount(count);
+            node.SetFieldSubset(fieldSubset);
+            node.SetJoinOverrides(joinOverrides);
+            return node.QueryPage();
+        }
+
         // ── QUERY PAGE ────────────────────────────────────────────────────────────
 
         public override ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset)
@@ -1441,7 +1478,8 @@ namespace Turquoise.ORM
 
         protected string GetQuerySQLStub(ObjectBinding binding, FieldSubset fieldSubset, List<FieldBinding> fieldBindingSubset, int rowCount,
             Dictionary<Type, FieldSubset> fieldSubsets, ObjectParameterCollectionBase objectParameters,
-            Dictionary<Type, ObjectParameterCollectionBase> concreteTypeObjectParameters)
+            Dictionary<Type, ObjectParameterCollectionBase> concreteTypeObjectParameters,
+            IReadOnlyList<JoinOverride> joinOverrides = null)
         {
             var fields = new StringBuilder(512);
 
@@ -1473,6 +1511,8 @@ namespace Turquoise.ORM
             string joins;
             if (fieldSubsets != null)
                 joins = GetJoinSQL(binding, fieldSubsets, false, concreteTypeObjectParameters);
+            else if (joinOverrides != null && joinOverrides.Count > 0)
+                joins = GetJoinSQL(binding, fieldSubset, false, joinOverrides);
             else
                 joins = GetJoinSQL(binding, fieldSubset, false);
 
@@ -1498,6 +1538,27 @@ namespace Turquoise.ORM
             var specs = new List<JoinSpecification>();
             binding.GetJoinSpecifications(ref specs, fieldSubset, withUpdateLock);
             return JoinSQLFromJoinSpecifications(specs, withUpdateLock, null);
+        }
+
+        /// <summary>
+        /// Variant of <see cref="GetJoinSQL(ObjectBinding,FieldSubset,bool)"/> that applies
+        /// query-time join-type overrides before generating SQL.
+        /// </summary>
+        protected string GetJoinSQL(ObjectBinding binding, FieldSubset fieldSubset, bool withUpdateLock, IReadOnlyList<JoinOverride> overrides)
+        {
+            var specs = new List<JoinSpecification>();
+            binding.GetJoinSpecifications(ref specs, fieldSubset, withUpdateLock);
+            ApplyJoinOverrides(specs, overrides);
+            return JoinSQLFromJoinSpecifications(specs, withUpdateLock, null);
+        }
+
+        private static void ApplyJoinOverrides(List<JoinSpecification> specs, IReadOnlyList<JoinOverride> overrides)
+        {
+            if (overrides == null || overrides.Count == 0) return;
+            foreach (var ov in overrides)
+                for (int i = 0; i < specs.Count; i++)
+                    if (specs[i].JoinTargetClass == ov.TargetType)
+                        specs[i].JoinType = ov.JoinType;
         }
 
         protected string GetJoinSQL(ObjectBinding binding, Dictionary<Type, FieldSubset> fieldSubsets, bool withUpdateLock, Dictionary<Type, ObjectParameterCollectionBase> concreteTypeObjectParams)
@@ -1533,6 +1594,19 @@ namespace Turquoise.ORM
                 _                                              => " INNER JOIN ",
             };
         }
+
+        // ── PAGINATION SUFFIX ────────────────────────────────────────────────────────
+        //
+        // Dialects that use a suffix-style row limit (e.g. SQLite's LIMIT N OFFSET M)
+        // override this method and return the suffix string that is appended after the
+        // WHERE and ORDER BY clauses have already been appended to the query.
+        // The default implementation returns an empty string (no suffix); such dialects
+        // instead embed the row limit via LimitRowCount (e.g. SQL Server's SELECT TOP N).
+        //
+        // When GetPageSuffix returns a non-empty string the database itself handles the
+        // skip, so PerformFetch should use firstSignificant = 0 rather than _start.
+
+        protected virtual string GetPageSuffix(int start, int count) => "";
 
         // ── ROW FETCH ─────────────────────────────────────────────────────────────
 
@@ -2041,6 +2115,7 @@ namespace Turquoise.ORM
             protected bool   _returnCount;
             protected bool   _fieldSubsetProvided;
             protected int    _index;
+            private   IReadOnlyList<JoinOverride> _joinOverrides;
 
             public QueryNode(DBDataConnection conn, DataObject obj)
             {
@@ -2067,6 +2142,9 @@ namespace Turquoise.ORM
                 => _concreteTypeFieldSubsets = subsets;
 
             public void SetBinding(ObjectBinding b) => _binding = b;
+
+            /// <summary>Specifies join-type overrides applied when building the query SQL stub.</summary>
+            public void SetJoinOverrides(IReadOnlyList<JoinOverride> overrides) => _joinOverrides = overrides;
 
             // ── Setup ─────────────────────────────────────────────────────────────
 
@@ -2109,7 +2187,10 @@ namespace Turquoise.ORM
                 PrepareBinding();
                 PrepareFieldSubset();
 
-                bool defaultInUse = !_fieldSubsetProvided && _concreteTypeFieldSubsets == null;
+                bool hasJoinOverrides = _joinOverrides != null && _joinOverrides.Count > 0;
+                // Never use the cached stub when join overrides are active — the stub would
+                // embed the wrong join SQL and the cache should not be poisoned with it.
+                bool defaultInUse = !_fieldSubsetProvided && _concreteTypeFieldSubsets == null && !hasJoinOverrides;
                 string stub;
                 if (defaultInUse && _binding.QuerySQL.Length > 0)
                 {
@@ -2117,7 +2198,7 @@ namespace Turquoise.ORM
                 }
                 else
                 {
-                    stub = _conn.GetQuerySQLStub(_binding, _fieldSubset, _fieldBindingSubset, rowLimit, _concreteTypeFieldSubsets, null, null);
+                    stub = _conn.GetQuerySQLStub(_binding, _fieldSubset, _fieldBindingSubset, rowLimit, _concreteTypeFieldSubsets, null, null, _joinOverrides);
                     if (defaultInUse) _binding.QuerySQL = stub;
                 }
 
@@ -2140,14 +2221,24 @@ namespace Turquoise.ORM
 
             public virtual ObjectCollection QueryPage()
             {
-                int limit = _count > 0 ? _start + _count + 1 : 0;
+                // For prefix-style limits (e.g. SQL Server SELECT TOP N) pass the row
+                // limit into the stub.  For suffix-style dialects (e.g. SQLite LIMIT N)
+                // BuildQuerySQL is called without a row limit so the stub stays clean;
+                // the limit is instead appended after WHERE and ORDER BY via GetPageSuffix.
+                bool hasSuffix = _count > 0 && _count < int.MaxValue
+                    && _conn.GetPageSuffix(0, 1).Length > 0;
+                int limit = hasSuffix ? 0
+                    : (_count > 0 && _count < int.MaxValue ? _start + _count + 1 : 0);
                 string stub = BuildQuerySQL(limit);
                 int termNumber = 1;
                 string sql = stub;
                 if (_term != null) sql += " WHERE " + _term.GetSQL(_binding, ref termNumber).SQL;
                 if (_sortOrder != null) sql += " ORDER BY " + _sortOrder.GetSQL(_binding);
+                if (hasSuffix) sql += _conn.GetPageSuffix(_start, _count);
 
-                var results = PerformFetch(sql, _start);
+                // When the database handles the offset via LIMIT/OFFSET there is no need
+                // for PerformFetch to skip rows client-side.
+                var results = PerformFetch(sql, hasSuffix ? 0 : _start);
 
                 if (_returnCount)
                 {

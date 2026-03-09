@@ -45,9 +45,11 @@ namespace Turquoise.ORM.SQLite.Tests
             => _conn.GetStringConnectionOperator().Should().Be("||");
 
         [Fact]
-        public void LimitRowCount_GeneratesSelectWithLimit()
+        public void LimitRowCount_StripsLimitFromStub()
+            // SQLite uses LIMIT/OFFSET as a suffix after WHERE and ORDER BY (via
+            // GetPageSuffix), so LimitRowCount must not embed LIMIT in the stub.
             => _conn.LimitRowCount(10, "Name FROM Products")
-                    .Should().Be("SELECT Name FROM Products LIMIT 10");
+                    .Should().Be("SELECT Name FROM Products");
 
         [Fact]
         public void PreInsertIdentityCommand_ReturnsEmptyString()

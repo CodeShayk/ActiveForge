@@ -490,6 +490,7 @@ namespace Turquoise.ORM
                                 JoinTarget      = rel.ObjectTargetMapNode.SourceName,
                                 JoinTargetField = rel.TargetPrimaryKeyField,
                                 JoinType        = rel.ObjectTargetMapNode.JoinType,
+                                JoinTargetClass = rel.ObjectTargetMapNode.Class,
                             };
                             if (!s.InList(specs))
                             {
