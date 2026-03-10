@@ -31,6 +31,13 @@ namespace ActiveForge
     {
         // ── State ─────────────────────────────────────────────────────────────────────
 
+        // MongoClient owns the connection pool and is designed to be used as a singleton.
+        // Sharing one client per connection string avoids socket exhaustion when many
+        // MongoDataConnection instances are created with the same URI (e.g. in tests or
+        // per-request scenarios without DI).
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, MongoClient>
+            _clientPool = new System.Collections.Concurrent.ConcurrentDictionary<string, MongoClient>();
+
         private readonly string?        _connectionString;
         private readonly string         _databaseName;
         private readonly FactoryBase    _factory;
@@ -107,7 +114,7 @@ namespace ActiveForge
             }
             else
             {
-                _client   = new MongoClient(_connectionString);
+                _client   = _clientPool.GetOrAdd(_connectionString!, cs => new MongoClient(cs));
                 _database = _client.GetDatabase(_databaseName);
             }
             _logger.LogDebug("Connected to MongoDB database '{Database}'", _databaseName);

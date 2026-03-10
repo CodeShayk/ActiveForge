@@ -62,11 +62,21 @@ namespace ActiveForge
                 }
                 return result;
             }
-            catch
+            catch (Exception primaryEx)
             {
                 if (startedTx && !committed)
                 {
-                    try { UnitOfWork.Rollback(); } catch { /* swallow secondary failure */ }
+                    try
+                    {
+                        UnitOfWork.Rollback();
+                    }
+                    catch (Exception rollbackEx)
+                    {
+                        OnUoWRolledBack();
+                        throw new AggregateException(
+                            "Transaction rollback failed after an operation failure.",
+                            primaryEx, rollbackEx);
+                    }
                     OnUoWRolledBack();
                 }
                 throw;
@@ -216,8 +226,16 @@ namespace ActiveForge
         public abstract bool   IsAutoIdentity();
         public abstract string GetGeneratorOperator(TargetFieldInfo info);
 
-        /// <summary>Quotes an identifier with the dialect's left/right quote characters.</summary>
-        public string QuoteName(string name) => GetLeftNameQuote() + name + GetRightNameQuote();
+        /// <summary>
+        /// Quotes an identifier with the dialect's left/right quote characters.
+        /// Any embedded right-quote characters are escaped by doubling them (standard SQL).
+        /// </summary>
+        public string QuoteName(string name)
+        {
+            string rq      = GetRightNameQuote();
+            string escaped = string.IsNullOrEmpty(rq) ? name : name.Replace(rq, rq + rq);
+            return GetLeftNameQuote() + escaped + rq;
+        }
 
         // ── FieldSubset factories ─────────────────────────────────────────────────────
 
