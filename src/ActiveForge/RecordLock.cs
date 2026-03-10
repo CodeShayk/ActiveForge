@@ -1,12 +1,12 @@
 namespace ActiveForge
 {
     /// <summary>
-    /// Represents a row-level lock held on a DataObject read for update.
+    /// Represents a row-level lock held on a Record read for update.
     /// In this port the locking infrastructure is minimal; only the
     /// <see cref="UpdateOption"/> enum is retained as it is used by
-    /// <see cref="DataObject.Update(DataObjectLock.UpdateOption)"/>.
+    /// <see cref="Record.Update(RecordLock.UpdateOption)"/>.
     /// </summary>
-    public class DataObjectLock
+    public class RecordLock
     {
         /// <summary>Controls how a row lock is treated during an update.</summary>
         public enum UpdateOption

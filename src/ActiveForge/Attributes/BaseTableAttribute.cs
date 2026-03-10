@@ -3,7 +3,7 @@ using System;
 namespace ActiveForge.Attributes
 {
     /// <summary>
-    /// Marks a DataObject class as representing a specific database table in an inheritance hierarchy.
+    /// Marks a Record class as representing a specific database table in an inheritance hierarchy.
     /// Each class in a multi-table inheritance chain should carry this attribute with its own table name.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]

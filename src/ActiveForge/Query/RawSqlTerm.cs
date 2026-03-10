@@ -13,12 +13,12 @@ namespace ActiveForge.Query
             _sql = sql;
         }
 
-        public override QueryFragment GetSQL(ObjectBinding binding, ref int termNumber)
+        public override QueryFragment GetSQL(RecordBinding binding, ref int termNumber)
             => new QueryFragment(_sql);
 
-        public override string GetDeleteSQL(ObjectBinding binding, ref int termNumber)
+        public override string GetDeleteSQL(RecordBinding binding, ref int termNumber)
             => _sql;
 
-        public override void BindParameters(DataObject obj, ObjectBinding binding, CommandBase command, ref int termNumber) { }
+        public override void BindParameters(Record obj, RecordBinding binding, CommandBase command, ref int termNumber) { }
     }
 }

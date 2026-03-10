@@ -85,7 +85,7 @@ namespace ActiveForge
         /// Reads <c>last_insert_rowid()</c> after an INSERT and assigns the new identity
         /// value to the identity field declared on <paramref name="obj"/>.
         /// </summary>
-        protected override string PopulateIdentity(DataObject obj, ObjectBinding binding, CommandBase _)
+        protected override string PopulateIdentity(Record obj, RecordBinding binding, CommandBase _)
         {
             var cmd = CreateCommand("SELECT last_insert_rowid()");
             if (_transactionDepth > 0) cmd.SetTransaction(_transaction);
@@ -140,9 +140,9 @@ namespace ActiveForge
         /// <summary>
         /// Checks whether a table exists using <c>sqlite_master</c>.
         /// </summary>
-        public override bool TableExists(ObjectBase obj)
+        public override bool TableExists(RecordBase obj)
         {
-            string src = DataObjectMetaDataCache.GetTypeMetaData(obj.GetType()).SourceName;
+            string src = RecordMetaDataCache.GetTypeMetaData(obj.GetType()).SourceName;
             Connect();
 
             var cmd = CreateCommand(

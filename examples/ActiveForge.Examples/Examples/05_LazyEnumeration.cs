@@ -8,7 +8,7 @@ namespace ActiveForge.Examples.Examples
     /// <summary>
     /// Example 05 — Lazy enumeration for large result sets.
     ///
-    /// QueryAll() loads the entire result set into an ObjectCollection in memory.
+    /// QueryAll() loads the entire result set into an RecordCollection in memory.
     /// For large tables (thousands of rows) this can be expensive.
     ///
     /// LazyQueryAll&lt;T&gt;() instead returns an IEnumerable&lt;T&gt; that streams rows
@@ -44,7 +44,7 @@ namespace ActiveForge.Examples.Examples
 
             Console.WriteLine("\nQueryAll (all rows in memory):");
             var all = conn.QueryAll(template, null, null, 0, null);
-            Console.WriteLine($"  Loaded {all.Count} product(s) into ObjectCollection");
+            Console.WriteLine($"  Loaded {all.Count} product(s) into RecordCollection");
 
             // ── LazyQueryAll — streams rows ────────────────────────────────────────────
 
@@ -85,7 +85,7 @@ namespace ActiveForge.Examples.Examples
             Console.WriteLine("\nCleaning up seeded products...");
             var cleanup = conn.QueryAll(template,
                 new ContainsTerm(template, template.Name, "Lazy Product"), null, 0, null);
-            foreach (DataObject obj in cleanup)
+            foreach (Record obj in cleanup)
                 ((Product)obj).Delete();
             Console.WriteLine($"  Deleted {cleanup.Count} test product(s)");
         }

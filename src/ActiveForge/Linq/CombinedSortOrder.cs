@@ -18,7 +18,7 @@ namespace ActiveForge.Linq
             _secondary = secondary;
         }
 
-        public override string GetSQL(ObjectBinding binding)
+        public override string GetSQL(RecordBinding binding)
             => _primary.GetSQL(binding) + ", " + _secondary.GetSQL(binding);
     }
 }

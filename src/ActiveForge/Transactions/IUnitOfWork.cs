@@ -4,7 +4,7 @@ using System.Data;
 namespace ActiveForge.Transactions
 {
     /// <summary>
-    /// Coordinates database work across one or more <see cref="DataObject"/> operations.
+    /// Coordinates database work across one or more <see cref="Record"/> operations.
     /// Obtain a concrete instance from <see cref="ActiveForgeServiceLocator"/> or your DI container.
     /// </summary>
     public interface IUnitOfWork : IDisposable

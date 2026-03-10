@@ -2,7 +2,7 @@ using System;
 
 namespace ActiveForge.Attributes
 {
-    /// <summary>Specifies a default value for a TField when the DataObject is constructed.</summary>
+    /// <summary>Specifies a default value for a TField when the Record is constructed.</summary>
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = false, Inherited = false)]
     public class DefaultValueAttribute : Attribute
     {

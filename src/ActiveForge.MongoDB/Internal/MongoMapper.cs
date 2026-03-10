@@ -5,13 +5,13 @@ using MongoDB.Bson;
 namespace ActiveForge.MongoDB.Internal
 {
     /// <summary>
-    /// Converts DataObject instances to/from BsonDocuments using TField reflection.
+    /// Converts Record instances to/from BsonDocuments using TField reflection.
     /// </summary>
     internal static class MongoMapper
     {
-        // ── DataObject → BsonDocument ─────────────────────────────────────────────────
+        // ── Record → BsonDocument ─────────────────────────────────────────────────
 
-        public static BsonDocument ToBsonDocument(DataObject obj, bool includeIdentity = true)
+        public static BsonDocument ToBsonDocument(Record obj, bool includeIdentity = true)
         {
             var entry = MongoTypeCache.GetEntry(obj.GetType());
             var doc   = new BsonDocument();
@@ -30,9 +30,9 @@ namespace ActiveForge.MongoDB.Internal
             return doc;
         }
 
-        // ── BsonDocument → DataObject ─────────────────────────────────────────────────
+        // ── BsonDocument → Record ─────────────────────────────────────────────────
 
-        public static void FromBsonDocument(BsonDocument doc, DataObject obj)
+        public static void FromBsonDocument(BsonDocument doc, Record obj)
         {
             var entry = MongoTypeCache.GetEntry(obj.GetType());
 
@@ -55,19 +55,19 @@ namespace ActiveForge.MongoDB.Internal
             }
         }
 
-        // ── BsonDocument → DataObject (with joined sub-documents) ────────────────────
+        // ── BsonDocument → Record (with joined sub-documents) ────────────────────
 
         /// <summary>
         /// Maps a BsonDocument returned by an aggregation pipeline (which may contain
         /// joined sub-documents stored under their <see cref="MongoJoinStage.Alias"/> key)
         /// to the root <paramref name="obj"/> and its embedded DataObject fields.
         /// </summary>
-        public static void FromBsonDocumentWithJoins(BsonDocument doc, DataObject obj, IReadOnlyList<MongoJoinStage> joinStages)
+        public static void FromBsonDocumentWithJoins(BsonDocument doc, Record obj, IReadOnlyList<MongoJoinStage> joinStages)
         {
             // Map root fields
             FromBsonDocument(doc, obj);
 
-            // Map each joined sub-document into the corresponding embedded DataObject field
+            // Map each joined sub-document into the corresponding embedded Record field
             foreach (var stage in joinStages)
             {
                 if (!doc.Contains(stage.Alias)) continue;
@@ -75,11 +75,11 @@ namespace ActiveForge.MongoDB.Internal
                 BsonValue joinedValue = doc[stage.Alias];
                 if (joinedValue == BsonNull.Value || !(joinedValue is BsonDocument joinedBson)) continue;
 
-                // Get or create the embedded DataObject
-                DataObject? embedded = stage.EmbeddedFieldInfo.GetValue(obj) as DataObject;
+                // Get or create the embedded Record
+                Record? embedded = stage.EmbeddedFieldInfo.GetValue(obj) as Record;
                 if (embedded == null)
                 {
-                    try   { embedded = (DataObject)Activator.CreateInstance(stage.EmbeddedType)!; }
+                    try   { embedded = (Record)Activator.CreateInstance(stage.EmbeddedType)!; }
                     catch { continue; }
                     stage.EmbeddedFieldInfo.SetValue(obj, embedded);
                 }
@@ -157,13 +157,13 @@ namespace ActiveForge.MongoDB.Internal
             }
         }
 
-        // ── Build a minimal ObjectBinding for QueryTerm translation ───────────────────
+        // ── Build a minimal RecordBinding for QueryTerm translation ───────────────────
 
-        public static ObjectBinding BuildMinimalObjectBinding(DataObject obj)
+        public static RecordBinding BuildMinimalObjectBinding(Record obj)
         {
-            var binding = new ObjectBinding();
+            var binding = new RecordBinding();
             var entry   = MongoTypeCache.GetEntry(obj.GetType());
-            var meta    = DataObjectMetaDataCache.GetTypeMetaData(obj.GetType());
+            var meta    = RecordMetaDataCache.GetTypeMetaData(obj.GetType());
 
             // Set SourceName
             binding.SourceName = entry.CollectionName;

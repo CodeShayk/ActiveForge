@@ -3,7 +3,7 @@ using System;
 namespace ActiveForge.Attributes
 {
     /// <summary>
-    /// Overrides the automatic FK→join convention for an embedded DataObject field.
+    /// Overrides the automatic FK→join convention for an embedded Record field.
     /// Without this attribute, the ORM looks for a field named <c>XID</c> where X is
     /// the embedded object's field name.
     /// </summary>

@@ -7,7 +7,7 @@ namespace ActiveForge.Examples.Domain
     /// A product in the shop catalogue.  Maps to the [Products] table.
     /// </summary>
     [Table("Products")]
-    public class Product : IdentDataObject
+    public class Product : IdentityRecord
     {
         [Column("Name")]
         public TString Name = new TString();

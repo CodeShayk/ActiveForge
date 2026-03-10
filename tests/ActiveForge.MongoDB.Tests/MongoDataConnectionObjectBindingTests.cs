@@ -6,7 +6,7 @@ namespace ActiveForge.MongoDB.Tests
 {
     /// <summary>
     /// Tests that <see cref="MongoDataConnection.GetObjectBinding"/> returns a usable
-    /// minimal ObjectBinding populated with field descriptors from the DataObject.
+    /// minimal RecordBinding populated with field descriptors from the Record.
     /// No live server required.
     /// </summary>
     public class MongoDataConnectionObjectBindingTests

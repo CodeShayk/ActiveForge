@@ -4,7 +4,7 @@ namespace ActiveForge
 {
     /// <summary>
     /// A query-time override that changes the join type for one embedded
-    /// <see cref="DataObject"/> type within a LINQ query.
+    /// <see cref="Record"/> type within a LINQ query.
     ///
     /// <para>
     /// Created by <see cref="ActiveForge.Linq.OrmQueryable{T}.InnerJoin{TJoined}"/> and
@@ -15,7 +15,7 @@ namespace ActiveForge
     /// </summary>
     public readonly struct JoinOverride
     {
-        /// <summary>The <see cref="DataObject"/> subclass whose join type is overridden.</summary>
+        /// <summary>The <see cref="Record"/> subclass whose join type is overridden.</summary>
         public readonly Type TargetType;
 
         /// <summary>The join type to apply at query time.</summary>

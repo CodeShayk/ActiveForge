@@ -1,12 +1,12 @@
 # Joins
 
-This document covers how Turquoise ORM handles SQL JOINs — both the automatic, convention-based mechanism and the LINQ-level query-time overrides introduced in v1.2.
+This document covers how ActiveForge ORM handles SQL JOINs — both the automatic, convention-based mechanism and the LINQ-level query-time overrides introduced in v1.2.
 
 ---
 
 ## Overview
 
-Turquoise ORM derives JOIN SQL from the **structure of your entity class**, not from a query builder.
+ActiveForge ORM derives JOIN SQL from the **structure of your entity class**, not from a query builder.
 When you embed a `DataObject` field inside another `DataObject`, the ORM automatically emits a JOIN between the two tables when you query the outer type.
 
 There are three layers of JOIN control:

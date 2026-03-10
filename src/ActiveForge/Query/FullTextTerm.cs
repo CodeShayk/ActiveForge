@@ -3,10 +3,10 @@ namespace ActiveForge.Query
     /// <summary>FREETEXT(field, @value) — SQL Server full-text search</summary>
     public class FullTextTerm : QueryTerm
     {
-        public FullTextTerm(DataObject target, TField field, object value)   : base(target, field, value) { }
-        public FullTextTerm(DataObject target, TString field, object value)  : base(target, field, value) { }
+        public FullTextTerm(Record target, TField field, object value)   : base(target, field, value) { }
+        public FullTextTerm(Record target, TString field, object value)  : base(target, field, value) { }
 
-        public override QueryFragment GetSQL(ObjectBinding binding, ref int termNumber)
+        public override QueryFragment GetSQL(RecordBinding binding, ref int termNumber)
         {
             FieldBinding check    = GetTermFieldInfo(binding);
             string       aliasSQL = check.MapNode.Alias.Length > 0 ? check.MapNode.Alias + "." : "";
@@ -15,7 +15,7 @@ namespace ActiveForge.Query
                 + "," + ParameterMark + "IN_" + check.Info.TargetName + (termNumber++) + ")");
         }
 
-        public override string GetDeleteSQL(ObjectBinding binding, ref int termNumber)
+        public override string GetDeleteSQL(RecordBinding binding, ref int termNumber)
         {
             FieldBinding check = GetTermFieldInfo(binding);
             return " FREETEXT("

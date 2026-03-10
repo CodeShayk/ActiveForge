@@ -7,7 +7,7 @@ using ActiveForge.Attributes;
 namespace ActiveForge.MongoDB.Internal
 {
     /// <summary>
-    /// Cached descriptor for one TField member of a DataObject type.
+    /// Cached descriptor for one TField member of a Record type.
     /// Maps C# field name → BSON field name and records identity/PK flags.
     /// </summary>
     internal sealed class MongoFieldDescriptor
@@ -37,7 +37,7 @@ namespace ActiveForge.MongoDB.Internal
 
         private static MongoTypeEntry BuildEntry(Type type)
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(type);
+            var meta = RecordMetaDataCache.GetTypeMetaData(type);
 
             string collectionName = meta.SourceName;
 

@@ -6,8 +6,8 @@
     <AssemblyName>ActiveForge.SqlServer</AssemblyName>
     <RootNamespace>ActiveForge</RootNamespace>
     <Version>1.0.0</Version>
-    <Authors>Turquoise</Authors>
-    <Description>SQL Server provider for Turquoise ORM</Description>
+    <Authors>ActiveForge</Authors>
+    <Description>SQL Server provider for ActiveForge ORM</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>0618,1591</NoWarn>
   </PropertyGroup>

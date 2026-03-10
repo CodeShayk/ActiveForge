@@ -14,7 +14,7 @@ namespace ActiveForge.SqlServer.Tests
     // ── Test entities ─────────────────────────────────────────────────────────────
 
     [Table("ss_categories")]
-    public sealed class SsCat : IdentDataObject
+    public sealed class SsCat : IdentityRecord
     {
         [Column("name")] public TString Name = new TString();
 
@@ -24,7 +24,7 @@ namespace ActiveForge.SqlServer.Tests
 
     /// <summary>Convention INNER JOIN: FK field SsCatID + embedded SsCat triggers auto join.</summary>
     [Table("ss_products")]
-    public sealed class SsJoinProd : IdentDataObject
+    public sealed class SsJoinProd : IdentityRecord
     {
         [Column("name")]     public TString     Name     = new TString();
         [Column("SsCatID")]  public TForeignKey SsCatID  = new TForeignKey();
@@ -38,7 +38,7 @@ namespace ActiveForge.SqlServer.Tests
     /// <summary>[JoinSpec] LEFT OUTER JOIN on the same tables.</summary>
     [Table("ss_products")]
     [JoinSpec("SsCatID", "SsCat", "ID", JoinSpecAttribute.JoinTypeEnum.LeftOuterJoin)]
-    public sealed class SsJoinProdOuter : IdentDataObject
+    public sealed class SsJoinProdOuter : IdentityRecord
     {
         [Column("name")]    public TString     Name    = new TString();
         [Column("SsCatID")] public TForeignKey SsCatID = new TForeignKey();

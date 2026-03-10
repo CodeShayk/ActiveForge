@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace ActiveForge.Transactions
 {
     /// <summary>
-    /// <see cref="IServiceCollection"/> extension methods for registering individual Turquoise
+    /// <see cref="IServiceCollection"/> extension methods for registering individual ActiveForge
     /// ORM service proxies.  For bulk auto-registration use
     /// <see cref="IActiveForgeBuilder.AddServices"/> on the builder returned by
     /// <c>AddActiveForgeSqlServer</c> / <c>AddActiveForgePostgreSQL</c> / <c>AddActiveForgeMongoDB</c>.

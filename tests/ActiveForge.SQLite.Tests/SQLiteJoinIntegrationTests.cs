@@ -22,7 +22,7 @@ namespace ActiveForge.SQLite.Tests
     // QueryTerm.Initialize and SortOrder.GetSQL.
 
     [Table("join_categories")]
-    public sealed class TestCat : IdentDataObject
+    public sealed class TestCat : IdentityRecord
     {
         [Column("name")] public TString Name = new TString();
 
@@ -36,7 +36,7 @@ namespace ActiveForge.SQLite.Tests
     ///   INNER JOIN join_categories ON join_products.TestCatID = join_categories.id
     /// </summary>
     [Table("join_products")]
-    public sealed class JoinProd : IdentDataObject
+    public sealed class JoinProd : IdentityRecord
     {
         [Column("name")]      public TString     Name      = new TString();
         [Column("TestCatID")] public TForeignKey TestCatID = new TForeignKey();
@@ -55,7 +55,7 @@ namespace ActiveForge.SQLite.Tests
     /// </summary>
     [Table("join_products")]
     [JoinSpec("TestCatID", "TestCat", "ID", JoinSpecAttribute.JoinTypeEnum.LeftOuterJoin)]
-    public sealed class JoinProdOuter : IdentDataObject
+    public sealed class JoinProdOuter : IdentityRecord
     {
         [Column("name")]      public TString     Name      = new TString();
         [Column("TestCatID")] public TForeignKey TestCatID = new TForeignKey();

@@ -22,8 +22,8 @@ namespace ActiveForge.Tests.Linq
 
         // ── Test entities ─────────────────────────────────────────────────────────────
 
-        /// <summary>Embedded DataObject acting as a joined table.</summary>
-        private sealed class Tag : DataObject
+        /// <summary>Embedded Record acting as a joined table.</summary>
+        private sealed class Tag : Record
         {
             public TString TagName = new TString();
             public TInt    Rating  = new TInt();
@@ -31,7 +31,7 @@ namespace ActiveForge.Tests.Linq
         }
 
         /// <summary>Root entity with an embedded Tag (simulates a join).</summary>
-        private sealed class TaggedItem : DataObject
+        private sealed class TaggedItem : Record
         {
             public TString Label  = new TString();
             public TInt    Count  = new TInt();
@@ -109,7 +109,7 @@ namespace ActiveForge.Tests.Linq
         [Fact]
         public void CrossJoinWhere_EqualTerm_DoesNotThrow()
         {
-            // x => x.Tag.TagName == "sports"  — field on embedded DataObject
+            // x => x.Tag.TagName == "sports"  — field on embedded Record
             var template = T();
             QueryTerm term = ExpressionToQueryTermVisitor.Translate(
                 (System.Linq.Expressions.Expression<System.Func<TaggedItem, bool>>)(x => x.Tag.TagName == "sports"),

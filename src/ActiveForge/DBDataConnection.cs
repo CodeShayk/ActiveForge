@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using ActiveForge.Attributes;
 using ActiveForge.Query;
+using ActiveForge.Transactions;
 
 namespace ActiveForge
 {
@@ -25,7 +26,7 @@ namespace ActiveForge
         /// <summary>Per-connection cache of bindings, field-info, and descriptions.</summary>
         protected class InstanceCache
         {
-            public Dictionary<string, ObjectBinding>   Bindings       = new Dictionary<string, ObjectBinding>();
+            public Dictionary<string, RecordBinding>   Bindings       = new Dictionary<string, RecordBinding>();
             public Dictionary<string, TargetFieldInfo> TargetInfoCache = new Dictionary<string, TargetFieldInfo>();
 
             // Thread-safe description caches
@@ -42,14 +43,14 @@ namespace ActiveForge
 
             public void Flush()
             {
-                Bindings        = new Dictionary<string, ObjectBinding>();
+                Bindings        = new Dictionary<string, RecordBinding>();
                 TargetInfoCache = new Dictionary<string, TargetFieldInfo>();
                 _fieldDescriptions.Clear();
                 _objectDescriptions.Clear();
                 _validationMessages.Clear();
             }
 
-            public void FlushBindings() => Bindings = new Dictionary<string, ObjectBinding>();
+            public void FlushBindings() => Bindings = new Dictionary<string, RecordBinding>();
         }
 
         /// <summary>Cached UPDATE SQL for one table in the class hierarchy.</summary>
@@ -349,42 +350,42 @@ namespace ActiveForge
 
         // ── Object creation ───────────────────────────────────────────────────────
 
-        public override DataObject Create(Type type)
+        public override Record Create(Type type)
         {
             if (_factory != null) type = _factory.MapType(type);
-            return (DataObject)Activator.CreateInstance(type);
+            return (Record)Activator.CreateInstance(type);
         }
 
-        public override DataObject Create(Type type, DataObject owner, bool isTemplate = false)
+        public override Record Create(Type type, Record owner, bool isTemplate = false)
         {
-            DataObject obj = Create(type);
+            Record obj = Create(type);
             return obj;
         }
 
-        public T CreateObject<T>() where T : DataObject => (T)Create(typeof(T));
+        public T CreateObject<T>() where T : Record => (T)Create(typeof(T));
 
         // ── FieldSubset factories ─────────────────────────────────────────────────
 
-        public override FieldSubset DefaultFieldSubset(DataObject rootObject)
+        public override FieldSubset DefaultFieldSubset(Record rootObject)
         {
             return _defaultFieldSubsetCache.GetOrAdd(rootObject.GetType(),
                 _ => new global::ActiveForge.FieldSubset(rootObject, global::ActiveForge.FieldSubset.InitialState.Default, _factory));
         }
 
-        public override FieldSubset FieldSubset(DataObject rootObject, FieldSubset.InitialState state)
+        public override FieldSubset FieldSubset(Record rootObject, FieldSubset.InitialState state)
             => new FieldSubset(rootObject, state, _factory);
 
-        public override FieldSubset FieldSubset(DataObject rootObject, DataObject enclosing, TField enclosed)
+        public override FieldSubset FieldSubset(Record rootObject, Record enclosing, TField enclosed)
         {
             var fs = new FieldSubset(rootObject, _factory);
             fs.Include(rootObject, enclosing, enclosed);
             return fs;
         }
 
-        public override FieldSubset FieldSubset(DataObject rootObject, DataObject enclosing, DataObject enclosed)
+        public override FieldSubset FieldSubset(Record rootObject, Record enclosing, Record enclosed)
             => FieldSubset(rootObject, enclosing, enclosed, ActiveForge.FieldSubset.InitialState.Default);
 
-        public override FieldSubset FieldSubset(DataObject rootObject, DataObject enclosing, DataObject enclosed, FieldSubset.InitialState state)
+        public override FieldSubset FieldSubset(Record rootObject, Record enclosing, Record enclosed, FieldSubset.InitialState state)
         {
             var fs = new FieldSubset(rootObject, _factory);
             fs.Include(rootObject, enclosing, enclosed, state);
@@ -397,15 +398,15 @@ namespace ActiveForge
 
         // ── INSERT ────────────────────────────────────────────────────────────────
 
-        public override bool Insert(DataObject obj) => RunWrite(() => InsertCore(obj));
+        public override bool Insert(Record obj) => RunWrite(() => InsertCore(obj));
 
-        private bool InsertCore(DataObject obj)
+        private bool InsertCore(Record obj)
         {
             lock (_syncRoot)
             {
                 if (!IsConnected) Connect();
 
-                ObjectBinding binding = obj.GetBinding(this, true, true);
+                RecordBinding binding = obj.GetBinding(this, true, true);
                 if (binding.InsertSQL.Count == 0)
                     binding.InsertSQL = GetInsertSQL(binding, obj);
 
@@ -465,15 +466,15 @@ namespace ActiveForge
 
         // ── DELETE ────────────────────────────────────────────────────────────────
 
-        public override bool Delete(DataObject obj) => RunWrite(() => DeleteCore(obj));
+        public override bool Delete(Record obj) => RunWrite(() => DeleteCore(obj));
 
-        private bool DeleteCore(DataObject obj)
+        private bool DeleteCore(Record obj)
         {
             lock (_syncRoot)
             {
                 if (!IsConnected) Connect();
 
-                ObjectBinding binding = obj.GetBinding(this, true, true);
+                RecordBinding binding = obj.GetBinding(this, true, true);
                 if (binding.DeleteSQL.Count == 0)
                     binding.DeleteSQL = GetDeleteSQL(binding);
 
@@ -526,19 +527,19 @@ namespace ActiveForge
             }
         }
 
-        public override bool Delete(DataObject obj, QueryTerm term) => RunWrite(() => DeleteTermCore(obj, term));
+        public override bool Delete(Record obj, QueryTerm term) => RunWrite(() => DeleteTermCore(obj, term));
 
-        private bool DeleteTermCore(DataObject obj, QueryTerm term)
+        private bool DeleteTermCore(Record obj, QueryTerm term)
         {
             lock (_syncRoot)
             {
                 if (!IsConnected) Connect();
 
                 // Multi-table inheritance needs individual deletes
-                ObjectBinding binding = obj.GetBinding(this, true, true, null, false);
+                RecordBinding binding = obj.GetBinding(this, true, true, null, false);
                 if (binding.IsDBDerived())
                 {
-                    var col = obj.QueryAll(term, null, 0) as ObjectCollection;
+                    var col = obj.QueryAll(term, null, 0) as RecordCollection;
                     int n = col?.Count ?? 0;
                     bool createdTx = _transactionDepth == 0 && n > 1;
                     if (createdTx) BeginTransactionInternal();
@@ -604,11 +605,11 @@ namespace ActiveForge
             }
         }
 
-        internal override void Delete(DataObject obj, QueryTerm term, Type[] concreteTypes)
+        internal override void Delete(Record obj, QueryTerm term, Type[] concreteTypes)
         {
             lock (_syncRoot)
             {
-                var col = obj.QueryAll(term, null, 0, concreteTypes) as ObjectCollection;
+                var col = obj.QueryAll(term, null, 0, concreteTypes) as RecordCollection;
                 int n = col?.Count ?? 0;
                 bool createdTx = _transactionDepth == 0 && n > 1;
                 if (createdTx) BeginTransactionInternal();
@@ -628,18 +629,18 @@ namespace ActiveForge
 
         // ── UPDATE ────────────────────────────────────────────────────────────────
 
-        internal override FieldSubset Update(DataObject obj, DataObjectLock.UpdateOption option)
+        internal override FieldSubset Update(Record obj, RecordLock.UpdateOption option)
             => UpdateAll(obj);
 
-        internal override FieldSubset UpdateAll(DataObject obj) => RunWrite(() => UpdateAllCore(obj));
+        internal override FieldSubset UpdateAll(Record obj) => RunWrite(() => UpdateAllCore(obj));
 
-        private FieldSubset UpdateAllCore(DataObject obj)
+        private FieldSubset UpdateAllCore(Record obj)
         {
             lock (_syncRoot)
             {
                 if (!IsConnected) Connect();
 
-                ObjectBinding binding = obj.GetBinding(this, true, true);
+                RecordBinding binding = obj.GetBinding(this, true, true);
                 var updateSQL = GetUpdateSQL(binding, obj);
 
                 bool createdTx = _transactionDepth == 0 && updateSQL.Count > 1;
@@ -684,21 +685,21 @@ namespace ActiveForge
             }
         }
 
-        internal override FieldSubset UpdateChanged(DataObject obj)
+        internal override FieldSubset UpdateChanged(Record obj)
             => UpdateAll(obj);
 
         // ── READ ─────────────────────────────────────────────────────────────────
 
-        public override bool Read(DataObject obj)
+        public override bool Read(Record obj)
             => Read(obj, null);
 
-        public override bool Read(DataObject obj, FieldSubset fieldSubset)
+        public override bool Read(Record obj, FieldSubset fieldSubset)
         {
             lock (_syncRoot)
             {
                 if (!IsConnected) Connect();
 
-                ObjectBinding binding = obj.GetBinding(this, true, true);
+                RecordBinding binding = obj.GetBinding(this, true, true);
                 bool defaultInUse = fieldSubset == null;
                 if (fieldSubset == null)
                     fieldSubset = obj.DefaultFieldSubset();
@@ -745,7 +746,7 @@ namespace ActiveForge
             }
         }
 
-        public override bool ReadForUpdate(DataObject obj, FieldSubset fieldSubset)
+        public override bool ReadForUpdate(Record obj, FieldSubset fieldSubset)
         {
             lock (_syncRoot)
             {
@@ -753,7 +754,7 @@ namespace ActiveForge
                     throw new PersistenceException("ReadForUpdate only valid within a transaction");
                 if (!IsConnected) Connect();
 
-                ObjectBinding binding = obj.GetBinding(this, true, true);
+                RecordBinding binding = obj.GetBinding(this, true, true);
                 bool defaultInUse = fieldSubset == null;
                 if (fieldSubset == null)
                     fieldSubset = obj.DefaultFieldSubset();
@@ -797,17 +798,17 @@ namespace ActiveForge
 
         // ── QUERY FIRST ───────────────────────────────────────────────────────────
 
-        public override bool QueryFirst(DataObject obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset)
+        public override bool QueryFirst(Record obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset)
             => QueryFirst(obj, term, sortOrder, fieldSubset, null);
 
-        public override bool QueryFirst(DataObject obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset, ObjectParameterCollectionBase objectParameters)
+        public override bool QueryFirst(Record obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset, RecordParameterCollectionBase objectParameters)
         {
             lock (_syncRoot)
             {
                 if (!IsConnected) Connect();
 
                 bool includeLookups = obj.ShouldIncludeLookupDataObjectsInBinding(term, sortOrder);
-                ObjectBinding binding = obj.GetBinding(this, true, true, null, includeLookups);
+                RecordBinding binding = obj.GetBinding(this, true, true, null, includeLookups);
 
                 bool defaultInUse = fieldSubset == null;
                 if (fieldSubset == null) fieldSubset = obj.DefaultFieldSubset();
@@ -859,19 +860,19 @@ namespace ActiveForge
 
         // ── QUERY COUNT ───────────────────────────────────────────────────────────
 
-        public override int QueryCount(DataObject obj)
+        public override int QueryCount(Record obj)
             => QueryCount(obj, null);
 
-        public override int QueryCount(DataObject obj, QueryTerm term)
+        public override int QueryCount(Record obj, QueryTerm term)
             => QueryCount(obj, term, null);
 
-        public override int QueryCount(DataObject obj, QueryTerm term, Type[] expectedTypes)
+        public override int QueryCount(Record obj, QueryTerm term, Type[] expectedTypes)
             => QueryCount(obj, term, expectedTypes, null);
 
-        public override int QueryCount(DataObject obj, QueryTerm term, Type[] expectedTypes, FieldSubset subsetIn)
+        public override int QueryCount(Record obj, QueryTerm term, Type[] expectedTypes, FieldSubset subsetIn)
             => QueryCount(obj, term, expectedTypes, subsetIn, null);
 
-        protected int QueryCount(DataObject obj, QueryTerm term, Type[] expectedTypes, FieldSubset subsetIn, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
+        protected int QueryCount(Record obj, QueryTerm term, Type[] expectedTypes, FieldSubset subsetIn, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
         {
             lock (_syncRoot)
             {
@@ -879,7 +880,7 @@ namespace ActiveForge
 
                 bool includeLookups = obj.ShouldIncludeLookupDataObjectsInBinding(term, null);
                 bool useCache = expectedTypes == null;
-                ObjectBinding binding = obj.GetBinding(this, true, useCache, expectedTypes, includeLookups);
+                RecordBinding binding = obj.GetBinding(this, true, useCache, expectedTypes, includeLookups);
 
                 FieldSubset fieldSubset = subsetIn;
                 List<FieldBinding> fieldBindingSubset;
@@ -893,7 +894,7 @@ namespace ActiveForge
                     {
                         if (!expectedTypeFieldSubsets.ContainsKey(et))
                         {
-                            var eo = (DataObject)DataObject.CreateDataObject(et, this);
+                            var eo = (Record)Record.CreateDataObject(et, this);
                             expectedTypeFieldSubsets[et] = eo.DefaultFieldSubset();
                         }
                     }
@@ -937,13 +938,13 @@ namespace ActiveForge
 
         // ── QUERY ALL / LAZY QUERY ALL ────────────────────────────────────────────
 
-        public override ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset)
+        public override RecordCollection QueryAll(Record obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset)
             => QueryAll(obj, term, sortOrder, pageSize, null, fieldSubset, null);
 
-        public override ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset)
+        public override RecordCollection QueryAll(Record obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset)
             => QueryAll(obj, term, sortOrder, pageSize, expectedTypes, fieldSubset, null);
 
-        public override ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
+        public override RecordCollection QueryAll(Record obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
         {
             var node = new QueryNode(this, obj);
             node.SetTerm(term);
@@ -961,13 +962,13 @@ namespace ActiveForge
         public override IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset)
         {
             var results = QueryAll(obj, term, sortOrder, pageSize, expectedTypes, fieldSubset);
-            foreach (DataObject item in results)
+            foreach (Record item in results)
                 yield return (T)item;
         }
 
         // ── QUERY ALL / LAZY QUERY ALL — JOIN OVERRIDES ───────────────────────────
 
-        public override ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+        public override RecordCollection QueryAll(Record obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
         {
             if (joinOverrides == null || joinOverrides.Count == 0)
                 return QueryAll(obj, term, sortOrder, pageSize, fieldSubset);
@@ -988,7 +989,7 @@ namespace ActiveForge
             return System.Linq.Enumerable.Cast<T>(results);
         }
 
-        public override ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+        public override RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
         {
             if (joinOverrides == null || joinOverrides.Count == 0)
                 return QueryPage(obj, term, sortOrder, start, count, fieldSubset);
@@ -1004,16 +1005,16 @@ namespace ActiveForge
 
         // ── QUERY PAGE ────────────────────────────────────────────────────────────
 
-        public override ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset)
+        public override RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset)
             => QueryPage(obj, term, sortOrder, start, count, fieldSubset, null, null, false);
 
-        public override ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes)
+        public override RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes)
             => QueryPage(obj, term, sortOrder, start, count, fieldSubset, expectedTypes, null, false);
 
-        public override ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
+        public override RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
             => QueryPage(obj, term, sortOrder, start, count, fieldSubset, expectedTypes, expectedTypeFieldSubsets, false);
 
-        public override ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets, bool returnCountInfo)
+        public override RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets, bool returnCountInfo)
         {
             var node = new QueryNode(this, obj);
             node.SetTerm(term);
@@ -1029,26 +1030,26 @@ namespace ActiveForge
 
         // ── EXEC SQL ─────────────────────────────────────────────────────────────
 
-        public override ObjectCollection ExecSQL(DataObject obj, string sql)
+        public override RecordCollection ExecSQL(Record obj, string sql)
             => ExecSQL(obj, sql, 0, 0, (Dictionary<string, object>)null);
 
-        public override ObjectCollection ExecSQL(DataObject obj, string sqlFormat, params object[] values)
+        public override RecordCollection ExecSQL(Record obj, string sqlFormat, params object[] values)
             => ExecSQL(obj, sqlFormat, 0, 0, values);
 
-        public override ObjectCollection ExecSQL(DataObject obj, string sql, Dictionary<string, object> parameters)
+        public override RecordCollection ExecSQL(Record obj, string sql, Dictionary<string, object> parameters)
             => ExecSQL(obj, sql, 0, 0, parameters);
 
-        public override ObjectCollection ExecSQL(DataObject obj, string sql, int start, int count)
+        public override RecordCollection ExecSQL(Record obj, string sql, int start, int count)
             => ExecSQL(obj, sql, start, count, (Dictionary<string, object>)null);
 
-        public override ObjectCollection ExecSQL(DataObject obj, string sql, int start, int count, Dictionary<string, object> parameters)
+        public override RecordCollection ExecSQL(Record obj, string sql, int start, int count, Dictionary<string, object> parameters)
         {
             lock (_syncRoot)
             {
-                var results = new ObjectCollection { StartRecord = start, PageSize = count };
+                var results = new RecordCollection { StartRecord = start, PageSize = count };
                 if (!IsConnected) Connect();
 
-                ObjectBinding binding = null;
+                RecordBinding binding = null;
                 if (obj != null)
                     binding = obj.GetBinding(this, true, false);
 
@@ -1114,15 +1115,15 @@ namespace ActiveForge
 
         // ── STORED PROCEDURES ─────────────────────────────────────────────────────
 
-        public override ObjectCollection ExecStoredProcedure(DataObject obj, string spName, int start, int count, params DataObject.SPParameter[] spParameters)
+        public override RecordCollection ExecStoredProcedure(Record obj, string spName, int start, int count, params Record.SPParameter[] spParameters)
             => RunWrite(() => ExecStoredProcedureCore(obj, spName, start, count, spParameters));
 
-        private ObjectCollection ExecStoredProcedureCore(DataObject obj, string spName, int start, int count, DataObject.SPParameter[] spParameters)
+        private RecordCollection ExecStoredProcedureCore(Record obj, string spName, int start, int count, Record.SPParameter[] spParameters)
         {
             lock (_syncRoot)
             {
                 if (!IsConnected) Connect();
-                ObjectBinding binding = obj.GetBinding(this, true, false);
+                RecordBinding binding = obj.GetBinding(this, true, false);
                 var cmd = CreateCommand(spName);
                 cmd.SetToStoredProcedure();
                 if (_transactionDepth > 0) cmd.SetTransaction(_transaction);
@@ -1131,7 +1132,7 @@ namespace ActiveForge
                     foreach (var p in spParameters)
                         cmd.AddParameter(GetParameterMark() + p.Name, p.Value ?? DBNull.Value);
                 }
-                var results = new ObjectCollection { StartRecord = start, PageSize = count };
+                var results = new RecordCollection { StartRecord = start, PageSize = count };
                 try
                 {
                     using var reader = cmd.ExecuteReader();
@@ -1160,7 +1161,7 @@ namespace ActiveForge
 
         // ── EXISTS SUB-QUERY ──────────────────────────────────────────────────────
 
-        internal override QueryFragment GenerateExistsSQLQuery(DataObject obj, string outerAlias, string outerFieldName, TField linkField, ref int termNumber, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
+        internal override QueryFragment GenerateExistsSQLQuery(Record obj, string outerAlias, string outerFieldName, TField linkField, ref int termNumber, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
         {
             var node = new QueryNode(this, obj);
             node.SetTerm(term);
@@ -1175,13 +1176,13 @@ namespace ActiveForge
 
         // ── OBJECT BINDING ────────────────────────────────────────────────────────
 
-        public override ObjectBinding GetObjectBinding(ObjectBase obj, bool targetExists, bool useCache)
+        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache)
             => GetObjectBinding(obj, targetExists, useCache, null, false);
 
-        public override ObjectBinding GetObjectBinding(ObjectBase obj, bool targetExists, bool useCache, Type[] expectedTypes)
+        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[] expectedTypes)
             => GetObjectBinding(obj, targetExists, useCache, expectedTypes, false);
 
-        public override ObjectBinding GetObjectBinding(ObjectBase obj, bool targetExists, bool useCache, Type[] expectedTypes, bool includeLookupDataObjects)
+        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[] expectedTypes, bool includeLookupDataObjects)
         {
             if (useCache && expectedTypes == null)
             {
@@ -1193,7 +1194,7 @@ namespace ActiveForge
                     {
                         if (!cache.Bindings.TryGetValue(key, out binding))
                         {
-                            binding = new ObjectBinding(obj, this, targetExists, null, null, _factory, includeLookupDataObjects);
+                            binding = new RecordBinding(obj, this, targetExists, null, null, _factory, includeLookupDataObjects);
                             if (targetExists)
                                 cache.Bindings[key] = binding;
                         }
@@ -1201,16 +1202,16 @@ namespace ActiveForge
                 }
                 return binding;
             }
-            return new ObjectBinding(obj, this, targetExists, null, expectedTypes, _factory, includeLookupDataObjects);
+            return new RecordBinding(obj, this, targetExists, null, expectedTypes, _factory, includeLookupDataObjects);
         }
 
-        public override ObjectBinding GetChangedObjectBinding(ObjectBase obj, ObjectBase changedObj)
-            => new ObjectBinding(obj, this, true, changedObj, null, _factory, false);
+        public override RecordBinding GetChangedObjectBinding(RecordBase obj, RecordBase changedObj)
+            => new RecordBinding(obj, this, true, changedObj, null, _factory, false);
 
-        public override ObjectBinding GetDynamicObjectBinding(ObjectBase obj, ReaderBase reader)
+        public override RecordBinding GetDynamicObjectBinding(RecordBase obj, ReaderBase reader)
         {
             int fieldCount = reader.ColumnCount();
-            var binding    = new ObjectBinding();
+            var binding    = new RecordBinding();
             for (int i = 0; i < fieldCount; i++)
             {
                 var info = new TargetFieldInfo
@@ -1233,9 +1234,9 @@ namespace ActiveForge
 
         // ── SQL GENERATION — INSERT ───────────────────────────────────────────────
 
-        internal List<ObjectBinding.InsertSQLInfo> GetInsertSQL(ObjectBinding binding, DataObject obj)
+        internal List<RecordBinding.InsertSQLInfo> GetInsertSQL(RecordBinding binding, Record obj)
         {
-            var results = new List<ObjectBinding.InsertSQLInfo>();
+            var results = new List<RecordBinding.InsertSQLInfo>();
             bool needsIdentity = InsertNeedsIdentity(binding);
 
             for (int ti = 0; ti < binding.UpdateTableAliases.Count; ti++)
@@ -1245,7 +1246,7 @@ namespace ActiveForge
                 var fields  = new StringBuilder();
                 var values  = new StringBuilder();
                 bool first  = true;
-                var info    = new ObjectBinding.InsertSQLInfo();
+                var info    = new RecordBinding.InsertSQLInfo();
 
                 foreach (var fb in binding.Fields)
                 {
@@ -1297,7 +1298,7 @@ namespace ActiveForge
             return results;
         }
 
-        private bool InsertNeedsIdentity(ObjectBinding binding)
+        private bool InsertNeedsIdentity(RecordBinding binding)
         {
             foreach (var fb in binding.UpdateFields)
             {
@@ -1307,23 +1308,23 @@ namespace ActiveForge
             return false;
         }
 
-        protected virtual string PopulateIdentity(DataObject obj, ObjectBinding binding, CommandBase command)
+        protected virtual string PopulateIdentity(Record obj, RecordBinding binding, CommandBase command)
             => ""; // overridden in SqlServerConnection
 
         protected virtual bool InsertIdentityFields => false;
 
         // ── SQL GENERATION — DELETE ───────────────────────────────────────────────
 
-        internal List<ObjectBinding.DeleteSQLInfo> GetDeleteSQL(ObjectBinding binding)
+        internal List<RecordBinding.DeleteSQLInfo> GetDeleteSQL(RecordBinding binding)
         {
-            var results  = new List<ObjectBinding.DeleteSQLInfo>();
+            var results  = new List<RecordBinding.DeleteSQLInfo>();
             string criteria = "";
 
             for (int ti = 0; ti < binding.UpdateTableAliases.Count; ti++)
             {
                 string tableAlias = binding.UpdateTableAliases[ti];
                 string sourceName = binding.AliasToSourceName(tableAlias);
-                var sqlInfo       = new ObjectBinding.DeleteSQLInfo { SourceName = sourceName, TableAlias = tableAlias };
+                var sqlInfo       = new RecordBinding.DeleteSQLInfo { SourceName = sourceName, TableAlias = tableAlias };
 
                 foreach (var fb in binding.Fields)
                 {
@@ -1342,15 +1343,15 @@ namespace ActiveForge
             return results;
         }
 
-        internal List<ObjectBinding.DeleteSQLInfo> GetDeleteSQLStub(ObjectBinding binding)
+        internal List<RecordBinding.DeleteSQLInfo> GetDeleteSQLStub(RecordBinding binding)
         {
-            var results = new List<ObjectBinding.DeleteSQLInfo>();
+            var results = new List<RecordBinding.DeleteSQLInfo>();
 
             for (int ti = 0; ti < binding.UpdateTableAliases.Count; ti++)
             {
                 string tableAlias = binding.UpdateTableAliases[ti];
                 string sourceName = binding.AliasToSourceName(tableAlias);
-                var sqlInfo       = new ObjectBinding.DeleteSQLInfo
+                var sqlInfo       = new RecordBinding.DeleteSQLInfo
                 {
                     SQL        = $"DELETE FROM {ResolveFullyQualifiedName(sourceName, false)}",
                     SourceName = sourceName,
@@ -1363,7 +1364,7 @@ namespace ActiveForge
 
         // ── SQL GENERATION — UPDATE ───────────────────────────────────────────────
 
-        internal List<UpdateSQLInfo> GetUpdateSQL(ObjectBinding binding, DataObject obj)
+        internal List<UpdateSQLInfo> GetUpdateSQL(RecordBinding binding, Record obj)
         {
             var results  = new List<UpdateSQLInfo>();
             string criteria = "";
@@ -1405,7 +1406,7 @@ namespace ActiveForge
 
         // ── SQL GENERATION — READ ─────────────────────────────────────────────────
 
-        protected string GetReadSQL(DataObject obj, ObjectBinding binding, List<FieldBinding> fieldBindingSubset, FieldSubset fieldSubset)
+        protected string GetReadSQL(Record obj, RecordBinding binding, List<FieldBinding> fieldBindingSubset, FieldSubset fieldSubset)
         {
             var fields   = new StringBuilder();
             string criteria = "";
@@ -1439,7 +1440,7 @@ namespace ActiveForge
             return $"SELECT {fields} FROM {ResolveFullyQualifiedName(binding.SourceName, binding.Function)} {binding.GetRootAlias()}{joins} WHERE {criteria}";
         }
 
-        protected string GetReadForUpdateSQL(DataObject obj, ObjectBinding binding, List<FieldBinding> fieldBindingSubset, FieldSubset fieldSubset)
+        protected string GetReadForUpdateSQL(Record obj, RecordBinding binding, List<FieldBinding> fieldBindingSubset, FieldSubset fieldSubset)
         {
             var fields   = new StringBuilder();
             string criteria = "";
@@ -1476,9 +1477,9 @@ namespace ActiveForge
 
         // ── SQL GENERATION — QUERY STUB ───────────────────────────────────────────
 
-        protected string GetQuerySQLStub(ObjectBinding binding, FieldSubset fieldSubset, List<FieldBinding> fieldBindingSubset, int rowCount,
-            Dictionary<Type, FieldSubset> fieldSubsets, ObjectParameterCollectionBase objectParameters,
-            Dictionary<Type, ObjectParameterCollectionBase> concreteTypeObjectParameters,
+        protected string GetQuerySQLStub(RecordBinding binding, FieldSubset fieldSubset, List<FieldBinding> fieldBindingSubset, int rowCount,
+            Dictionary<Type, FieldSubset> fieldSubsets, RecordParameterCollectionBase objectParameters,
+            Dictionary<Type, RecordParameterCollectionBase> concreteTypeObjectParameters,
             IReadOnlyList<JoinOverride> joinOverrides = null)
         {
             var fields = new StringBuilder(512);
@@ -1533,7 +1534,7 @@ namespace ActiveForge
 
         // ── SQL GENERATION — JOINS ────────────────────────────────────────────────
 
-        protected string GetJoinSQL(ObjectBinding binding, FieldSubset fieldSubset, bool withUpdateLock)
+        protected string GetJoinSQL(RecordBinding binding, FieldSubset fieldSubset, bool withUpdateLock)
         {
             var specs = new List<JoinSpecification>();
             binding.GetJoinSpecifications(ref specs, fieldSubset, withUpdateLock);
@@ -1541,10 +1542,10 @@ namespace ActiveForge
         }
 
         /// <summary>
-        /// Variant of <see cref="GetJoinSQL(ObjectBinding,FieldSubset,bool)"/> that applies
+        /// Variant of <see cref="GetJoinSQL(RecordBinding,FieldSubset,bool)"/> that applies
         /// query-time join-type overrides before generating SQL.
         /// </summary>
-        protected string GetJoinSQL(ObjectBinding binding, FieldSubset fieldSubset, bool withUpdateLock, IReadOnlyList<JoinOverride> overrides)
+        protected string GetJoinSQL(RecordBinding binding, FieldSubset fieldSubset, bool withUpdateLock, IReadOnlyList<JoinOverride> overrides)
         {
             var specs = new List<JoinSpecification>();
             binding.GetJoinSpecifications(ref specs, fieldSubset, withUpdateLock);
@@ -1561,14 +1562,14 @@ namespace ActiveForge
                         specs[i].JoinType = ov.JoinType;
         }
 
-        protected string GetJoinSQL(ObjectBinding binding, Dictionary<Type, FieldSubset> fieldSubsets, bool withUpdateLock, Dictionary<Type, ObjectParameterCollectionBase> concreteTypeObjectParams)
+        protected string GetJoinSQL(RecordBinding binding, Dictionary<Type, FieldSubset> fieldSubsets, bool withUpdateLock, Dictionary<Type, RecordParameterCollectionBase> concreteTypeObjectParams)
         {
             var specs = new List<JoinSpecification>();
             binding.GetPolymorphicJoinSpecifications(ref specs, withUpdateLock, fieldSubsets);
             return JoinSQLFromJoinSpecifications(specs, withUpdateLock, concreteTypeObjectParams);
         }
 
-        protected string JoinSQLFromJoinSpecifications(List<JoinSpecification> specs, bool withUpdateLock, Dictionary<Type, ObjectParameterCollectionBase> concreteTypeObjectParams)
+        protected string JoinSQLFromJoinSpecifications(List<JoinSpecification> specs, bool withUpdateLock, Dictionary<Type, RecordParameterCollectionBase> concreteTypeObjectParams)
         {
             var sb = new StringBuilder();
             foreach (var join in specs)
@@ -1610,18 +1611,18 @@ namespace ActiveForge
 
         // ── ROW FETCH ─────────────────────────────────────────────────────────────
 
-        public void FetchRow(DataObject obj, ReaderBase reader, ObjectBinding binding, List<FieldBinding> fieldBindings, bool omitPK)
+        public void FetchRow(Record obj, ReaderBase reader, RecordBinding binding, List<FieldBinding> fieldBindings, bool omitPK)
             => FetchRow(obj, reader, binding, fieldBindings, omitPK, false);
 
-        public void FetchRow(DataObject obj, ReaderBase reader, ObjectBinding binding, List<FieldBinding> fieldBindings, bool omitPK, bool shallow)
+        public void FetchRow(Record obj, ReaderBase reader, RecordBinding binding, List<FieldBinding> fieldBindings, bool omitPK, bool shallow)
         {
             binding.FetchRowValues(fieldBindings, FetchField, obj, reader, omitPK, shallow, 1);
             obj.PerformPostFetchProcesses();
         }
 
-        public DataObject FetchRow(ReaderBase reader, ObjectBinding binding, List<FieldBinding> fieldBindings, bool omitPK)
+        public Record FetchRow(ReaderBase reader, RecordBinding binding, List<FieldBinding> fieldBindings, bool omitPK)
         {
-            DataObject obj = binding.FetchRowValues(fieldBindings, FetchField, reader, omitPK, false, this, 1);
+            Record obj = binding.FetchRowValues(fieldBindings, FetchField, reader, omitPK, false, this, 1);
             if (obj != null) obj.PerformPostFetchProcesses();
             return obj;
         }
@@ -1632,7 +1633,7 @@ namespace ActiveForge
             return col == DBNull.Value ? null : col;
         }
 
-        public void FetchField(DataObject obj, ReaderBase reader, FieldBinding fieldBinding, ObjectBinding binding, bool omitPK, bool omitPKForOrdinals)
+        public void FetchField(Record obj, ReaderBase reader, FieldBinding fieldBinding, RecordBinding binding, bool omitPK, bool omitPKForOrdinals)
         {
             var info = fieldBinding.Info;
             if (info.IsInPK && omitPK) return;
@@ -1671,7 +1672,7 @@ namespace ActiveForge
 
         // ── PARAMETER BINDING ─────────────────────────────────────────────────────
 
-        protected void BindInsertParameters(DataObject obj, ObjectBinding binding, CommandBase cmd, bool includePK)
+        protected void BindInsertParameters(Record obj, RecordBinding binding, CommandBase cmd, bool includePK)
         {
             foreach (var fb in binding.UpdateFields)
             {
@@ -1690,7 +1691,7 @@ namespace ActiveForge
             }
         }
 
-        protected void BindDeleteParameters(DataObject obj, ObjectBinding binding, CommandBase cmd)
+        protected void BindDeleteParameters(Record obj, RecordBinding binding, CommandBase cmd)
         {
             foreach (var fb in binding.UpdateFields)
             {
@@ -1703,7 +1704,7 @@ namespace ActiveForge
             }
         }
 
-        protected void BindUpdateParameters(DataObject obj, ObjectBinding binding, CommandBase cmd)
+        protected void BindUpdateParameters(Record obj, RecordBinding binding, CommandBase cmd)
         {
             foreach (var fb in binding.UpdateFields)
             {
@@ -1723,7 +1724,7 @@ namespace ActiveForge
             }
         }
 
-        protected void BindReadParameters(DataObject obj, ObjectBinding binding, CommandBase cmd)
+        protected void BindReadParameters(Record obj, RecordBinding binding, CommandBase cmd)
         {
             foreach (var fb in binding.Fields)
             {
@@ -1733,24 +1734,24 @@ namespace ActiveForge
             }
         }
 
-        protected void BindQueryParameters(DataObject obj, ObjectBinding binding, CommandBase cmd, QueryTerm query)
+        protected void BindQueryParameters(Record obj, RecordBinding binding, CommandBase cmd, QueryTerm query)
         {
             int termNumber = 1;
             BindQueryParameters(obj, binding, cmd, query, ref termNumber);
         }
 
-        protected void BindQueryParameters(DataObject obj, ObjectBinding binding, CommandBase cmd, QueryTerm query, ref int termNumber)
+        protected void BindQueryParameters(Record obj, RecordBinding binding, CommandBase cmd, QueryTerm query, ref int termNumber)
         {
             query?.BindParameters(obj, binding, cmd, ref termNumber);
         }
 
-        protected void BindJoinParameters(DataObject obj, ObjectBinding binding, CommandBase cmd)
+        protected void BindJoinParameters(Record obj, RecordBinding binding, CommandBase cmd)
         {
             // No translation join parameters in this port.
         }
 
-        protected void BindFunctionParameters(DataObject obj, ObjectBinding binding, CommandBase cmd,
-            ObjectParameterCollectionBase objectParameters, Dictionary<Type, ObjectParameterCollectionBase> concreteTypeObjectParams)
+        protected void BindFunctionParameters(Record obj, RecordBinding binding, CommandBase cmd,
+            RecordParameterCollectionBase objectParameters, Dictionary<Type, RecordParameterCollectionBase> concreteTypeObjectParams)
         {
             int idx = 0;
             objectParameters?.BindFunctionParameters(cmd, ref idx, GetParameterMark());
@@ -1763,7 +1764,7 @@ namespace ActiveForge
 
         // ── PARAMETER HELPERS ─────────────────────────────────────────────────────
 
-        protected void SetObjectPKLoaded(DataObject obj, ObjectBinding binding)
+        protected void SetObjectPKLoaded(Record obj, RecordBinding binding)
         {
             foreach (var fb in binding.Fields)
             {
@@ -1785,13 +1786,13 @@ namespace ActiveForge
 
         // ── DEBUG HELPERS ─────────────────────────────────────────────────────────
 
-        protected string FormatDebugInfo(DataObject obj, ObjectBinding binding, QueryTerm term)
+        protected string FormatDebugInfo(Record obj, RecordBinding binding, QueryTerm term)
         {
             string q = term != null ? GetQueryParameterDebugString(obj, binding, term) : "";
             return q.Length > 0 ? " { " + q + " } " : "";
         }
 
-        protected string GetInsertParameterDebugString(DataObject obj, ObjectBinding binding, bool includePK)
+        protected string GetInsertParameterDebugString(Record obj, RecordBinding binding, bool includePK)
         {
             var parts = new List<string>();
             foreach (var fb in binding.UpdateFields)
@@ -1806,7 +1807,7 @@ namespace ActiveForge
             return string.Join(", ", parts);
         }
 
-        protected string GetUpdateParameterDebugString(DataObject obj, ObjectBinding binding)
+        protected string GetUpdateParameterDebugString(Record obj, RecordBinding binding)
         {
             var parts = new List<string>();
             foreach (var fb in binding.UpdateFields)
@@ -1825,7 +1826,7 @@ namespace ActiveForge
             return string.Join(", ", parts);
         }
 
-        protected string GetDeleteParameterDebugString(DataObject obj, ObjectBinding binding)
+        protected string GetDeleteParameterDebugString(Record obj, RecordBinding binding)
         {
             var parts = new List<string>();
             foreach (var fb in binding.UpdateFields)
@@ -1837,7 +1838,7 @@ namespace ActiveForge
             return string.Join(", ", parts);
         }
 
-        protected string GetReadParameterDebugString(DataObject obj, ObjectBinding binding)
+        protected string GetReadParameterDebugString(Record obj, RecordBinding binding)
         {
             var parts = new List<string>();
             if (binding != null)
@@ -1850,7 +1851,7 @@ namespace ActiveForge
             return string.Join(", ", parts);
         }
 
-        protected string GetQueryParameterDebugString(DataObject obj, ObjectBinding binding, QueryTerm query)
+        protected string GetQueryParameterDebugString(Record obj, RecordBinding binding, QueryTerm query)
         {
             int n = 1;
             string result = "";
@@ -1858,9 +1859,9 @@ namespace ActiveForge
             return result;
         }
 
-        private string FormatParamDebug(DataObject obj, TargetFieldInfo info)
+        private string FormatParamDebug(Record obj, TargetFieldInfo info)
         {
-            bool sensitive = ObjectBase.GetFieldSensitive(info.FieldInfo);
+            bool sensitive = RecordBase.GetFieldSensitive(info.FieldInfo);
             string val = sensitive ? "***" : (info.GetValue(obj)?.ToString() ?? "null");
             return $"{GetParameterMark()}{info.TargetName}={val}";
         }
@@ -1880,7 +1881,7 @@ namespace ActiveForge
                 {
                     foreach (var type in assembly.GetTypes())
                     {
-                        if (!type.IsClass || !type.IsSubclassOf(typeof(DataObject))) continue;
+                        if (!type.IsClass || !type.IsSubclassOf(typeof(Record))) continue;
                         if (type.Name != fullClassName && type.FullName != fullClassName) continue;
                         foreach (var fi in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
                         {
@@ -1944,12 +1945,12 @@ namespace ActiveForge
 
         // ── TABLE EXISTS ──────────────────────────────────────────────────────────
 
-        public override bool TableExists(ObjectBase obj)
+        public override bool TableExists(RecordBase obj)
         {
             // Attempt a SELECT TOP 1 to test existence; dialect may override
             try
             {
-                var meta = DataObjectMetaDataCache.GetTypeMetaData(obj.GetType());
+                var meta = RecordMetaDataCache.GetTypeMetaData(obj.GetType());
                 string testSql = LimitRowCount(1, $"* FROM {QuoteName(meta.SourceName)}");
                 using var cmd    = CreateCommand($"SELECT {testSql}");
                 using var reader = cmd.ExecuteReader();
@@ -1969,7 +1970,7 @@ namespace ActiveForge
             return cache?.GetValidationMessage(key) ?? defaultValue;
         }
 
-        public override string GetFieldDescription(FieldInfo fi, ObjectBase obj)
+        public override string GetFieldDescription(FieldInfo fi, RecordBase obj)
         {
             var cache = GetInstanceCache();
             string key = obj.GetType().FullName + "." + fi.Name;
@@ -1981,7 +1982,7 @@ namespace ActiveForge
             return desc;
         }
 
-        public override string GetDataObjectDescription(ObjectBase obj)
+        public override string GetDataObjectDescription(RecordBase obj)
         {
             var cache = GetInstanceCache();
             string key = obj.GetType().FullName;
@@ -2025,7 +2026,7 @@ namespace ActiveForge
             _actionQueue?.Clear();
         }
 
-        public override void QueueForInsert(DataObject obj)
+        public override void QueueForInsert(Record obj)
         {
             lock (_syncRoot)
             {
@@ -2034,16 +2035,16 @@ namespace ActiveForge
             }
         }
 
-        public override void QueueForUpdate(DataObject obj)
+        public override void QueueForUpdate(Record obj)
         {
             lock (_syncRoot)
             {
                 if (_transactionDepth > 0) GetActionQueue().Add(new UpdateActionQueueEntry(this, obj));
-                else Update(obj, DataObjectLock.UpdateOption.ReleaseLock);
+                else Update(obj, RecordLock.UpdateOption.ReleaseLock);
             }
         }
 
-        public override void QueueForDelete(DataObject obj)
+        public override void QueueForDelete(Record obj)
         {
             lock (_syncRoot)
             {
@@ -2052,7 +2053,7 @@ namespace ActiveForge
             }
         }
 
-        public override void QueueForDelete(DataObject obj, QueryTerm term)
+        public override void QueueForDelete(Record obj, QueryTerm term)
         {
             lock (_syncRoot)
             {
@@ -2065,28 +2066,28 @@ namespace ActiveForge
 
         protected abstract class ActionQueueEntry
         {
-            protected readonly DataObject          Object;
+            protected readonly Record          Object;
             protected readonly DBDataConnection    Connection;
-            protected ActionQueueEntry(DBDataConnection conn, DataObject obj) { Connection = conn; Object = obj; }
+            protected ActionQueueEntry(DBDataConnection conn, Record obj) { Connection = conn; Object = obj; }
             public abstract void Act();
         }
 
         protected class InsertActionQueueEntry : ActionQueueEntry
         {
-            public InsertActionQueueEntry(DBDataConnection c, DataObject o) : base(c, o) { }
+            public InsertActionQueueEntry(DBDataConnection c, Record o) : base(c, o) { }
             public override void Act() { if (Object != null) Connection.Insert(Object); }
         }
 
         protected class UpdateActionQueueEntry : ActionQueueEntry
         {
-            public UpdateActionQueueEntry(DBDataConnection c, DataObject o) : base(c, o) { }
-            public override void Act() { if (Object != null) Connection.Update(Object, DataObjectLock.UpdateOption.ReleaseLock); }
+            public UpdateActionQueueEntry(DBDataConnection c, Record o) : base(c, o) { }
+            public override void Act() { if (Object != null) Connection.Update(Object, RecordLock.UpdateOption.ReleaseLock); }
         }
 
         protected class DeleteActionQueueEntry : ActionQueueEntry
         {
             private readonly QueryTerm _term;
-            public DeleteActionQueueEntry(DBDataConnection c, DataObject o, QueryTerm t) : base(c, o) { _term = t; }
+            public DeleteActionQueueEntry(DBDataConnection c, Record o, QueryTerm t) : base(c, o) { _term = t; }
             public override void Act()
             {
                 if (Object != null)
@@ -2102,8 +2103,8 @@ namespace ActiveForge
         public class QueryNode
         {
             protected readonly DBDataConnection _conn;
-            protected DataObject         _object;
-            protected ObjectBinding      _binding;
+            protected Record         _object;
+            protected RecordBinding      _binding;
             protected QueryTerm          _term;
             protected SortOrder          _sortOrder;
             protected FieldSubset        _fieldSubset;
@@ -2117,7 +2118,7 @@ namespace ActiveForge
             protected int    _index;
             private   IReadOnlyList<JoinOverride> _joinOverrides;
 
-            public QueryNode(DBDataConnection conn, DataObject obj)
+            public QueryNode(DBDataConnection conn, Record obj)
             {
                 _conn   = conn;
                 _object = obj;
@@ -2141,7 +2142,7 @@ namespace ActiveForge
             public void SetConcreteTypeFieldSubsets(Dictionary<Type, FieldSubset> subsets)
                 => _concreteTypeFieldSubsets = subsets;
 
-            public void SetBinding(ObjectBinding b) => _binding = b;
+            public void SetBinding(RecordBinding b) => _binding = b;
 
             /// <summary>Specifies join-type overrides applied when building the query SQL stub.</summary>
             public void SetJoinOverrides(IReadOnlyList<JoinOverride> overrides) => _joinOverrides = overrides;
@@ -2165,7 +2166,7 @@ namespace ActiveForge
                     {
                         if (!_concreteTypeFieldSubsets.ContainsKey(ct))
                         {
-                            var co = (DataObject)DataObject.CreateDataObject(ct, _conn);
+                            var co = (Record)Record.CreateDataObject(ct, _conn);
                             _concreteTypeFieldSubsets[ct] = co.DefaultFieldSubset();
                         }
                     }
@@ -2207,7 +2208,7 @@ namespace ActiveForge
 
             // ── QueryAll ──────────────────────────────────────────────────────────
 
-            public virtual ObjectCollection QueryAll()
+            public virtual RecordCollection QueryAll()
             {
                 string stub = BuildQuerySQL(0);
                 int termNumber = 1;
@@ -2219,7 +2220,7 @@ namespace ActiveForge
 
             // ── QueryPage ─────────────────────────────────────────────────────────
 
-            public virtual ObjectCollection QueryPage()
+            public virtual RecordCollection QueryPage()
             {
                 // For prefix-style limits (e.g. SQL Server SELECT TOP N) pass the row
                 // limit into the stub.  For suffix-style dialects (e.g. SQLite LIMIT N)
@@ -2250,9 +2251,9 @@ namespace ActiveForge
 
             // ── Core fetch ────────────────────────────────────────────────────────
 
-            protected ObjectCollection PerformFetch(string sql, int firstSignificant)
+            protected RecordCollection PerformFetch(string sql, int firstSignificant)
             {
-                var results = new ObjectCollection { StartRecord = _start, PageSize = _count };
+                var results = new RecordCollection { StartRecord = _start, PageSize = _count };
                 var cmd     = _conn.CreateCommand(sql);
                 if (_conn._transactionDepth > 0) cmd.SetTransaction(_conn._transaction);
                 BindQueryParameters(cmd);
@@ -2265,7 +2266,7 @@ namespace ActiveForge
                     {
                         if (scan >= firstSignificant)
                         {
-                            DataObject newObj;
+                            Record newObj;
                             if (_concreteTypes == null)
                             {
                                 newObj = _conn.Create(_object.GetType(), null, true);

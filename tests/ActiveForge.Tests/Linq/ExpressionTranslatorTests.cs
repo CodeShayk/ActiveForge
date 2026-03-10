@@ -20,7 +20,7 @@ namespace ActiveForge.Tests.Linq
 
         private static readonly StubDataConnection Conn = new StubDataConnection();
 
-        private sealed class Product : DataObject
+        private sealed class Product : Record
         {
             public TString  Name     = new TString();
             public TInt     Quantity = new TInt();

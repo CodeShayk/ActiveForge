@@ -6,7 +6,7 @@ namespace ActiveForge.MongoDB.Tests
     // ── Shared test entity definitions ────────────────────────────────────────────────
 
     [Table("products")]
-    public class MongoTestProduct : IdentDataObject
+    public class MongoTestProduct : IdentityRecord
     {
         [Column("name")]     public TString  Name    = new TString();
         [Column("price")]    public TDecimal Price   = new TDecimal();
@@ -17,7 +17,7 @@ namespace ActiveForge.MongoDB.Tests
     }
 
     [Table("orders")]
-    public class MongoTestOrder : IdentDataObject
+    public class MongoTestOrder : IdentityRecord
     {
         [Column("customer_name")] public TString  CustomerName = new TString();
         [Column("total")]         public TDecimal Total        = new TDecimal();
@@ -27,9 +27,9 @@ namespace ActiveForge.MongoDB.Tests
         public MongoTestOrder(DataConnection conn) : base(conn) { }
     }
 
-    /// <summary>DataObject without an [Identity] field, for testing PK-less entities.</summary>
+    /// <summary>Record without an [Identity] field, for testing PK-less entities.</summary>
     [Table("logs")]
-    public class MongoTestLog : DataObject
+    public class MongoTestLog : Record
     {
         [Column("message")]  public TString Message  = new TString();
         [Column("severity")] public TInt    Severity = new TInt();
@@ -44,12 +44,12 @@ namespace ActiveForge.MongoDB.Tests
     /// from the "products" collection via <c>product_id → _id</c>.
     /// </summary>
     [Table("order_items")]
-    public class MongoTestOrderItem : IdentDataObject
+    public class MongoTestOrderItem : IdentityRecord
     {
         [Column("product_id")] public TForeignKey ProductId = new TForeignKey();
         [Column("quantity")]   public TInt        Quantity  = new TInt();
 
-        // Embedded joined DataObject; join attribute wires FK explicitly.
+        // Embedded joined Record; join attribute wires FK explicitly.
         [Join("product_id", "_id", JoinAttribute.JoinTypeEnum.LeftOuterJoin)]
         public MongoTestProduct Product = new MongoTestProduct();
 
@@ -62,7 +62,7 @@ namespace ActiveForge.MongoDB.Tests
     /// Convention: embedded field named "Product" → sibling field named "ProductID".
     /// </summary>
     [Table("order_items_conv")]
-    public class MongoTestOrderItemConv : IdentDataObject
+    public class MongoTestOrderItemConv : IdentityRecord
     {
         [Column("product_id")] public TForeignKey ProductID = new TForeignKey();
         [Column("quantity")]   public TInt        Quantity  = new TInt();

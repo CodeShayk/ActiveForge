@@ -108,103 +108,103 @@ namespace ActiveForge
 
         // ── CRUD ──────────────────────────────────────────────────────────────────────
 
-        public abstract bool Insert(DataObject obj);
-        public abstract bool Delete(DataObject obj);
-        public abstract bool Delete(DataObject obj, QueryTerm term);
-        internal abstract void Delete(DataObject obj, QueryTerm term, Type[] concreteTypes);
-        internal abstract FieldSubset Update(DataObject obj, DataObjectLock.UpdateOption option);
-        internal abstract FieldSubset UpdateAll(DataObject obj);
-        internal abstract FieldSubset UpdateChanged(DataObject obj);
+        public abstract bool Insert(Record obj);
+        public abstract bool Delete(Record obj);
+        public abstract bool Delete(Record obj, QueryTerm term);
+        internal abstract void Delete(Record obj, QueryTerm term, Type[] concreteTypes);
+        internal abstract FieldSubset Update(Record obj, RecordLock.UpdateOption option);
+        internal abstract FieldSubset UpdateAll(Record obj);
+        internal abstract FieldSubset UpdateChanged(Record obj);
 
         // ── Action queue ──────────────────────────────────────────────────────────────
 
         public abstract void ProcessActionQueue();
         public abstract void ClearActionQueue();
-        public abstract void QueueForInsert(DataObject obj);
-        public abstract void QueueForUpdate(DataObject obj);
-        public abstract void QueueForDelete(DataObject obj);
-        public abstract void QueueForDelete(DataObject obj, QueryTerm term);
+        public abstract void QueueForInsert(Record obj);
+        public abstract void QueueForUpdate(Record obj);
+        public abstract void QueueForDelete(Record obj);
+        public abstract void QueueForDelete(Record obj, QueryTerm term);
 
         // ── Read / ReadForUpdate ──────────────────────────────────────────────────────
 
-        public abstract bool Read(DataObject obj);
-        public abstract bool Read(DataObject obj, FieldSubset fieldSubset);
-        public abstract bool ReadForUpdate(DataObject obj, FieldSubset fieldSubset);
+        public abstract bool Read(Record obj);
+        public abstract bool Read(Record obj, FieldSubset fieldSubset);
+        public abstract bool ReadForUpdate(Record obj, FieldSubset fieldSubset);
 
         // ── QueryFirst ────────────────────────────────────────────────────────────────
 
-        public abstract bool QueryFirst(DataObject obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset);
-        public abstract bool QueryFirst(DataObject obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset, ObjectParameterCollectionBase objectParameters);
+        public abstract bool QueryFirst(Record obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset);
+        public abstract bool QueryFirst(Record obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset, RecordParameterCollectionBase objectParameters);
 
         // ── QueryCount ────────────────────────────────────────────────────────────────
 
-        public abstract int QueryCount(DataObject obj);
-        public abstract int QueryCount(DataObject obj, QueryTerm term);
-        public abstract int QueryCount(DataObject obj, QueryTerm term, Type[] expectedTypes);
-        public abstract int QueryCount(DataObject obj, QueryTerm term, Type[] expectedTypes, FieldSubset subsetIn);
+        public abstract int QueryCount(Record obj);
+        public abstract int QueryCount(Record obj, QueryTerm term);
+        public abstract int QueryCount(Record obj, QueryTerm term, Type[] expectedTypes);
+        public abstract int QueryCount(Record obj, QueryTerm term, Type[] expectedTypes, FieldSubset subsetIn);
 
         // ── QueryAll ──────────────────────────────────────────────────────────────────
 
-        public abstract ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset);
-        public abstract ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset);
-        public abstract ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets);
+        public abstract RecordCollection QueryAll(Record obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset);
+        public abstract RecordCollection QueryAll(Record obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset);
+        public abstract RecordCollection QueryAll(Record obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets);
 
-        public abstract IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset) where T : DataObject;
-        public abstract IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset) where T : DataObject;
+        public abstract IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset) where T : Record;
+        public abstract IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset) where T : Record;
 
         // ── Query with join-type overrides (virtual; default ignores overrides) ────────
 
         /// <summary>
         /// Executes a QueryAll query with optional query-time join-type overrides.
         /// Overrides change the join type (INNER/LEFT OUTER) for specific embedded
-        /// <see cref="DataObject"/> types without modifying the entity class.
+        /// <see cref="Record"/> types without modifying the entity class.
         /// The default implementation ignores <paramref name="joinOverrides"/> and
-        /// falls back to the standard <see cref="QueryAll(DataObject,QueryTerm,SortOrder,int,FieldSubset)"/>.
+        /// falls back to the standard <see cref="QueryAll(Record,QueryTerm,SortOrder,int,FieldSubset)"/>.
         /// </summary>
-        public virtual ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+        public virtual RecordCollection QueryAll(Record obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
             => QueryAll(obj, term, sortOrder, pageSize, fieldSubset);
 
-        /// <inheritdoc cref="QueryAll(DataObject,QueryTerm,SortOrder,int,FieldSubset,IReadOnlyList{JoinOverride})"/>
-        public virtual IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides) where T : DataObject
+        /// <inheritdoc cref="QueryAll(Record,QueryTerm,SortOrder,int,FieldSubset,IReadOnlyList{JoinOverride})"/>
+        public virtual IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides) where T : Record
             => LazyQueryAll<T>(obj, term, sortOrder, pageSize, fieldSubset);
 
-        /// <inheritdoc cref="QueryAll(DataObject,QueryTerm,SortOrder,int,FieldSubset,IReadOnlyList{JoinOverride})"/>
-        public virtual ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+        /// <inheritdoc cref="QueryAll(Record,QueryTerm,SortOrder,int,FieldSubset,IReadOnlyList{JoinOverride})"/>
+        public virtual RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
             => QueryPage(obj, term, sortOrder, start, count, fieldSubset);
 
         // ── QueryPage ─────────────────────────────────────────────────────────────────
 
-        public abstract ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset);
-        public abstract ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes);
-        public abstract ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets);
-        public abstract ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets, bool returnCountInfo);
+        public abstract RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset);
+        public abstract RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes);
+        public abstract RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets);
+        public abstract RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets, bool returnCountInfo);
 
         // ── ExecSQL ───────────────────────────────────────────────────────────────────
 
-        public abstract ObjectCollection ExecSQL(DataObject obj, string sql);
-        public abstract ObjectCollection ExecSQL(DataObject obj, string sqlFormat, params object[] values);
-        public abstract ObjectCollection ExecSQL(DataObject obj, string sql, Dictionary<string, object> parameters);
-        public abstract ObjectCollection ExecSQL(DataObject obj, string sql, int start, int count);
-        public abstract ObjectCollection ExecSQL(DataObject obj, string sql, int start, int count, Dictionary<string, object> parameters);
+        public abstract RecordCollection ExecSQL(Record obj, string sql);
+        public abstract RecordCollection ExecSQL(Record obj, string sqlFormat, params object[] values);
+        public abstract RecordCollection ExecSQL(Record obj, string sql, Dictionary<string, object> parameters);
+        public abstract RecordCollection ExecSQL(Record obj, string sql, int start, int count);
+        public abstract RecordCollection ExecSQL(Record obj, string sql, int start, int count, Dictionary<string, object> parameters);
         public abstract ReaderBase       ExecSQL(string sql);
         public abstract ReaderBase       ExecSQL(string sql, Dictionary<string, CommandBase.Parameter> parameters);
         public virtual  string           ExecSQLParameterName(string name) => GetParameterMark() + name;
 
         // ── Stored procedures ─────────────────────────────────────────────────────────
 
-        public abstract ObjectCollection ExecStoredProcedure(DataObject obj, string spName, int start, int count, params DataObject.SPParameter[] spParameters);
+        public abstract RecordCollection ExecStoredProcedure(Record obj, string spName, int start, int count, params Record.SPParameter[] spParameters);
 
         // ── Exists-sub-query support ──────────────────────────────────────────────────
 
-        internal abstract QueryFragment GenerateExistsSQLQuery(DataObject obj, string outerAlias, string outerFieldName, TField linkField, ref int termNumber, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets);
+        internal abstract QueryFragment GenerateExistsSQLQuery(Record obj, string outerAlias, string outerFieldName, TField linkField, ref int termNumber, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets);
 
         // ── Binding ───────────────────────────────────────────────────────────────────
 
-        public abstract ObjectBinding GetObjectBinding(ObjectBase obj, bool targetExists, bool useCache);
-        public abstract ObjectBinding GetObjectBinding(ObjectBase obj, bool targetExists, bool useCache, Type[] expectedTypes);
-        public abstract ObjectBinding GetObjectBinding(ObjectBase obj, bool targetExists, bool useCache, Type[] expectedTypes, bool includeLookupDataObjects);
-        public abstract ObjectBinding GetChangedObjectBinding(ObjectBase obj, ObjectBase changedObj);
-        public abstract ObjectBinding GetDynamicObjectBinding(ObjectBase obj, ReaderBase reader);
+        public abstract RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache);
+        public abstract RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[] expectedTypes);
+        public abstract RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[] expectedTypes, bool includeLookupDataObjects);
+        public abstract RecordBinding GetChangedObjectBinding(RecordBase obj, RecordBase changedObj);
+        public abstract RecordBinding GetDynamicObjectBinding(RecordBase obj, ReaderBase reader);
 
         // ── Schema / field info ───────────────────────────────────────────────────────
 
@@ -212,7 +212,7 @@ namespace ActiveForge
         public abstract List<TargetFieldInfo>  GetTargetFieldInfo(string sourceName);
         public abstract TargetFieldInfo        GetTargetFieldInfoFromCache(string sourceName, string targetFieldName);
         public abstract void                   AddTargetFieldInfoToCache(string sourceName, string targetFieldName, TargetFieldInfo info);
-        public abstract bool                   TableExists(ObjectBase obj);
+        public abstract bool                   TableExists(RecordBase obj);
 
         // ── Dialect helpers ───────────────────────────────────────────────────────────
 
@@ -240,11 +240,11 @@ namespace ActiveForge
         // ── FieldSubset factories ─────────────────────────────────────────────────────
 
         public abstract Type       MapType(Type generalization);
-        public abstract FieldSubset DefaultFieldSubset(DataObject rootObject);
-        public abstract FieldSubset FieldSubset(DataObject rootObject, FieldSubset.InitialState state);
-        public abstract FieldSubset FieldSubset(DataObject rootObject, DataObject enclosing, TField enclosed);
-        public abstract FieldSubset FieldSubset(DataObject rootObject, DataObject enclosing, DataObject enclosed);
-        public abstract FieldSubset FieldSubset(DataObject rootObject, DataObject enclosing, DataObject enclosed, FieldSubset.InitialState state);
+        public abstract FieldSubset DefaultFieldSubset(Record rootObject);
+        public abstract FieldSubset FieldSubset(Record rootObject, FieldSubset.InitialState state);
+        public abstract FieldSubset FieldSubset(Record rootObject, Record enclosing, TField enclosed);
+        public abstract FieldSubset FieldSubset(Record rootObject, Record enclosing, Record enclosed);
+        public abstract FieldSubset FieldSubset(Record rootObject, Record enclosing, Record enclosed, FieldSubset.InitialState state);
 
         // ── Pre/post identity ─────────────────────────────────────────────────────────
 
@@ -253,8 +253,8 @@ namespace ActiveForge
 
         // ── Object creation helpers ───────────────────────────────────────────────────
 
-        public abstract DataObject Create(Type type);
-        public abstract DataObject Create(Type type, DataObject owner, bool isTemplate = false);
+        public abstract Record Create(Type type);
+        public abstract Record Create(Type type, Record owner, bool isTemplate = false);
 
         // ── Timeout ───────────────────────────────────────────────────────────────────
 
@@ -275,7 +275,7 @@ namespace ActiveForge
         // ── Field descriptions ────────────────────────────────────────────────────────
 
         public abstract string GetValidationMessage(string key, string defaultValue);
-        public abstract string GetFieldDescription(FieldInfo fi, ObjectBase obj);
-        public abstract string GetDataObjectDescription(ObjectBase obj);
+        public abstract string GetFieldDescription(FieldInfo fi, RecordBase obj);
+        public abstract string GetDataObjectDescription(RecordBase obj);
     }
 }

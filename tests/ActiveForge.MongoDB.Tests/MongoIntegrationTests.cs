@@ -14,7 +14,7 @@ namespace ActiveForge.MongoDB.Tests
     // ── Test entities ─────────────────────────────────────────────────────────────
 
     [Table("it_products")]
-    public sealed class ItProduct : IdentDataObject
+    public sealed class ItProduct : IdentityRecord
     {
         [Column("name")]     public TString  Name    = new TString();
         [Column("price")]    public TDecimal Price   = new TDecimal();
@@ -25,7 +25,7 @@ namespace ActiveForge.MongoDB.Tests
     }
 
     [Table("it_categories")]
-    public sealed class ItCategory : IdentDataObject
+    public sealed class ItCategory : IdentityRecord
     {
         [Column("name")] public TString Name = new TString();
 
@@ -34,7 +34,7 @@ namespace ActiveForge.MongoDB.Tests
     }
 
     [Table("it_items")]
-    public sealed class ItItem : IdentDataObject
+    public sealed class ItItem : IdentityRecord
     {
         [Column("name")]    public TString     Name    = new TString();
         [Column("cat_id")]  public TForeignKey CatId   = new TForeignKey();
@@ -141,7 +141,7 @@ namespace ActiveForge.MongoDB.Tests
             var p = NewProduct("Original", 5m, true);
             p.Name.SetValue("Updated");
             p.Price.SetValue(10m);
-            p.Update(DataObjectLock.UpdateOption.IgnoreLock);
+            p.Update(RecordLock.UpdateOption.IgnoreLock);
 
             var r = new ItProduct(_conn);
             r.ID.SetValue(p.ID.GetValue());

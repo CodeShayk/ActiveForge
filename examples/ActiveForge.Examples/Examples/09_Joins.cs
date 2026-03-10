@@ -17,13 +17,13 @@ namespace ActiveForge.Examples.Examples
     //
     // Rule: if a class has:
     //   • a TForeignKey field named XID   (e.g. CategoryID)
-    //   • a DataObject field named X      (e.g. Category) whose type name ends in X
+    //   • a Record field named X      (e.g. Category) whose type name ends in X
     // the ORM creates:
     //   INNER JOIN Categories ON Products.CategoryID = Categories.ID
     //
     // No attribute required — the convention is detected at binding time.
     [Table("Products")]
-    public class ProductWithCategory : IdentDataObject
+    public class ProductWithCategory : IdentityRecord
     {
         [Column("Name")]        public TString     Name       = new TString();
         [Column("Price")]       public TDecimal    Price      = new TDecimal();
@@ -45,7 +45,7 @@ namespace ActiveForge.Examples.Examples
     // still returned (Category fields will be null/empty for those rows).
     [Table("Products")]
     [JoinSpec("CategoryID", "Category", "ID", JoinSpecAttribute.JoinTypeEnum.LeftOuterJoin)]
-    public class ProductWithOptionalCategory : IdentDataObject
+    public class ProductWithOptionalCategory : IdentityRecord
     {
         [Column("Name")]        public TString     Name       = new TString();
         [Column("Price")]       public TDecimal    Price      = new TDecimal();
@@ -70,7 +70,7 @@ namespace ActiveForge.Examples.Examples
     //   OrderID   → prefix "Order"   → embedded field "Order"   whose type ends in "Order"
     //   ProductID → prefix "Product" → embedded field "Product" whose type ends in "Product"
     [Table("OrderLines")]
-    public class OrderLineWithDetails : IdentDataObject
+    public class OrderLineWithDetails : IdentityRecord
     {
         [Column("OrderID")]   public TForeignKey OrderID   = new TForeignKey();
         [Column("ProductID")] public TForeignKey ProductID = new TForeignKey();
@@ -89,7 +89,7 @@ namespace ActiveForge.Examples.Examples
     /// <summary>
     /// Example 09 — Joins.
     ///
-    /// ActiveForge produces JOIN SQL by inspecting embedded DataObject fields on
+    /// ActiveForge produces JOIN SQL by inspecting embedded Record fields on
     /// entity classes.  No raw SQL or fluent builder is required.
     ///
     /// Patterns demonstrated:

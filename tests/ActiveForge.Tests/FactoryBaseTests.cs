@@ -6,7 +6,7 @@ using Xunit;
 namespace ActiveForge.Tests
 {
     // Test helpers
-    internal abstract class AnimalBase : DataObject { }
+    internal abstract class AnimalBase : Record { }
     internal class Dog : AnimalBase { }
     internal class Cat : AnimalBase { }
 

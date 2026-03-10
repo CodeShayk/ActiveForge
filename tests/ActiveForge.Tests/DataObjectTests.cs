@@ -8,7 +8,7 @@ namespace ActiveForge.Tests
     // ── Test domain model ─────────────────────────────────────────────────────────────
 
     [Table("Product")]
-    internal class TestProduct : IdentDataObject
+    internal class TestProduct : IdentityRecord
     {
         [Column("Name")]
         public TString Name = new TString();
@@ -146,48 +146,48 @@ namespace ActiveForge.Tests
             act.Should().NotThrow();
         }
 
-        // ── DataObjectMetaDataCache ───────────────────────────────────────────────────
+        // ── RecordMetaDataCache ───────────────────────────────────────────────────
 
         [Fact]
         public void MetaDataCache_TFields_IncludesAllDeclaredFields()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(typeof(TestProduct));
-            // TestProduct declares Name, Price, Stock, InStock + inherits ID from IdentDataObject
+            var meta = RecordMetaDataCache.GetTypeMetaData(typeof(TestProduct));
+            // TestProduct declares Name, Price, Stock, InStock + inherits ID from IdentityRecord
             meta.TFields.Count.Should().BeGreaterThanOrEqualTo(5);
         }
 
         [Fact]
         public void MetaDataCache_TFields_ContainsNameField()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(typeof(TestProduct));
+            var meta = RecordMetaDataCache.GetTypeMetaData(typeof(TestProduct));
             meta.TFields.Should().Contain(e => e.Name == "Name");
         }
 
         [Fact]
         public void MetaDataCache_TFields_ContainsPriceField()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(typeof(TestProduct));
+            var meta = RecordMetaDataCache.GetTypeMetaData(typeof(TestProduct));
             meta.TFields.Should().Contain(e => e.Name == "Price");
         }
 
         [Fact]
         public void MetaDataCache_TFields_ContainsIDField()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(typeof(TestProduct));
+            var meta = RecordMetaDataCache.GetTypeMetaData(typeof(TestProduct));
             meta.TFields.Should().Contain(e => e.Name == "ID");
         }
 
         [Fact]
         public void MetaDataCache_SourceName_UsesTableAttribute()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(typeof(TestProduct));
+            var meta = RecordMetaDataCache.GetTypeMetaData(typeof(TestProduct));
             meta.SourceName.Should().Be("Product");
         }
 
         [Fact]
         public void MetaDataCache_ClassName_IsTypeName()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(typeof(TestProduct));
+            var meta = RecordMetaDataCache.GetTypeMetaData(typeof(TestProduct));
             meta.ClassName.Should().Be("TestProduct");
         }
 

@@ -5,7 +5,7 @@ namespace ActiveForge.Examples.Domain
 {
     /// <summary>A customer order.  Maps to the [Orders] table.</summary>
     [Table("Orders")]
-    public class Order : IdentDataObject
+    public class Order : IdentityRecord
     {
         [Column("CustomerName")]
         public TString CustomerName = new TString();

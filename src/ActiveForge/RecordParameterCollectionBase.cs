@@ -4,7 +4,7 @@ namespace ActiveForge
     /// Abstract base for collections of named parameters that can be bound into
     /// a SQL command for table-valued function calls or parameterized queries.
     /// </summary>
-    public abstract class ObjectParameterCollectionBase
+    public abstract class RecordParameterCollectionBase
     {
         /// <summary>
         /// Adds each parameter in this collection to <paramref name="cmd"/>,

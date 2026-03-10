@@ -6,8 +6,8 @@ namespace ActiveForge
     /// </summary>
     public interface IDBFieldMapper
     {
-        /// <summary>Provides the DataObject that contains this field, for context-dependent mapping.</summary>
-        void SetContainingDataObject(DataObject obj);
+        /// <summary>Provides the Record that contains this field, for context-dependent mapping.</summary>
+        void SetContainingDataObject(Record obj);
 
         /// <summary>Converts the in-memory CLR value to the value written to the database.</summary>
         object ConvertToDBValue(object value);

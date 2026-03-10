@@ -10,10 +10,10 @@ namespace ActiveForge.Linq
     /// <summary>
     /// <see cref="IQueryProvider"/> implementation for <see cref="OrmQueryable{T}"/>.
     /// Translates standard LINQ method calls (Where, OrderBy, ThenBy, Take, Skip) into
-    /// Turquoise <see cref="QueryTerm"/> and <see cref="SortOrder"/> objects, then defers
+    /// ActiveForge <see cref="QueryTerm"/> and <see cref="SortOrder"/> objects, then defers
     /// execution to <see cref="OrmQueryable{T}"/>.
     /// </summary>
-    internal sealed class OrmQueryProvider<T> : IQueryProvider where T : DataObject
+    internal sealed class OrmQueryProvider<T> : IQueryProvider where T : Record
     {
         private readonly OrmQueryable<T> _root;
 

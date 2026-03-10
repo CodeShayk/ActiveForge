@@ -1,17 +1,17 @@
 namespace ActiveForge
 {
     /// <summary>
-    /// Base class for lookup/reference data objects whose values are cached in memory
+    /// Base class for lookup/reference objects whose values are cached in memory
     /// and retrieved once rather than joined on every query.
     /// Subclasses represent static or slowly-changing reference tables (e.g. status codes, types).
     /// </summary>
-    public abstract class LookupDataObject : IdentDataObject
+    public abstract class LookupRecord : IdentityRecord
     {
         private DataConnection _connection;
 
-        protected LookupDataObject() { }
+        protected LookupRecord() { }
 
-        protected LookupDataObject(DataConnection target) : base(target)
+        protected LookupRecord(DataConnection target) : base(target)
         {
             _connection = target;
         }

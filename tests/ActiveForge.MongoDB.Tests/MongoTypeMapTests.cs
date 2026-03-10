@@ -86,7 +86,7 @@ namespace ActiveForge.MongoDB.Tests
         public void Fields_ContainsAllTFieldMembers()
         {
             var entry = MongoTypeCache.GetEntry(typeof(MongoTestProduct));
-            // IdentDataObject adds ID + Name + Price + InStock = at least 4
+            // IdentityRecord adds ID + Name + Price + InStock = at least 4
             entry.Fields.Count.Should().BeGreaterThanOrEqualTo(4);
         }
 
@@ -235,7 +235,7 @@ namespace ActiveForge.MongoDB.Tests
             p.Price.IsNull().Should().BeTrue();
         }
 
-        // ── Minimal ObjectBinding ─────────────────────────────────────────────────────
+        // ── Minimal RecordBinding ─────────────────────────────────────────────────────
 
         [Fact]
         public void BuildMinimalObjectBinding_SetsSourceName()

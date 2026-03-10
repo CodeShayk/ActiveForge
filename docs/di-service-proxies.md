@@ -9,7 +9,7 @@ platform-agnostic — they work in ASP.NET Core, Worker Service, console, or any
 
 ## Overview
 
-Turquoise ORM uses **Castle DynamicProxy** to manage the connection lifecycle and transaction
+ActiveForge ORM uses **Castle DynamicProxy** to manage the connection lifecycle and transaction
 boundaries at the service-method level, with no framework middleware required.
 
 | Attribute | Interceptor | What it does |
@@ -68,7 +68,7 @@ public interface IOrderService
 }
 
 // ── Implementation ────────────────────────────────────────────────────────────
-// Implements IOrderService (the DI-facing interface) + IService (Turquoise marker).
+// Implements IOrderService (the DI-facing interface) + IService (ActiveForge marker).
 // No virtual methods required — the interface proxy handles interception.
 public class OrderService : IOrderService, IService
 {
@@ -195,7 +195,7 @@ on the same method (or at the class level).
 
 ## IActiveForgeBuilder — fluent registration
 
-All `AddTurquoise*` extension methods return `IActiveForgeBuilder` for chaining:
+All `AddActiveForge*` extension methods return `IActiveForgeBuilder` for chaining:
 
 ```csharp
 public interface IActiveForgeBuilder
@@ -390,4 +390,4 @@ Call `ActiveForgeServiceLocator.Reset()` in test teardown to avoid leaking state
 | `ActiveForge` | `IService`, `IActiveForgeBuilder`, `ConnectionScopeAttribute`, `ConnectionScopeInterceptor`, `ActiveForgeServiceFactory`, `DataConnection.UnitOfWork`, `AddActiveForgeService<T>()` |
 | `Castle.Core` 5.x | DynamicProxy runtime (auto-included with `ActiveForge`) |
 | `Microsoft.Extensions.DependencyInjection.Abstractions` 8.x | DI integration (auto-included with `ActiveForge`) |
-| One of: `ActiveForge.SqlServer`, `ActiveForge.PostgreSQL`, `ActiveForge.MongoDB`, `ActiveForge.SQLite` | Provider + `AddTurquoise*` returning `IActiveForgeBuilder` |
+| One of: `ActiveForge.SqlServer`, `ActiveForge.PostgreSQL`, `ActiveForge.MongoDB`, `ActiveForge.SQLite` | Provider + `AddActiveForge*` returning `IActiveForgeBuilder` |

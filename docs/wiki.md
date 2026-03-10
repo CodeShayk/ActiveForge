@@ -74,8 +74,8 @@ The field references (`p.Price`, `p.InStock`) are real `TField` objects on the s
 
 Data Mapper separates domain objects completely from persistence logic. A plain `Product` POCO knows nothing about databases; a separate `ProductMapper` (or ORM configuration file) handles the translation. Entity Framework Core is the canonical .NET example.
 
-| Concern | Active Record (Turquoise) | Data Mapper (EF Core) |
-|---------|--------------------------|----------------------|
+| Concern | Active Record (ActiveForge) | Data Mapper (EF Core) |
+|---------|---------------------------|----------------------|
 | Where does persistence logic live? | On the entity class (`DataObject`) | In the ORM mapping layer, separate from the domain object |
 | Domain object awareness | Entity knows its own columns and how to save itself | Entity is a plain class with no ORM dependency |
 | Boilerplate per table | One class | Entity + mapping configuration (fluent or attributes) + optional repository |
@@ -91,14 +91,14 @@ Data Mapper separates domain objects completely from persistence logic. A plain 
 The Repository pattern is often used *on top of* a Data Mapper ORM to add a collection-like interface over the persistence layer:
 
 ```csharp
-// Repository pattern (not Turquoise):
+// Repository pattern (not ActiveForge):
 IProductRepository repo = new SqlProductRepository(dbContext);
 Product p = await repo.GetByIdAsync(42);
 p.Price = 14.99m;
 await repo.SaveAsync(p);
 ```
 
-With Active Record the entity already *is* its own repository in a sense. You can still add a separate service or repository class around Turquoise entities if you want to centralise query logic or enforce business rules — the ORM does not prevent it — but the pattern is not forced on you.
+With Active Record the entity already *is* its own repository in a sense. You can still add a separate service or repository class around ActiveForge entities if you want to centralise query logic or enforce business rules — the ORM does not prevent it — but the pattern is not forced on you.
 
 #### Table Gateway
 
@@ -110,13 +110,13 @@ Some teams use plain data transfer objects with a separate command/query handler
 
 ### 1.4 Active Record in ActiveForge — Key Decisions
 
-**Fields, not properties.** Turquoise represents columns as public `TField` instance fields rather than auto-properties. This lets the ORM discover them by reflection without attributes on every getter, lets them carry null/loaded state independently of their value, and enables the predicate system (a `TField` reference in a `QueryTerm` constructor tells the ORM exactly which column to filter on).
+**Fields, not properties.** ActiveForge represents columns as public `TField` instance fields rather than auto-properties. This lets the ORM discover them by reflection without attributes on every getter, lets them carry null/loaded state independently of their value, and enables the predicate system (a `TField` reference in a `QueryTerm` constructor tells the ORM exactly which column to filter on).
 
 **Shared connection, not embedded connection.** The entity does not open its own database connection. Instead, one `DataConnection` is passed in at construction time and shared across all objects in a unit of work. This keeps connection management explicit and testable, while still letting the object call `Insert()` / `Update()` without the caller needing to think about the connection.
 
 **Delegation, not inheritance from the connection.** `DataObject.Insert()` delegates to `conn.Insert(this)`. The SQL generation, parameter binding, and result hydration live in `DataConnection` (and its SQL Server implementation), not in each entity. Entities therefore stay lean — they contain field declarations and business logic, nothing else.
 
-**Optional Unit of Work on top.** Pure Active Record is sometimes criticised for making it hard to batch multiple saves into a single transaction in a clean way. Turquoise addresses this with the `IUnitOfWork` / `With.Transaction` layer (§11), which can wrap any number of `Insert()` / `Update()` / `Delete()` calls in a managed transaction without changing the entity code at all.
+**Optional Unit of Work on top.** Pure Active Record is sometimes criticised for making it hard to batch multiple saves into a single transaction in a clean way. ActiveForge addresses this with the `IUnitOfWork` / `With.Transaction` layer (§11), which can wrap any number of `Insert()` / `Update()` / `Delete()` calls in a managed transaction without changing the entity code at all.
 
 ---
 
@@ -832,7 +832,7 @@ Available: `ReadUncommitted`, `ReadCommitted` (default), `RepeatableRead`, `Seri
 
 ### 10.3 Nested Transactions
 
-Turquoise uses a **depth counter** internally. Outer `BeginTransaction` starts the real ADO.NET transaction; inner calls increment depth only:
+ActiveForge uses a **depth counter** internally. Outer `BeginTransaction` starts the real ADO.NET transaction; inner calls increment depth only:
 
 ```csharp
 conn.BeginTransaction();            // depth: 0→1, real tx starts

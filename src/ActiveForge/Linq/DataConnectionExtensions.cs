@@ -4,7 +4,7 @@ namespace ActiveForge.Linq
 {
     /// <summary>
     /// Extends <see cref="DataConnection"/> with <c>Query&lt;T&gt;()</c> — the entry point
-    /// for LINQ-style queries in Turquoise ORM.
+    /// for LINQ-style queries in ActiveForge ORM.
     ///
     /// <para>Usage:</para>
     /// <code>
@@ -31,9 +31,9 @@ namespace ActiveForge.Linq
         /// and optional join-type overrides (<see cref="OrmQueryable{T}.InnerJoin{TJoined}"/>,
         /// <see cref="OrmQueryable{T}.LeftOuterJoin{TJoined}"/>) before iterating.
         /// </summary>
-        /// <typeparam name="T">A concrete <see cref="DataObject"/> subclass.</typeparam>
+        /// <typeparam name="T">A concrete <see cref="Record"/> subclass.</typeparam>
         /// <param name="connection">The open database connection to query against.</param>
-        public static OrmQueryable<T> Query<T>(this DataConnection connection) where T : DataObject
+        public static OrmQueryable<T> Query<T>(this DataConnection connection) where T : Record
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
             T template = (T)connection.Create(typeof(T));
@@ -44,7 +44,7 @@ namespace ActiveForge.Linq
         /// Overload that accepts a pre-constructed template object.
         /// Useful when the entity type requires a non-default factory or owner.
         /// </summary>
-        public static OrmQueryable<T> Query<T>(this DataConnection connection, T template) where T : DataObject
+        public static OrmQueryable<T> Query<T>(this DataConnection connection, T template) where T : Record
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
             if (template   == null) throw new ArgumentNullException(nameof(template));

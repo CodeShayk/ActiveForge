@@ -6,7 +6,7 @@ namespace ActiveForge
 {
     /// <summary>
     /// Unit of Work implementation for MongoDB.
-    /// Wraps <see cref="MongoDataConnection"/> in Turquoise ORM's nested-transaction model.
+    /// Wraps <see cref="MongoDataConnection"/> in ActiveForge ORM's nested-transaction model.
     /// </summary>
     /// <remarks>
     /// MongoDB multi-document transactions require a replica set or sharded cluster.

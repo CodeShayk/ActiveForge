@@ -1,7 +1,7 @@
 namespace ActiveForge
 {
     /// <summary>
-    /// Marker interface for application service classes that participate in Turquoise ORM's
+    /// Marker interface for application service classes that participate in ActiveForge ORM's
     /// automatic DI registration and Castle DynamicProxy interception.
     /// </summary>
     /// <remarks>

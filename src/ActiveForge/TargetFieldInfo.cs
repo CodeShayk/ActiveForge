@@ -80,7 +80,7 @@ namespace ActiveForge
 
             if (FieldMapper != null)
             {
-                FieldMapper.SetContainingDataObject((DataObject)obj);
+                FieldMapper.SetContainingDataObject((Record)obj);
                 value = FieldMapper.ConvertToDBValue(value);
             }
             else if (FieldInfo.FieldType.IsEnum)
@@ -108,7 +108,7 @@ namespace ActiveForge
 
             if (FieldMapper != null)
             {
-                FieldMapper.SetContainingDataObject((DataObject)obj);
+                FieldMapper.SetContainingDataObject((Record)obj);
                 value = FieldMapper.ConvertFromDBValue(value);
             }
             else if (FieldInfo.FieldType.IsEnum)
@@ -121,7 +121,7 @@ namespace ActiveForge
                 TField field = (TField)FieldInfo.GetValue(obj);
                 if (field == null)
                 {
-                    field = TField.Create(FieldInfo.FieldType, (DataObject)obj);
+                    field = TField.Create(FieldInfo.FieldType, (Record)obj);
                     field.SetValue(value);
                     field.SetLoaded(true);
                     FieldInfo.SetValue(obj, field);
@@ -137,7 +137,7 @@ namespace ActiveForge
                 FieldInfo.SetValue(obj, value);
             }
 
-            if (obj is DataObject dataObject)
+            if (obj is Record dataObject)
                 dataObject.SetLoaded(true);
         }
     }

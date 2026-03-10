@@ -104,9 +104,9 @@ namespace ActiveForge.Tests.Fields
         [Fact]
         public void ImplicitFrom_String()
         {
-            TString s = "turquoise";
+            TString s = "ActiveForge";
             s.IsNull().Should().BeFalse();
-            s.ToString().Should().Be("turquoise");
+            s.ToString().Should().Be("ActiveForge");
         }
 
         [Fact]

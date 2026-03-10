@@ -1,12 +1,12 @@
 -- =============================================================================
--- Turquoise.ORM Examples — Database Setup Script
+-- ActiveForge.ORM Examples — Database Setup Script
 -- Run this against a SQL Server database before starting the examples app.
 -- =============================================================================
 
 -- Create database (optional — run as sysadmin if needed)
--- CREATE DATABASE TurquoiseDemo;
+-- CREATE DATABASE ActiveForgeDemo;
 -- GO
--- USE TurquoiseDemo;
+-- USE ActiveForgeDemo;
 -- GO
 
 -- ── Categories ────────────────────────────────────────────────────────────────

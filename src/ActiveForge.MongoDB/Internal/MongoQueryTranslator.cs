@@ -14,18 +14,18 @@ namespace ActiveForge.MongoDB.Internal
     {
         // ── Filter translation ────────────────────────────────────────────────────────
 
-        public static FilterDefinition<BsonDocument> Translate(QueryTerm? term, DataObject obj,
+        public static FilterDefinition<BsonDocument> Translate(QueryTerm? term, Record obj,
             IReadOnlyList<MongoJoinStage>? joinStages = null)
         {
             if (term == null)
                 return Builders<BsonDocument>.Filter.Empty;
 
-            ObjectBinding binding = MongoMapper.BuildMinimalObjectBinding(obj);
+            RecordBinding binding = MongoMapper.BuildMinimalObjectBinding(obj);
             return TranslateTerm(term, obj, binding, joinStages);
         }
 
         private static FilterDefinition<BsonDocument> TranslateTerm(
-            QueryTerm term, DataObject obj, ObjectBinding binding,
+            QueryTerm term, Record obj, RecordBinding binding,
             IReadOnlyList<MongoJoinStage>? joinStages)
         {
             return term switch
@@ -38,7 +38,7 @@ namespace ActiveForge.MongoDB.Internal
         }
 
         private static FilterDefinition<BsonDocument> TranslateAnd(
-            AndTerm term, DataObject obj, ObjectBinding binding,
+            AndTerm term, Record obj, RecordBinding binding,
             IReadOnlyList<MongoJoinStage>? joinStages)
         {
             // Access children via known field names using reflection
@@ -50,7 +50,7 @@ namespace ActiveForge.MongoDB.Internal
         }
 
         private static FilterDefinition<BsonDocument> TranslateOr(
-            OrTerm term, DataObject obj, ObjectBinding binding,
+            OrTerm term, Record obj, RecordBinding binding,
             IReadOnlyList<MongoJoinStage>? joinStages)
         {
             var t1 = GetPrivateField<QueryTerm>(term, "_term1");
@@ -61,7 +61,7 @@ namespace ActiveForge.MongoDB.Internal
         }
 
         private static FilterDefinition<BsonDocument> TranslateNot(
-            NotTerm term, DataObject obj, ObjectBinding binding,
+            NotTerm term, Record obj, RecordBinding binding,
             IReadOnlyList<MongoJoinStage>? joinStages)
         {
             var inner = GetPrivateField<QueryTerm>(term, "Term1");
@@ -69,7 +69,7 @@ namespace ActiveForge.MongoDB.Internal
         }
 
         private static FilterDefinition<BsonDocument> TranslateLeaf(
-            QueryTerm term, DataObject obj, ObjectBinding binding,
+            QueryTerm term, Record obj, RecordBinding binding,
             IReadOnlyList<MongoJoinStage>? joinStages)
         {
             // Use public API: GetTermFieldInfo + Value
@@ -78,9 +78,9 @@ namespace ActiveForge.MongoDB.Internal
             try
             {
                 fb = term.GetTermFieldInfo(binding);
-                // Validate handle: ObjectBinding name-based fallback can return the wrong
-                // FieldBinding when an embedded DataObject has a same-named field as the root type.
-                var termTarget = GetProtectedField<DataObject>(term, "Target");
+                // Validate handle: RecordBinding name-based fallback can return the wrong
+                // FieldBinding when an embedded Record has a same-named field as the root type.
+                var termTarget = GetProtectedField<Record>(term, "Target");
                 var termField  = GetProtectedField<TField>(term, "Field");
                 var handle     = termField.GetFieldInfo(termTarget).FieldHandle.Value;
                 if (fb.Info.FieldInfo.FieldHandle.Value != handle)
@@ -89,7 +89,7 @@ namespace ActiveForge.MongoDB.Internal
             }
             catch
             {
-                // Field not in root binding — may belong to a joined DataObject
+                // Field not in root binding — may belong to a joined Record
                 fieldName = ResolveJoinedFieldPath(term, joinStages);
                 if (string.IsNullOrEmpty(fieldName))
                     return Builders<BsonDocument>.Filter.Empty;
@@ -126,7 +126,7 @@ namespace ActiveForge.MongoDB.Internal
 
         // ── Sort translation ──────────────────────────────────────────────────────────
 
-        public static SortDefinition<BsonDocument>? TranslateSort(SortOrder? sortOrder, DataObject obj,
+        public static SortDefinition<BsonDocument>? TranslateSort(SortOrder? sortOrder, Record obj,
             IReadOnlyList<MongoJoinStage>? joinStages = null)
         {
             if (sortOrder == null) return null;
@@ -143,7 +143,7 @@ namespace ActiveForge.MongoDB.Internal
                 return Builders<BsonDocument>.Sort.Combine(p, s);
             }
 
-            ObjectBinding binding = MongoMapper.BuildMinimalObjectBinding(obj);
+            RecordBinding binding = MongoMapper.BuildMinimalObjectBinding(obj);
 
             // Determine sort direction by type name
             string typeName  = sortOrder.GetType().Name;
@@ -156,14 +156,14 @@ namespace ActiveForge.MongoDB.Internal
                 : Builders<BsonDocument>.Sort.Ascending(fieldName);
         }
 
-        private static string GetSortFieldName(SortOrder sortOrder, DataObject obj, ObjectBinding binding,
+        private static string GetSortFieldName(SortOrder sortOrder, Record obj, RecordBinding binding,
             IReadOnlyList<MongoJoinStage>? joinStages)
         {
             try
             {
                 // SortOrder has protected Field and Target — access via reflection
                 var field  = GetProtectedField<TField>(sortOrder, "Field");
-                var target = GetProtectedField<DataObject>(sortOrder, "Target");
+                var target = GetProtectedField<Record>(sortOrder, "Target");
                 try
                 {
                     var fi     = binding.GetFieldBinding(target, field);
@@ -175,7 +175,7 @@ namespace ActiveForge.MongoDB.Internal
                 }
                 catch
                 {
-                    // Field is on a joined DataObject — resolve via join alias prefix
+                    // Field is on a joined Record — resolve via join alias prefix
                     return ResolveJoinedFieldPath(target, field, joinStages);
                 }
             }
@@ -187,21 +187,21 @@ namespace ActiveForge.MongoDB.Internal
 
         /// <summary>
         /// Resolves the dot-notation field path for a field that lives on an embedded (joined)
-        /// DataObject, e.g. <c>__joined_Category.name</c>.
+        /// Record, e.g. <c>__joined_Category.name</c>.
         /// </summary>
         private static string ResolveJoinedFieldPath(QueryTerm term, IReadOnlyList<MongoJoinStage>? stages)
         {
             if (stages == null || stages.Count == 0) return string.Empty;
             try
             {
-                var target = GetProtectedField<DataObject>(term, "Target");
+                var target = GetProtectedField<Record>(term, "Target");
                 var field  = GetProtectedField<TField>(term, "Field");
                 return ResolveJoinedFieldPath(target, field, stages);
             }
             catch { return string.Empty; }
         }
 
-        private static string ResolveJoinedFieldPath(DataObject target, TField field,
+        private static string ResolveJoinedFieldPath(Record target, TField field,
             IReadOnlyList<MongoJoinStage>? stages)
         {
             if (stages == null || stages.Count == 0) return string.Empty;

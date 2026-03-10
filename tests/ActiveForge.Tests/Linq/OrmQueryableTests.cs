@@ -17,7 +17,7 @@ namespace ActiveForge.Tests.Linq
     {
         private static readonly StubDataConnection Conn = new StubDataConnection();
 
-        private sealed class Item : DataObject
+        private sealed class Item : Record
         {
             public TString  Label = new TString();
             public TInt     Count = new TInt();

@@ -1,11 +1,39 @@
 namespace ActiveForge.Query
 {
-    /// <summary>field &gt;= @value</summary>
+    /// <summary>
+    /// A leaf <see cref="QueryTerm"/> that generates a greater-than-or-equal predicate of the
+    /// form <c>alias.column &gt;= @IN_column&lt;n&gt;</c>.
+    /// Useful for filtering rows where a numeric, date, or comparable field is at least a
+    /// given threshold value (inclusive lower bound).
+    /// </summary>
     public class GreaterOrEqualTerm : QueryTerm
     {
-        public GreaterOrEqualTerm(DataObject target, TField field, object value) : base(target, field, value) { }
+        /// <summary>
+        /// Initialises a new <see cref="GreaterOrEqualTerm"/> for the specified field and value.
+        /// </summary>
+        /// <param name="target">
+        /// The <see cref="Record"/> that owns the field. For joined queries this may be
+        /// an embedded child <see cref="Record"/>, not the root.
+        /// </param>
+        /// <param name="field">The field whose column will appear on the left-hand side of <c>&gt;=</c>.</param>
+        /// <param name="value">
+        /// The inclusive lower-bound value. Passed through the field's <c>FieldMapper</c> and
+        /// optional encryption layer before being bound to the command parameter.
+        /// </param>
+        public GreaterOrEqualTerm(Record target, TField field, object value) : base(target, field, value) { }
 
-        public override QueryFragment GetSQL(ObjectBinding binding, ref int termNumber)
+        /// <summary>
+        /// Generates the SQL fragment <c>alias.QuotedColumn &gt;= @IN_column&lt;n&gt;</c>
+        /// for use in a SELECT or UPDATE WHERE clause.
+        /// The table alias prefix is omitted when the mapped node has no alias.
+        /// </summary>
+        /// <param name="binding">The <see cref="RecordBinding"/> that resolves the field to its <see cref="FieldBinding"/>.</param>
+        /// <param name="termNumber">
+        /// Running counter used to generate a unique parameter name suffix; incremented once
+        /// for the single parameter this term emits.
+        /// </param>
+        /// <returns>A <see cref="QueryFragment"/> containing the greater-than-or-equal predicate.</returns>
+        public override QueryFragment GetSQL(RecordBinding binding, ref int termNumber)
         {
             FieldBinding check    = GetTermFieldInfo(binding);
             string       aliasSQL = check.MapNode.Alias.Length > 0 ? check.MapNode.Alias + "." : "";
@@ -13,7 +41,17 @@ namespace ActiveForge.Query
                 + ">=" + ParameterMark + "IN_" + check.Info.TargetName + (termNumber++));
         }
 
-        public override string GetDeleteSQL(ObjectBinding binding, ref int termNumber)
+        /// <summary>
+        /// Generates the SQL greater-than-or-equal fragment for use inside a DELETE
+        /// statement's WHERE clause. Uses the field's source (table) name rather than a
+        /// query alias.
+        /// </summary>
+        /// <param name="binding">The <see cref="RecordBinding"/> that resolves the field to its <see cref="FieldBinding"/>.</param>
+        /// <param name="termNumber">
+        /// Running counter used to generate a unique parameter name suffix; incremented once.
+        /// </param>
+        /// <returns>A greater-than-or-equal predicate string suitable for DELETE SQL.</returns>
+        public override string GetDeleteSQL(RecordBinding binding, ref int termNumber)
         {
             FieldBinding check = GetTermFieldInfo(binding);
             return Target.GetConnection().QuoteName(check.Info.SourceName) + "."

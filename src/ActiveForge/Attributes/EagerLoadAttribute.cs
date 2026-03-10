@@ -3,7 +3,7 @@ using System;
 namespace ActiveForge.Attributes
 {
     /// <summary>
-    /// Controls whether an embedded DataObject field is loaded eagerly (true, default)
+    /// Controls whether an embedded Record field is loaded eagerly (true, default)
     /// or must be explicitly included in a FieldSubset.
     /// </summary>
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = false, Inherited = false)]

@@ -8,7 +8,7 @@ namespace ActiveForge.Examples.Examples
     /// Example 01 — Basic CRUD operations.
     ///
     /// This example shows the fundamental Active Record pattern:
-    ///   1. Create a DataObject and set its fields.
+    ///   1. Create a Record and set its fields.
     ///   2. Call Insert() to persist it to the database.
     ///   3. Modify a field, call Update() to persist changes.
     ///   4. Call Delete() to remove the row.
@@ -24,7 +24,7 @@ namespace ActiveForge.Examples.Examples
 
             // ── INSERT ────────────────────────────────────────────────────────────────
 
-            // Each DataObject is bound to a connection at construction time.
+            // Each Record is bound to a connection at construction time.
             // The connection is used automatically when you call Insert/Update/Delete/Read.
             var product = new Product(conn);
             product.Name.SetValue("Example Widget");
@@ -71,7 +71,7 @@ namespace ActiveForge.Examples.Examples
             product.Price.SetValue(24.99m);
 
             Console.WriteLine("Updating product name and price...");
-            product.Update(DataObjectLock.UpdateOption.IgnoreLock);
+            product.Update(RecordLock.UpdateOption.IgnoreLock);
 
             // Read it back to confirm
             var afterUpdate = new Product(conn);

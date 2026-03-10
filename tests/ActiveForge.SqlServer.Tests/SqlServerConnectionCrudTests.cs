@@ -13,7 +13,7 @@ namespace ActiveForge.SqlServer.Tests
     // ── Test entity ───────────────────────────────────────────────────────────────
 
     [Table("products")]
-    public sealed class SsProduct : IdentDataObject
+    public sealed class SsProduct : IdentityRecord
     {
         [Column("name")]     public TString  Name    = new TString();
         [Column("price")]    public TDecimal Price   = new TDecimal();
@@ -133,7 +133,7 @@ namespace ActiveForge.SqlServer.Tests
             var p = NewProduct("Original", 5.00m, true);
             p.Name.SetValue("Updated");
             p.Price.SetValue(10.00m);
-            p.Update(DataObjectLock.UpdateOption.IgnoreLock);
+            p.Update(RecordLock.UpdateOption.IgnoreLock);
 
             var reread = new SsProduct(_conn);
             reread.ID.SetValue(p.ID.GetValue());

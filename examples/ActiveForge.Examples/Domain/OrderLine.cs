@@ -5,7 +5,7 @@ namespace ActiveForge.Examples.Domain
 {
     /// <summary>A single line on an order.  Maps to the [OrderLines] table.</summary>
     [Table("OrderLines")]
-    public class OrderLine : IdentDataObject
+    public class OrderLine : IdentityRecord
     {
         [Column("OrderID")]
         public TForeignKey OrderID = new TForeignKey();

@@ -11,7 +11,7 @@ namespace ActiveForge.Transactions
     ///
     /// <para>
     /// Strategy C1 (default): the proxy wraps <see cref="DataConnection"/> — no changes to
-    /// <see cref="DataObject"/> are required. The concrete connection type must be non-sealed
+    /// <see cref="Record"/> are required. The concrete connection type must be non-sealed
     /// and its CRUD methods must be <c>virtual</c> (which they are in <see cref="DBDataConnection"/>
     /// because they <c>override</c> the abstract declarations in <see cref="DataConnection"/>).
     /// </para>

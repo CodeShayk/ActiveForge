@@ -11,7 +11,7 @@ namespace ActiveForge.SQLite.Tests
     // ── Test entity ───────────────────────────────────────────────────────────────
 
     [Table("products")]
-    public class Product : IdentDataObject
+    public class Product : IdentityRecord
     {
         [Column("name")]     public TString  Name     = new TString();
         [Column("price")]    public TDecimal Price    = new TDecimal();
@@ -149,7 +149,7 @@ namespace ActiveForge.SQLite.Tests
 
             p.Name.SetValue("Updated");
             p.Price.SetValue(10.00m);
-            p.Update(DataObjectLock.UpdateOption.IgnoreLock);
+            p.Update(RecordLock.UpdateOption.IgnoreLock);
 
             var reread = new Product(_conn);
             reread.ID.SetValue(p.ID.GetValue());

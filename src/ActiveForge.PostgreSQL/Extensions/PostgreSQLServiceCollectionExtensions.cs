@@ -6,13 +6,13 @@ using ActiveForge.Transactions;
 namespace ActiveForge
 {
     /// <summary>
-    /// <see cref="IServiceCollection"/> extension methods for registering Turquoise ORM
+    /// <see cref="IServiceCollection"/> extension methods for registering ActiveForge ORM
     /// with a PostgreSQL provider.
     /// </summary>
     public static class PostgreSQLServiceCollectionExtensions
     {
         /// <summary>
-        /// Registers Turquoise ORM services for PostgreSQL and returns an
+        /// Registers ActiveForge ORM services for PostgreSQL and returns an
         /// <see cref="IActiveForgeBuilder"/> for chaining service proxy registrations.
         /// <list type="bullet">
         ///   <item><description>Scoped <see cref="PostgreSQLConnection"/> — one instance per DI scope.</description></item>

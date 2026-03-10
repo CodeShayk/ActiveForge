@@ -9,10 +9,10 @@ namespace ActiveForge
     /// Base class for all database-persisted objects (Active Record pattern).
     /// Provides CRUD delegation, query methods, field initialisation, and
     /// embedded object support. Subclasses declare public <see cref="TField"/>
-    /// fields and optionally nested <see cref="DataObject"/> fields.
+    /// fields and optionally nested <see cref="Record"/> fields.
     /// </summary>
     [Serializable]
-    public class DataObject : ObjectBase
+    public abstract class Record : RecordBase
     {
         // ── Backing state ─────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ namespace ActiveForge
         private   Guid           _uniqueIdentifier = Guid.NewGuid();
         protected bool           Loaded;
         protected FieldSubset    DefaultSubset;
-        protected DataObject     Owner;
+        protected Record     Owner;
 
         // ── Target propagates connection to embedded objects ───────────────────────
 
@@ -30,10 +30,10 @@ namespace ActiveForge
             set
             {
                 _innerTarget = value;
-                var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+                var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
                 foreach (var entry in meta.DataObjects)
                 {
-                    var embedded = entry.FieldInfo.GetValue(this) as DataObject;
+                    var embedded = entry.FieldInfo.GetValue(this) as Record;
                     embedded?.SetTarget(value);
                 }
             }
@@ -41,12 +41,12 @@ namespace ActiveForge
 
         // ── Constructors ──────────────────────────────────────────────────────────
 
-        public DataObject()
+        public Record()
         {
             CreateTFields();
         }
 
-        public DataObject(DataConnection target)
+        public Record(DataConnection target)
         {
             _innerTarget = target;
             CreateTFields();
@@ -54,7 +54,7 @@ namespace ActiveForge
             InitializeFields();
         }
 
-        public DataObject(DataConnection target, DataObject copyFrom)
+        public Record(DataConnection target, Record copyFrom)
         {
             _innerTarget = target;
             CreateTFields();
@@ -70,7 +70,7 @@ namespace ActiveForge
 
         private void CreateTFields()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.TFields)
             {
                 var field = TField.Create(entry.FieldInfo.FieldType, this);
@@ -87,23 +87,23 @@ namespace ActiveForge
 
         private void CreateEmbeddedDataObjects()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.DataObjects)
             {
                 Type specialization = _innerTarget != null
                     ? _innerTarget.MapType(entry.FieldInfo.FieldType)
                     : entry.FieldInfo.FieldType;
 
-                var newObj = (DataObject)Activator.CreateInstance(specialization);
+                var newObj = (Record)Activator.CreateInstance(specialization);
                 newObj.Owner        = this;
                 newObj._innerTarget = _innerTarget;
                 entry.FieldInfo.SetValue(this, newObj);
             }
         }
 
-        private void CreateEmbeddedDataObjects(DataObject copyFrom)
+        private void CreateEmbeddedDataObjects(Record copyFrom)
         {
-            var meta           = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta           = RecordMetaDataCache.GetTypeMetaData(GetType());
             Type sourceType    = copyFrom?.GetType();
 
             foreach (var entry in meta.DataObjects)
@@ -112,17 +112,17 @@ namespace ActiveForge
                     ? _innerTarget.MapType(entry.FieldInfo.FieldType)
                     : entry.FieldInfo.FieldType;
 
-                DataObject embeddedSource = null;
+                Record embeddedSource = null;
                 if (copyFrom != null)
                 {
                     Type declaring = entry.FieldInfo.DeclaringType;
                     if (sourceType == declaring || sourceType.IsSubclassOf(declaring))
-                        embeddedSource = entry.FieldInfo.GetValue(copyFrom) as DataObject;
+                        embeddedSource = entry.FieldInfo.GetValue(copyFrom) as Record;
                 }
 
-                DataObject newObj = _innerTarget != null
+                Record newObj = _innerTarget != null
                     ? _innerTarget.Create(specialization, embeddedSource)
-                    : (DataObject)Activator.CreateInstance(specialization);
+                    : (Record)Activator.CreateInstance(specialization);
 
                 newObj.Owner        = this;
                 newObj._innerTarget = _innerTarget;
@@ -130,7 +130,7 @@ namespace ActiveForge
             }
         }
 
-        internal virtual void CopyDataObjectState(DataObject copyFrom)
+        internal virtual void CopyDataObjectState(Record copyFrom)
         {
             CopyFrom(copyFrom, Target);
         }
@@ -142,8 +142,8 @@ namespace ActiveForge
 
         protected DataConnection GetDBConnection()   => _innerTarget;
 
-        public void SetOwner(DataObject owner)       { Owner = owner; }
-        public DataObject GetOwner()                 => Owner;
+        public void SetOwner(Record owner)       { Owner = owner; }
+        public Record GetOwner()                 => Owner;
 
         // ── Loaded flag ───────────────────────────────────────────────────────────
 
@@ -156,10 +156,10 @@ namespace ActiveForge
         /// </summary>
         public virtual void SetLoaded()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.DataObjects)
             {
-                var embedded = entry.FieldInfo.GetValue(this) as DataObject;
+                var embedded = entry.FieldInfo.GetValue(this) as Record;
                 if (embedded != null)
                 {
                     embedded.SetLoaded();
@@ -176,11 +176,11 @@ namespace ActiveForge
         /// </summary>
         public virtual void PostFetch()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.DataObjects)
             {
-                var embedded = entry.FieldInfo.GetValue(this) as DataObject;
-                if (embedded is IdentDataObject ido && !ido.ID.IsNull())
+                var embedded = entry.FieldInfo.GetValue(this) as Record;
+                if (embedded is IdentityRecord ido && !ido.ID.IsNull())
                     embedded.PostFetch();
             }
         }
@@ -193,26 +193,26 @@ namespace ActiveForge
 
         // ── Factory helper ────────────────────────────────────────────────────────
 
-        /// <summary>Creates a new DataObject of this type using the current connection.</summary>
-        public virtual DataObject Create()
-            => _innerTarget != null ? _innerTarget.Create(GetType()) : (DataObject)Activator.CreateInstance(GetType());
+        /// <summary>Creates a new Record of this type using the current connection.</summary>
+        public virtual Record Create()
+            => _innerTarget != null ? _innerTarget.Create(GetType()) : (Record)Activator.CreateInstance(GetType());
 
-        public static DataObject CreateDataObject(Type objectType, DataConnection target)
+        public static Record CreateDataObject(Type objectType, DataConnection target)
             => target.Create(objectType);
 
-        public static DataObject CreateDataObject(Type objectType, DataConnection target, DataObject copyFrom)
+        public static Record CreateDataObject(Type objectType, DataConnection target, Record copyFrom)
             => target.Create(objectType, copyFrom);
 
-        public static T CreateDataObject<T>(DataConnection target) where T : DataObject
+        public static T CreateDataObject<T>(DataConnection target) where T : Record
             => (T)target.Create(typeof(T));
 
-        public static T CreateDataObject<T>(DataConnection target, DataObject copyFrom) where T : DataObject
+        public static T CreateDataObject<T>(DataConnection target, Record copyFrom) where T : Record
             => (T)target.Create(typeof(T), copyFrom);
 
-        /// <summary>Creates a new DataObject of the given type using this object's connection.</summary>
-        public ObjectBase CreateDataObject(Type wantedType) => CreateDataObject(wantedType, Target);
+        /// <summary>Creates a new Record of the given type using this object's connection.</summary>
+        public RecordBase CreateDataObject(Type wantedType) => CreateDataObject(wantedType, Target);
 
-        public override ObjectBase CreateCompatibleObject()
+        public override RecordBase CreateCompatibleObject()
         {
             if (_innerTarget != null) return CreateDataObject(GetType(), _innerTarget);
             return base.CreateCompatibleObject();
@@ -221,9 +221,9 @@ namespace ActiveForge
         // ── Binding ───────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Returns the ObjectBinding for this object against the given connection.
+        /// Returns the RecordBinding for this object against the given connection.
         /// </summary>
-        public ObjectBinding GetBinding(DataConnection conn, bool targetExists, bool useCache,
+        public RecordBinding GetBinding(DataConnection conn, bool targetExists, bool useCache,
             Type[] expectedTypes = null, bool includeLookups = false)
             => conn.GetObjectBinding(this, targetExists, useCache, expectedTypes, includeLookups);
 
@@ -249,20 +249,20 @@ namespace ActiveForge
         public override FieldSubset FieldSubset(FieldSubset.InitialState includeAll)
             => GetDBConnection()?.FieldSubset(this, includeAll);
 
-        public override FieldSubset FieldSubset(DataObject enclosing, TField enclosed)
+        public override FieldSubset FieldSubset(Record enclosing, TField enclosed)
             => GetDBConnection()?.FieldSubset(this, enclosing, enclosed);
 
-        public override FieldSubset FieldSubset(DataObject enclosing, DataObject enclosed)
+        public override FieldSubset FieldSubset(Record enclosing, Record enclosed)
             => GetDBConnection()?.FieldSubset(this, enclosing, enclosed);
 
-        public override FieldSubset FieldSubset(DataObject enclosing, DataObject enclosed, FieldSubset.InitialState state)
+        public override FieldSubset FieldSubset(Record enclosing, Record enclosed, FieldSubset.InitialState state)
             => GetDBConnection()?.FieldSubset(this, enclosing, enclosed, state);
 
         // ── GetFieldInfo helper (used by TField.GetFieldInfo) ─────────────────────
 
         public FieldInfo GetFieldInfo(TField field)
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.TFields)
                 if (ReferenceEquals(field, entry.FieldInfo.GetValue(this)))
                     return entry.FieldInfo;
@@ -271,15 +271,15 @@ namespace ActiveForge
 
         // ── CopyFrom ──────────────────────────────────────────────────────────────
 
-        public void CopyFrom(DataObject source)
+        public void CopyFrom(Record source)
             => CopyFrom(source, source.GetConnection());
 
-        protected virtual void CopyFrom(DataObject source, DataConnection connection)
+        protected virtual void CopyFrom(Record source, DataConnection connection)
         {
             if (connection != null && _innerTarget == null)
                 _innerTarget = connection;
 
-            ObjectBinding binding = GetBinding(Target ?? connection, true, true, null, true);
+            RecordBinding binding = GetBinding(Target ?? connection, true, true, null, true);
             Type sourceType       = source.GetType();
             bool sameType         = sourceType == GetType();
 
@@ -314,21 +314,21 @@ namespace ActiveForge
             }
 
             // Deep copy embedded objects
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.DataObjects)
             {
                 Type declaring = entry.FieldInfo.DeclaringType;
                 if (!sameType && sourceType != declaring && !sourceType.IsSubclassOf(declaring)) continue;
 
-                var srcEmbedded  = entry.FieldInfo.GetValue(source)  as DataObject;
-                var destEmbedded = entry.FieldInfo.GetValue(this)     as DataObject;
+                var srcEmbedded  = entry.FieldInfo.GetValue(source)  as Record;
+                var destEmbedded = entry.FieldInfo.GetValue(this)     as Record;
                 if (srcEmbedded == null) continue;
 
                 if (destEmbedded == null || destEmbedded.GetType() != srcEmbedded.GetType())
                 {
                     destEmbedded = _innerTarget != null
                         ? _innerTarget.Create(srcEmbedded.GetType())
-                        : (DataObject)Activator.CreateInstance(srcEmbedded.GetType());
+                        : (Record)Activator.CreateInstance(srcEmbedded.GetType());
                     destEmbedded.Owner        = this;
                     destEmbedded._innerTarget = _innerTarget;
                     entry.FieldInfo.SetValue(this, destEmbedded);
@@ -344,7 +344,7 @@ namespace ActiveForge
 
         protected virtual void SetAllFieldNulls(bool isNull)
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.TFields)
             {
                 var field = entry.FieldInfo.GetValue(this) as TField;
@@ -354,7 +354,7 @@ namespace ActiveForge
 
         public bool FieldsAllNull()
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.TFields)
             {
                 var field = entry.FieldInfo.GetValue(this) as TField;
@@ -367,12 +367,12 @@ namespace ActiveForge
 
         // ── Compare / GetDifferences ──────────────────────────────────────────────
 
-        public bool Compare(DataObject other)
+        public bool Compare(Record other)
         {
             if (other == this) return true;
             if (other.GetType() != GetType()) return false;
 
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.TFields)
             {
                 var f1 = entry.FieldInfo.GetValue(this)  as TField;
@@ -384,7 +384,7 @@ namespace ActiveForge
             return true;
         }
 
-        public FieldSubset GetDifferences(DataObject other)
+        public FieldSubset GetDifferences(Record other)
         {
             if (other.GetType() != GetType())
                 throw new PersistenceException("Attempting to find differences between objects of different type");
@@ -392,7 +392,7 @@ namespace ActiveForge
             var result = new global::ActiveForge.FieldSubset(this, global::ActiveForge.FieldSubset.InitialState.ExcludeAll, null);
             if (other == this) return result;
 
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.TFields)
             {
                 var f1 = entry.FieldInfo.GetValue(this)  as TField;
@@ -411,7 +411,7 @@ namespace ActiveForge
         /// <summary>Returns true if the named TField has a null value.</summary>
         public bool IsNull(string fieldName)
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.TFields)
                 if (string.Equals(entry.Name, fieldName, StringComparison.OrdinalIgnoreCase))
                     return (entry.FieldInfo.GetValue(this) as TField)?.IsNull() ?? true;
@@ -420,33 +420,33 @@ namespace ActiveForge
 
         // ── Embedded object helpers ───────────────────────────────────────────────
 
-        public DataObject GetEmbeddedDataObject(string fieldName)
+        public Record GetEmbeddedDataObject(string fieldName)
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.DataObjects)
                 if (string.Equals(entry.Name, fieldName, StringComparison.OrdinalIgnoreCase))
-                    return entry.FieldInfo.GetValue(this) as DataObject;
+                    return entry.FieldInfo.GetValue(this) as Record;
             return null;
         }
 
         public TField GetEmbeddedTField(string fieldName)
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.TFields)
                 if (string.Equals(entry.Name, fieldName, StringComparison.OrdinalIgnoreCase))
                     return entry.FieldInfo.GetValue(this) as TField;
             return null;
         }
 
-        public virtual DataObject GetContainingDataObject(DataObject embedded)
+        public virtual Record GetContainingDataObject(Record embedded)
         {
-            ObjectBinding binding = GetBinding(Target, true, true, null, true);
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
-            var candidates = new List<DataObject>();
+            RecordBinding binding = GetBinding(Target, true, true, null, true);
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
+            var candidates = new List<Record>();
 
             foreach (var entry in meta.DataObjects)
             {
-                var candidate = entry.FieldInfo.GetValue(this) as DataObject;
+                var candidate = entry.FieldInfo.GetValue(this) as Record;
                 if (candidate == null) continue;
                 candidates.Add(candidate);
                 if (candidate == embedded) return this;
@@ -468,7 +468,7 @@ namespace ActiveForge
         // ── GetSourceName ─────────────────────────────────────────────────────────
 
         public override string GetSourceName()
-            => DataObjectMetaDataCache.GetTypeMetaData(GetType()).SourceName;
+            => RecordMetaDataCache.GetTypeMetaData(GetType()).SourceName;
 
         // ── CRUD — Insert ─────────────────────────────────────────────────────────
 
@@ -536,9 +536,9 @@ namespace ActiveForge
         // ── CRUD — Update ─────────────────────────────────────────────────────────
 
         public virtual FieldSubset Update(DataConnection target) { Target = target; return Update(); }
-        public virtual FieldSubset Update() => Update(DataObjectLock.UpdateOption.IgnoreLock);
+        public virtual FieldSubset Update() => Update(RecordLock.UpdateOption.IgnoreLock);
 
-        public virtual FieldSubset Update(DataObjectLock.UpdateOption option)
+        public virtual FieldSubset Update(RecordLock.UpdateOption option)
         {
             if (Target == null) throw new PersistenceException("Update failed (no connection): " + GetType().FullName);
             return Target.Update(this, option);
@@ -606,7 +606,7 @@ namespace ActiveForge
         public virtual bool QueryFirst(QueryTerm query, SortOrder sortOrder, FieldSubset fieldSubset)
             => QueryFirst(query, sortOrder, fieldSubset, null);
 
-        public virtual bool QueryFirst(QueryTerm query, SortOrder sortOrder, FieldSubset fieldSubset, ObjectParameterCollectionBase objectParameters)
+        public virtual bool QueryFirst(QueryTerm query, SortOrder sortOrder, FieldSubset fieldSubset, RecordParameterCollectionBase objectParameters)
         {
             if (Target == null) throw new PersistenceException("QueryFirst failed (no connection): " + GetType().FullName);
             return Target.QueryFirst(this, query, sortOrder, fieldSubset, objectParameters);
@@ -628,104 +628,104 @@ namespace ActiveForge
 
         // ── QueryAll ─────────────────────────────────────────────────────────────
 
-        public virtual ObjectCollection QueryAll(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset)
+        public virtual RecordCollection QueryAll(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset)
             { Target = target; return QueryAll(query, sortOrder, pageSize, expectedTypes, fieldSubset); }
 
-        public virtual ObjectCollection QueryAll(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes)
+        public virtual RecordCollection QueryAll(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes)
             => QueryAll(target, query, sortOrder, pageSize, expectedTypes, null);
 
-        public virtual ObjectCollection QueryAll(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize)
+        public virtual RecordCollection QueryAll(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize)
             => QueryAll(target, query, sortOrder, pageSize, null);
 
-        public virtual ObjectCollection QueryAll(QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset)
+        public virtual RecordCollection QueryAll(QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset)
         {
             if (Target == null) throw new PersistenceException("QueryAll failed (no connection): " + GetType().FullName);
             return Target.QueryAll(this, query, sortOrder, pageSize, expectedTypes, fieldSubset);
         }
 
-        public virtual ObjectCollection QueryAll(QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
+        public virtual RecordCollection QueryAll(QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
         {
             if (Target == null) throw new PersistenceException("QueryAll failed (no connection): " + GetType().FullName);
             return Target.QueryAll(this, query, sortOrder, pageSize, expectedTypes, fieldSubset, expectedTypeFieldSubsets);
         }
 
-        public virtual ObjectCollection QueryAll(QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes)
+        public virtual RecordCollection QueryAll(QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes)
             => QueryAll(query, sortOrder, pageSize, expectedTypes, null);
 
-        public virtual ObjectCollection QueryAll(QueryTerm query, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset)
+        public virtual RecordCollection QueryAll(QueryTerm query, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset)
             => QueryAll(query, sortOrder, pageSize, null, fieldSubset);
 
-        public virtual ObjectCollection QueryAll(QueryTerm query, SortOrder sortOrder, int pageSize)
+        public virtual RecordCollection QueryAll(QueryTerm query, SortOrder sortOrder, int pageSize)
             => QueryAll(query, sortOrder, pageSize, null, null);
 
-        public virtual ObjectCollection QueryAll()
+        public virtual RecordCollection QueryAll()
             => QueryAll(null, null, 0, null, null);
 
-        public virtual ObjectCollection QueryAll(FieldSubset fieldSubset)
+        public virtual RecordCollection QueryAll(FieldSubset fieldSubset)
             => QueryAll(null, null, 0, null, fieldSubset);
 
         // ── LazyQueryAll ─────────────────────────────────────────────────────────
 
-        public virtual IEnumerable<T> LazyQueryAll<T>(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset) where T : DataObject
+        public virtual IEnumerable<T> LazyQueryAll<T>(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset) where T : Record
             { Target = target; return LazyQueryAll<T>(query, sortOrder, pageSize, expectedTypes, fieldSubset); }
 
-        public virtual IEnumerable<T> LazyQueryAll<T>(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes) where T : DataObject
+        public virtual IEnumerable<T> LazyQueryAll<T>(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes) where T : Record
             => LazyQueryAll<T>(target, query, sortOrder, pageSize, expectedTypes, null);
 
-        public virtual IEnumerable<T> LazyQueryAll<T>(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize) where T : DataObject
+        public virtual IEnumerable<T> LazyQueryAll<T>(DataConnection target, QueryTerm query, SortOrder sortOrder, int pageSize) where T : Record
             => LazyQueryAll<T>(target, query, sortOrder, pageSize, null, null);
 
-        public virtual IEnumerable<T> LazyQueryAll<T>(QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset) where T : DataObject
+        public virtual IEnumerable<T> LazyQueryAll<T>(QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes, FieldSubset fieldSubset) where T : Record
         {
             if (Target == null) throw new PersistenceException("LazyQueryAll failed (no connection): " + GetType().FullName);
             return Target.LazyQueryAll((T)this, query, sortOrder, pageSize, expectedTypes, fieldSubset);
         }
 
-        public virtual IEnumerable<T> LazyQueryAll<T>(QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes) where T : DataObject
+        public virtual IEnumerable<T> LazyQueryAll<T>(QueryTerm query, SortOrder sortOrder, int pageSize, Type[] expectedTypes) where T : Record
             => LazyQueryAll<T>(query, sortOrder, pageSize, expectedTypes, null);
 
-        public virtual IEnumerable<T> LazyQueryAll<T>(QueryTerm query, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset) where T : DataObject
+        public virtual IEnumerable<T> LazyQueryAll<T>(QueryTerm query, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset) where T : Record
             => LazyQueryAll<T>(query, sortOrder, pageSize, null, fieldSubset);
 
-        public virtual IEnumerable<T> LazyQueryAll<T>(QueryTerm query, SortOrder sortOrder, int pageSize) where T : DataObject
+        public virtual IEnumerable<T> LazyQueryAll<T>(QueryTerm query, SortOrder sortOrder, int pageSize) where T : Record
             => LazyQueryAll<T>(query, sortOrder, pageSize, null, null);
 
-        public virtual IEnumerable<T> LazyQueryAll<T>() where T : DataObject
+        public virtual IEnumerable<T> LazyQueryAll<T>() where T : Record
             => LazyQueryAll<T>(null, null, 0, null, null);
 
-        public virtual IEnumerable<T> LazyQueryAll<T>(FieldSubset fieldSubset) where T : DataObject
+        public virtual IEnumerable<T> LazyQueryAll<T>(FieldSubset fieldSubset) where T : Record
             => LazyQueryAll<T>(null, null, 0, null, fieldSubset);
 
         // ── QueryPage ─────────────────────────────────────────────────────────────
 
-        public virtual ObjectCollection QueryPage(int start, int count)
+        public virtual RecordCollection QueryPage(int start, int count)
             => QueryPage(null, null, start, count, null);
 
-        public virtual ObjectCollection QueryPage(int start, int count, FieldSubset fieldSubset)
+        public virtual RecordCollection QueryPage(int start, int count, FieldSubset fieldSubset)
             => QueryPage(null, null, start, count, fieldSubset);
 
-        public virtual ObjectCollection QueryPage(DataConnection target, QueryTerm query, SortOrder sortOrder, int start, int count)
+        public virtual RecordCollection QueryPage(DataConnection target, QueryTerm query, SortOrder sortOrder, int start, int count)
             { Target = target; return QueryPage(query, sortOrder, start, count, null); }
 
-        public virtual ObjectCollection QueryPage(DataConnection target, QueryTerm query, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset)
+        public virtual RecordCollection QueryPage(DataConnection target, QueryTerm query, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset)
             { Target = target; return QueryPage(query, sortOrder, start, count, fieldSubset); }
 
-        public virtual ObjectCollection QueryPage(QueryTerm query, SortOrder sortOrder, int start, int count)
+        public virtual RecordCollection QueryPage(QueryTerm query, SortOrder sortOrder, int start, int count)
             => QueryPage(query, sortOrder, start, count, null);
 
-        public virtual ObjectCollection QueryPage(QueryTerm query, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset)
+        public virtual RecordCollection QueryPage(QueryTerm query, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset)
             => QueryPage(query, sortOrder, start, count, fieldSubset, null);
 
-        public virtual ObjectCollection QueryPage(QueryTerm query, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes)
+        public virtual RecordCollection QueryPage(QueryTerm query, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes)
             => QueryPage(query, sortOrder, start, count, fieldSubset, expectedTypes, null);
 
-        public virtual ObjectCollection QueryPage(QueryTerm query, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
+        public virtual RecordCollection QueryPage(QueryTerm query, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets)
         {
             if (Target == null) throw new PersistenceException("QueryPage failed (no connection): " + GetType().FullName);
             return Target.QueryPage(this, query, sortOrder, start, count, fieldSubset, expectedTypes, expectedTypeFieldSubsets);
         }
 
-        public virtual ObjectCollection QueryPage(QueryTerm query, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets, bool returnCountInfo)
+        public virtual RecordCollection QueryPage(QueryTerm query, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, Type[] expectedTypes, Dictionary<Type, FieldSubset> expectedTypeFieldSubsets, bool returnCountInfo)
         {
             if (Target == null) throw new PersistenceException("QueryPage failed (no connection): " + GetType().FullName);
             return Target.QueryPage(this, query, sortOrder, start, count, fieldSubset, expectedTypes, expectedTypeFieldSubsets, returnCountInfo);
@@ -733,48 +733,48 @@ namespace ActiveForge
 
         // ── ExecSQL ───────────────────────────────────────────────────────────────
 
-        public virtual ObjectCollection ExecSQL(string sql)
+        public virtual RecordCollection ExecSQL(string sql)
         {
             if (Target == null) throw new PersistenceException("ExecSQL failed (no connection): " + GetType().FullName);
             return Target.ExecSQL(this, sql);
         }
 
-        public virtual ObjectCollection ExecSQL(string sqlFormat, params object[] values)
+        public virtual RecordCollection ExecSQL(string sqlFormat, params object[] values)
         {
             if (Target == null) throw new PersistenceException("ExecSQL failed (no connection): " + GetType().FullName);
             return Target.ExecSQL(this, sqlFormat, values);
         }
 
-        public virtual ObjectCollection ExecSQL(string sql, Dictionary<string, object> parameters)
+        public virtual RecordCollection ExecSQL(string sql, Dictionary<string, object> parameters)
         {
             if (Target == null) throw new PersistenceException("ExecSQL failed (no connection): " + GetType().FullName);
             return Target.ExecSQL(this, sql, parameters);
         }
 
-        public virtual ObjectCollection ExecSQL(string sql, int start, int count)
+        public virtual RecordCollection ExecSQL(string sql, int start, int count)
         {
             if (Target == null) throw new PersistenceException("ExecSQL failed (no connection): " + GetType().FullName);
             return Target.ExecSQL(this, sql, start, count);
         }
 
-        public virtual ObjectCollection ExecSQL(string sql, int start, int count, Dictionary<string, object> parameters)
+        public virtual RecordCollection ExecSQL(string sql, int start, int count, Dictionary<string, object> parameters)
         {
             if (Target == null) throw new PersistenceException("ExecSQL failed (no connection): " + GetType().FullName);
             return Target.ExecSQL(this, sql, start, count, parameters);
         }
 
-        public virtual ObjectCollection ExecSQL(DataConnection target, string sql, int start, int count)
+        public virtual RecordCollection ExecSQL(DataConnection target, string sql, int start, int count)
             { Target = target; return ExecSQL(sql, start, count); }
 
-        public virtual ObjectCollection ExecSQL(DataConnection target, string sql, params object[] values)
+        public virtual RecordCollection ExecSQL(DataConnection target, string sql, params object[] values)
             { Target = target; return ExecSQL(sql, values); }
 
-        public virtual ObjectCollection ExecSQL(DataConnection target, string sql)
+        public virtual RecordCollection ExecSQL(DataConnection target, string sql)
             { Target = target; return ExecSQL(sql); }
 
         // ── ExecStoredProcedure ───────────────────────────────────────────────────
 
-        public virtual ObjectCollection ExecStoredProcedure(string spName, int start, int count, params SPParameter[] spParameters)
+        public virtual RecordCollection ExecStoredProcedure(string spName, int start, int count, params SPParameter[] spParameters)
         {
             if (Target == null) throw new PersistenceException("ExecStoredProcedure failed (no connection): " + GetType().FullName);
             return Target.ExecStoredProcedure(this, spName, start, count, spParameters);
@@ -793,11 +793,11 @@ namespace ActiveForge
         public static Type GetDBBaseClass(Type type)
         {
             Type current = type;
-            while (current != null && current != typeof(DataObject) && current.BaseType != typeof(DataObject)
+            while (current != null && current != typeof(Record) && current.BaseType != typeof(Record)
                    && current.BaseType != null && current.BaseType != typeof(object))
             {
-                if (current.BaseType == typeof(DataObject)
-                    || current.BaseType == typeof(IdentDataObject)
+                if (current.BaseType == typeof(Record)
+                    || current.BaseType == typeof(IdentityRecord)
                     || (current.BaseType?.Namespace?.StartsWith("ActiveForge") == true
                         && !current.BaseType.IsAbstract))
                     break;

@@ -13,7 +13,7 @@ namespace ActiveForge.PostgreSQL.Tests
     // ── Test entities ─────────────────────────────────────────────────────────────
 
     [Table("pg_categories")]
-    public sealed class PgCat : IdentDataObject
+    public sealed class PgCat : IdentityRecord
     {
         [Column("name")] public TString Name = new TString();
         public PgCat() { }
@@ -21,7 +21,7 @@ namespace ActiveForge.PostgreSQL.Tests
     }
 
     [Table("pg_products")]
-    public sealed class PgJoinProd : IdentDataObject
+    public sealed class PgJoinProd : IdentityRecord
     {
         [Column("name")]    public TString     Name    = new TString();
         [Column("PgCatID")] public TForeignKey PgCatID = new TForeignKey();
@@ -33,7 +33,7 @@ namespace ActiveForge.PostgreSQL.Tests
 
     [Table("pg_products")]
     [JoinSpec("PgCatID", "PgCat", "ID", JoinSpecAttribute.JoinTypeEnum.LeftOuterJoin)]
-    public sealed class PgJoinProdOuter : IdentDataObject
+    public sealed class PgJoinProdOuter : IdentityRecord
     {
         [Column("name")]    public TString     Name    = new TString();
         [Column("PgCatID")] public TForeignKey PgCatID = new TForeignKey();

@@ -6,7 +6,7 @@ This document covers the `ActiveForge.Transactions` namespace.
 
 ## Overview
 
-Turquoise ORM ships two complementary transaction models:
+ActiveForge ORM ships two complementary transaction models:
 
 | Model | When to use |
 |-------|-------------|

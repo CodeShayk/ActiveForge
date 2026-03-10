@@ -7,7 +7,7 @@ namespace ActiveForge.Query
     /// SortOrder, pagination settings, and field subsets. Used primarily as the sub-query
     /// argument in <see cref="ExistsTerm{T}"/>.
     /// </summary>
-    public class Query<T> where T : DataObject
+    public class Query<T> where T : Record
     {
         private readonly T                              _obj;
         private readonly DataConnection                 _connection;
@@ -34,10 +34,10 @@ namespace ActiveForge.Query
 
         // ── Query execution ───────────────────────────────────────────────────────────
 
-        public ObjectCollection QueryAll()
+        public RecordCollection QueryAll()
             => _connection.QueryAll(_obj, _term, _sortOrder, _count, _concreteTypes, _fieldSubset, _concreteTypeFieldSubsets);
 
-        public ObjectCollection QueryPage()
+        public RecordCollection QueryPage()
             => _connection.QueryPage(_obj, _term, _sortOrder, _start, _count, _fieldSubset, _concreteTypes, _concreteTypeFieldSubsets);
 
         public int QueryCount()

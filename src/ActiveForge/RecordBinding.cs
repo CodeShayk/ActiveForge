@@ -9,14 +9,14 @@ using ActiveForge.Query;
 namespace ActiveForge
 {
     /// <summary>
-    /// Holds the fully-resolved SQL stub cache and field-binding arrays for one DataObject type.
+    /// Holds the fully-resolved SQL stub cache and field-binding arrays for one Record type.
     /// Constructed once per type/connection combination and re-used across queries.
     /// </summary>
-    public class ObjectBinding
+    public class RecordBinding
     {
         // ── Constructors ──────────────────────────────────────────────────────────────
 
-        public ObjectBinding()
+        public RecordBinding()
         {
             DeleteSQL          = new List<DeleteSQLInfo>();
             DeleteSQLStub      = new List<DeleteSQLInfo>();
@@ -33,10 +33,10 @@ namespace ActiveForge
             AliasGenerator     = null;
         }
 
-        public ObjectBinding(ObjectBase obj, DataConnection connection, bool targetExists, ObjectBase changedObj, Type[] expectedTypes, FactoryBase factory)
+        public RecordBinding(RecordBase obj, DataConnection connection, bool targetExists, RecordBase changedObj, Type[] expectedTypes, FactoryBase factory)
             : this(obj, connection, targetExists, changedObj, expectedTypes, factory, false) { }
 
-        public ObjectBinding(ObjectBase obj, DataConnection connection, bool targetExists, ObjectBase changedObj, Type[] expectedTypes, FactoryBase factory, bool includeLookupDataObjects)
+        public RecordBinding(RecordBase obj, DataConnection connection, bool targetExists, RecordBase changedObj, Type[] expectedTypes, FactoryBase factory, bool includeLookupDataObjects)
         {
             DeleteSQL          = new List<DeleteSQLInfo>();
             DeleteSQLStub      = new List<DeleteSQLInfo>();
@@ -70,7 +70,7 @@ namespace ActiveForge
                 Function = true;
 
             AliasGenerator       = ((DBDataConnection)connection).AliasGenerator;
-            ObjectBindingMapRoot = new ObjectBindingMapNode(Class, AliasGenerator, expectedTypes, factory, includeLookupDataObjects);
+            ObjectBindingMapRoot = new RecordBindingMapNode(Class, AliasGenerator, expectedTypes, factory, includeLookupDataObjects);
 
             if (expectedTypes != null)
                 ConcreteClassDiagnosticFields = new List<FieldBinding>();
@@ -95,11 +95,11 @@ namespace ActiveForge
             {
                 PolymorphicTypeMap = new List<PolymorphicTypeMapEntry>();
                 foreach (var expectedType in expectedTypes)
-                    PolymorphicTypeMap.Add(new PolymorphicTypeMapEntry(expectedType, connection, (DataObject)obj));
+                    PolymorphicTypeMap.Add(new PolymorphicTypeMapEntry(expectedType, connection, (Record)obj));
             }
         }
 
-        public ObjectBinding(DataObject obj)
+        public RecordBinding(Record obj)
         {
             DeleteSQL          = new List<DeleteSQLInfo>();
             DeleteSQLStub      = new List<DeleteSQLInfo>();
@@ -118,11 +118,11 @@ namespace ActiveForge
 
         public void PreRetrieveLookupDataObjectValues(DataConnection connection)
         {
-            DataObject obj = (DataObject)DataObject.CreateDataObject(Class, connection);
+            Record obj = (Record)Record.CreateDataObject(Class, connection);
             PreRetrieveLookupDataObjectValues(connection, obj);
         }
 
-        protected void PreRetrieveLookupDataObjectValues(DataConnection connection, ObjectBase obj)
+        protected void PreRetrieveLookupDataObjectValues(DataConnection connection, RecordBase obj)
         {
             ObjectBindingMapRoot.PreRetrieveLookupDataObjectValues(connection, obj);
         }
@@ -197,7 +197,7 @@ namespace ActiveForge
 
         // ── Field binding lookup ──────────────────────────────────────────────────────
 
-        public FieldBinding GetFieldBinding(DataObject target, TField field)
+        public FieldBinding GetFieldBinding(Record target, TField field)
         {
             try
             {
@@ -225,7 +225,7 @@ namespace ActiveForge
                 }
 
                 if (result == null)
-                    throw new PersistenceException($"Field {info.Name} not found for DataObject {target.GetType().FullName}");
+                    throw new PersistenceException($"Field {info.Name} not found for Record {target.GetType().FullName}");
 
                 return result;
             }
@@ -243,7 +243,7 @@ namespace ActiveForge
         /// When multiple bindings share the same field name (e.g. Description in lookup objects),
         /// picks the binding whose containing object matches the supplied target instance.
         /// </summary>
-        protected FieldBinding IdentifyCorrectInstanceOfField(DataObject target, List<FieldBinding> candidates)
+        protected FieldBinding IdentifyCorrectInstanceOfField(Record target, List<FieldBinding> candidates)
         {
             if (candidates.Count == 1)
                 return candidates[0];
@@ -254,15 +254,15 @@ namespace ActiveForge
             Debug.WriteLine($"Choosing between {candidates.Count} candidates");
 
             // Walk up to root (owner chain)
-            DataObject root = target;
+            Record root = target;
             while (root.GetOwner() != null)
                 root = root.GetOwner();
 
             // First: find candidate whose containing object IS the target by reference
-            var containingObjects = new DataObject[candidates.Count];
+            var containingObjects = new Record[candidates.Count];
             for (int i = 0; i < candidates.Count; i++)
             {
-                DataObject containing = GetContainingObjectForField(candidates[i], root);
+                Record containing = GetContainingObjectForField(candidates[i], root);
                 containingObjects[i] = containing;
                 if (ReferenceEquals(containing, target))
                     return candidates[i];
@@ -287,7 +287,7 @@ namespace ActiveForge
             return null;
         }
 
-        public DataObject GetContainingObjectForField(FieldBinding targetFieldBinding, DataObject rootObject)
+        public Record GetContainingObjectForField(FieldBinding targetFieldBinding, Record rootObject)
             => ObjectBindingMapRoot.GetContainingObjectForField(this, targetFieldBinding, rootObject);
 
         public string GetPathForField(FieldBinding targetFieldBinding)
@@ -300,15 +300,15 @@ namespace ActiveForge
             return result;
         }
 
-        public TField GetFieldFromPath(DataObject obj, string path)
+        public TField GetFieldFromPath(Record obj, string path)
         {
             TField field = null;
             string remaining = path;
-            DataObject current = obj;
+            Record current = obj;
 
             while (field == null)
             {
-                var meta = DataObjectMetaDataCache.GetTypeMetaData(current.GetType());
+                var meta = RecordMetaDataCache.GetTypeMetaData(current.GetType());
                 remaining = remaining.Substring(1); // strip leading '\'
                 int slash = remaining.IndexOf('\\');
                 string component;
@@ -325,12 +325,12 @@ namespace ActiveForge
 
                 if (remaining.Length > 0)
                 {
-                    DataObject next = null;
+                    Record next = null;
                     foreach (var entry in meta.DataObjects)
                     {
                         if (entry.Name == component)
                         {
-                            next = (DataObject)entry.FieldInfo.GetValue(current);
+                            next = (Record)entry.FieldInfo.GetValue(current);
                             break;
                         }
                     }
@@ -353,15 +353,15 @@ namespace ActiveForge
             return field;
         }
 
-        public DataObject GetContainerFromPath(DataObject obj, string path)
+        public Record GetContainerFromPath(Record obj, string path)
         {
-            DataObject container = null;
+            Record container = null;
             string remaining = path;
-            DataObject current = obj;
+            Record current = obj;
 
             while (container == null)
             {
-                var meta = DataObjectMetaDataCache.GetTypeMetaData(current.GetType());
+                var meta = RecordMetaDataCache.GetTypeMetaData(current.GetType());
                 remaining = remaining.Substring(1); // strip leading '\'
                 int slash = remaining.IndexOf('\\');
                 string component;
@@ -378,12 +378,12 @@ namespace ActiveForge
 
                 if (remaining.Length > 0)
                 {
-                    DataObject next = null;
+                    Record next = null;
                     foreach (var entry in meta.DataObjects)
                     {
                         if (entry.Name == component)
                         {
-                            next = (DataObject)entry.FieldInfo.GetValue(current);
+                            next = (Record)entry.FieldInfo.GetValue(current);
                             break;
                         }
                     }
@@ -400,7 +400,7 @@ namespace ActiveForge
         // ── Row fetch ─────────────────────────────────────────────────────────────────
 
         /// <summary>Polymorphic row fetch: determines the concrete type from diagnostic fields, then fetches into the matching cached instance.</summary>
-        public DataObject FetchRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, ReaderBase reader, bool omitPK, bool shallow, DBDataConnection connection, int depth)
+        public Record FetchRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, ReaderBase reader, bool omitPK, bool shallow, DBDataConnection connection, int depth)
         {
             Type polymorphicType = null;
             foreach (var binding in ConcreteClassDiagnosticFields)
@@ -423,7 +423,7 @@ namespace ActiveForge
                     ObjectBindingMapRoot.FetchPolymorphicRowValues(fieldBindings, fetcher, entry.Object, entry.DataObjectType, reader, this, omitPK, omitPK, depth);
                     if (!entry.Object.IsNull("ID"))
                     {
-                        DataObject result = entry.Object;
+                        Record result = entry.Object;
                         entry.RenewDataObject();
                         return result;
                     }
@@ -432,8 +432,8 @@ namespace ActiveForge
             return null;
         }
 
-        /// <summary>Non-polymorphic row fetch: fetches into a known concrete DataObject instance.</summary>
-        public void FetchRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, DataObject obj, ReaderBase reader, bool omitPK, bool shallow, int depth)
+        /// <summary>Non-polymorphic row fetch: fetches into a known concrete Record instance.</summary>
+        public void FetchRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, Record obj, ReaderBase reader, bool omitPK, bool shallow, int depth)
         {
             if (ObjectBindingMapRoot != null)
             {
@@ -496,9 +496,9 @@ namespace ActiveForge
             return count;
         }
 
-        public List<DataObject> GetJoinedObjects(DataObject obj)
+        public List<Record> GetJoinedObjects(Record obj)
         {
-            var result = new List<DataObject>();
+            var result = new List<Record>();
             var current = ObjectBindingMapRoot;
             while (current != null)
             {
@@ -506,7 +506,7 @@ namespace ActiveForge
                 if (rels != null)
                 {
                     foreach (var rel in rels)
-                        result.Add((DataObject)rel.ObjectTargetFieldInfo.GetValue(obj));
+                        result.Add((Record)rel.ObjectTargetFieldInfo.GetValue(obj));
                 }
                 current = current.Generalisation;
             }
@@ -587,7 +587,7 @@ namespace ActiveForge
 
         // ── Fields ────────────────────────────────────────────────────────────────────
 
-        protected ObjectBindingMapNode            ObjectBindingMapRoot;
+        protected RecordBindingMapNode            ObjectBindingMapRoot;
         protected AliasGenerator                  AliasGenerator;
 
         public string                             SourceName;
@@ -639,7 +639,7 @@ namespace ActiveForge
 
         public class PolymorphicTypeMapEntry
         {
-            public PolymorphicTypeMapEntry(Type type, DataConnection connection, DataObject baseDataObject)
+            public PolymorphicTypeMapEntry(Type type, DataConnection connection, Record baseDataObject)
             {
                 Connection      = connection;
                 DataObjectType  = type;
@@ -649,13 +649,13 @@ namespace ActiveForge
 
             public void RenewDataObject()
             {
-                Object = (DataObject)DataObject.CreateDataObject(DataObjectType, Connection, _baseDataObject);
+                Object = (Record)Record.CreateDataObject(DataObjectType, Connection, _baseDataObject);
             }
 
-            private readonly DataObject    _baseDataObject;
+            private readonly Record    _baseDataObject;
             private readonly DataConnection Connection;
             public  Type                   DataObjectType;
-            public  DataObject             Object;
+            public  Record             Object;
         }
     }
 }

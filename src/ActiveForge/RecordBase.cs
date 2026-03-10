@@ -9,7 +9,7 @@ namespace ActiveForge
     /// Provides field-subset support, reflection helpers, and field description caching.
     /// </summary>
     [Serializable]
-    public class ObjectBase : IComparable
+    public abstract class RecordBase : IComparable
     {
         // ── Static type caches ────────────────────────────────────────────────────────
         private static readonly ConcurrentDictionary<FieldInfo, FieldDescriptionEntry> _fieldDescCache
@@ -28,13 +28,13 @@ namespace ActiveForge
         public virtual bool IsExplicitDefaultFieldSubset() => false;
 
         public virtual FieldSubset FieldSubset(FieldSubset.InitialState includeAll) => null;
-        public virtual FieldSubset FieldSubset(DataObject enclosing, TField enclosed) => null;
-        public virtual FieldSubset FieldSubset(DataObject enclosing, DataObject enclosed) => null;
-        public virtual FieldSubset FieldSubset(DataObject enclosing, DataObject enclosed, FieldSubset.InitialState state) => null;
+        public virtual FieldSubset FieldSubset(Record enclosing, TField enclosed) => null;
+        public virtual FieldSubset FieldSubset(Record enclosing, Record enclosed) => null;
+        public virtual FieldSubset FieldSubset(Record enclosing, Record enclosed, FieldSubset.InitialState state) => null;
 
-        public virtual bool IsEquivalentConstrainedLinkedObject(DataObject comparison) => false;
+        public virtual bool IsEquivalentConstrainedLinkedObject(Record comparison) => false;
 
-        public virtual ObjectParameterCollectionBase GetDefaultObjectParameters() => null;
+        public virtual RecordParameterCollectionBase GetDefaultObjectParameters() => null;
 
         // ── Field description helpers ─────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ namespace ActiveForge
 
         public virtual string GetFieldDescription(TField field)
         {
-            var meta = DataObjectMetaDataCache.GetTypeMetaData(GetType());
+            var meta = RecordMetaDataCache.GetTypeMetaData(GetType());
             foreach (var entry in meta.TFields)
             {
                 var testField = (TField)entry.FieldInfo.GetValue(this);
@@ -62,8 +62,8 @@ namespace ActiveForge
             return entry.Sensitive;
         }
 
-        public virtual ObjectBase CreateCompatibleObject()
-            => (ObjectBase)Activator.CreateInstance(GetType());
+        public virtual RecordBase CreateCompatibleObject()
+            => (RecordBase)Activator.CreateInstance(GetType());
 
         // ── IComparable ───────────────────────────────────────────────────────────────
 

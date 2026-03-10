@@ -10,7 +10,7 @@ namespace ActiveForge.Linq
 {
     /// <summary>
     /// Translates a LINQ predicate expression (<c>x => ...</c>) into a tree of
-    /// Turquoise <see cref="QueryTerm"/> objects.
+    /// ActiveForge <see cref="QueryTerm"/> objects.
     ///
     /// <para>Supported node types:</para>
     /// <list type="bullet">
@@ -23,15 +23,15 @@ namespace ActiveForge.Linq
     /// <para>
     /// Field accessor: the left-hand side of a comparison must be a <see cref="TField"/>
     /// field access on the LINQ parameter, either direct (<c>x.Name</c>) or via an
-    /// embedded <see cref="DataObject"/> (<c>x.Category.Name</c> for joined entities).
+    /// embedded <see cref="Record"/> (<c>x.Category.Name</c> for joined entities).
     /// </para>
     /// </summary>
     public sealed class ExpressionToQueryTermVisitor : ExpressionVisitor
     {
-        private readonly DataObject            _template;
+        private readonly Record            _template;
         private readonly ParameterExpression   _parameter;
 
-        private ExpressionToQueryTermVisitor(LambdaExpression lambda, DataObject template)
+        private ExpressionToQueryTermVisitor(LambdaExpression lambda, Record template)
         {
             _template  = template;
             _parameter = lambda.Parameters[0];
@@ -40,7 +40,7 @@ namespace ActiveForge.Linq
         /// <summary>
         /// Entry point: translates <paramref name="predicate"/> into a <see cref="QueryTerm"/>.
         /// </summary>
-        public static QueryTerm Translate(LambdaExpression predicate, DataObject template)
+        public static QueryTerm Translate(LambdaExpression predicate, Record template)
         {
             if (predicate == null)  throw new ArgumentNullException(nameof(predicate));
             if (template  == null)  throw new ArgumentNullException(nameof(template));
@@ -201,11 +201,11 @@ namespace ActiveForge.Linq
         }
 
         /// <summary>
-        /// Extracts the (containing DataObject, TField) pair from an expression.
+        /// Extracts the (containing Record, TField) pair from an expression.
         /// Supports direct field access on the parameter (<c>x.Name</c>) and cross-join
-        /// navigation through embedded DataObject fields (<c>x.Category.Name</c>).
+        /// navigation through embedded Record fields (<c>x.Category.Name</c>).
         /// </summary>
-        private (DataObject target, TField field) ExtractField(Expression expr)
+        private (Record target, TField field) ExtractField(Expression expr)
         {
             // Handle implicit conversions (Convert node) wrapping the field access.
             if (expr is UnaryExpression ue && ue.NodeType == ExpressionType.Convert)
@@ -215,10 +215,10 @@ namespace ActiveForge.Linq
                 && fi.FieldType.IsSubclassOf(typeof(TField)))
             {
                 // The member access must be on the LINQ parameter (x.SomeField)
-                // or on a DataObject field reachable from the parameter (x.Category.Name).
+                // or on a Record field reachable from the parameter (x.Category.Name).
                 if (me.Expression == _parameter || IsChainedOnParameter(me.Expression))
                 {
-                    DataObject container = ResolveContainer(me.Expression);
+                    Record container = ResolveContainer(me.Expression);
                     return (container, (TField)fi.GetValue(container));
                 }
             }
@@ -226,7 +226,7 @@ namespace ActiveForge.Linq
             throw new NotSupportedException(
                 $"Cannot extract TField from expression '{expr}'. " +
                 "The left-hand side of a comparison must be a TField field access on the " +
-                "query parameter (e.g. 'x.Name') or on an embedded DataObject " +
+                "query parameter (e.g. 'x.Name') or on an embedded Record " +
                 "(e.g. 'x.Category.Name' for a joined entity).");
         }
 
@@ -284,24 +284,24 @@ namespace ActiveForge.Linq
 
         /// <summary>
         /// Walks the member-access chain rooted at <see cref="_parameter"/> on the
-        /// template object, resolving each DataObject field along the way.
-        /// For <c>x.Category.Name</c> the chain is: parameter → Category (DataObject) → Name (TField);
+        /// template object, resolving each Record field along the way.
+        /// For <c>x.Category.Name</c> the chain is: parameter → Category (Record) → Name (TField);
         /// this method resolves the "Category" step and returns <c>_template.Category</c>.
         /// </summary>
-        private DataObject ResolveContainer(Expression expr)
+        private Record ResolveContainer(Expression expr)
         {
             if (expr == _parameter) return _template;
 
             if (expr is MemberExpression me && me.Member is FieldInfo fi
-                && fi.FieldType.IsSubclassOf(typeof(DataObject)))
+                && fi.FieldType.IsSubclassOf(typeof(Record)))
             {
-                DataObject parent = ResolveContainer(me.Expression);
-                return (DataObject)fi.GetValue(parent);
+                Record parent = ResolveContainer(me.Expression);
+                return (Record)fi.GetValue(parent);
             }
 
             throw new NotSupportedException(
-                $"Cannot resolve DataObject container from expression '{expr}'. " +
-                "Navigation must go through DataObject fields on the query parameter.");
+                $"Cannot resolve Record container from expression '{expr}'. " +
+                "Navigation must go through Record fields on the query parameter.");
         }
     }
 }

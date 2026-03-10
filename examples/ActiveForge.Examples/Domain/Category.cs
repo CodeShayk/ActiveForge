@@ -5,11 +5,11 @@ namespace ActiveForge.Examples.Domain
 {
     /// <summary>
     /// Product category.  Maps to the [Categories] table.
-    /// Extends <see cref="IdentDataObject"/> so it automatically has an integer
+    /// Extends <see cref="IdentityRecord"/> so it automatically has an integer
     /// primary key called <c>ID</c>.
     /// </summary>
     [Table("Categories")]
-    public class Category : IdentDataObject
+    public class Category : IdentityRecord
     {
         [Column("Name")]
         public TString Name = new TString();

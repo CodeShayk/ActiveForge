@@ -24,7 +24,7 @@ namespace ActiveForge
     ///   <item><description><c>[Column("name")]</c> → BSON field name.</description></item>
     ///   <item><description><c>[Identity]</c> field → BSON <c>_id</c> (stored as int32).</description></item>
     /// </list>
-    /// MongoDB does not support SQL-specific operations.  <see cref="ExecSQL(DataObject,string)"/>
+    /// MongoDB does not support SQL-specific operations.  <see cref="ExecSQL(Record,string)"/>
     /// and <see cref="ExecStoredProcedure"/> throw <see cref="NotSupportedException"/>.
     /// </remarks>
     public class MongoDataConnection : DataConnection, IDisposable
@@ -52,8 +52,8 @@ namespace ActiveForge
         private bool              _inTransaction;
 
         // Action queue
-        private readonly List<(DataObject obj, char op, QueryTerm? term)> _actionQueue
-            = new List<(DataObject, char, QueryTerm?)>();
+        private readonly List<(Record obj, char op, QueryTerm? term)> _actionQueue
+            = new List<(Record, char, QueryTerm?)>();
 
         // ── Constructors ──────────────────────────────────────────────────────────────
 
@@ -142,14 +142,14 @@ namespace ActiveForge
         private IMongoCollection<BsonDocument> GetCollection(string name)
             => Database.GetCollection<BsonDocument>(name);
 
-        private IMongoCollection<BsonDocument> GetCollection(DataObject obj)
+        private IMongoCollection<BsonDocument> GetCollection(Record obj)
             => GetCollection(MongoTypeCache.GetEntry(obj.GetType()).CollectionName);
 
         // ── CRUD — Insert ─────────────────────────────────────────────────────────────
 
-        public override bool Insert(DataObject obj) => RunWrite(() => InsertCore(obj));
+        public override bool Insert(Record obj) => RunWrite(() => InsertCore(obj));
 
-        private bool InsertCore(DataObject obj)
+        private bool InsertCore(Record obj)
         {
             var entry = MongoTypeCache.GetEntry(obj.GetType());
             var coll  = GetCollection(entry.CollectionName);
@@ -179,9 +179,9 @@ namespace ActiveForge
 
         // ── CRUD — Delete ─────────────────────────────────────────────────────────────
 
-        public override bool Delete(DataObject obj) => RunWrite(() => DeleteCore(obj));
+        public override bool Delete(Record obj) => RunWrite(() => DeleteCore(obj));
 
-        private bool DeleteCore(DataObject obj)
+        private bool DeleteCore(Record obj)
         {
             var coll   = GetCollection(obj);
             var filter = BuildPkFilter(obj);
@@ -193,9 +193,9 @@ namespace ActiveForge
             return result.DeletedCount > 0;
         }
 
-        public override bool Delete(DataObject obj, QueryTerm term) => RunWrite(() => DeleteTermCore(obj, term));
+        public override bool Delete(Record obj, QueryTerm term) => RunWrite(() => DeleteTermCore(obj, term));
 
-        private bool DeleteTermCore(DataObject obj, QueryTerm term)
+        private bool DeleteTermCore(Record obj, QueryTerm term)
         {
             var coll   = GetCollection(obj);
             var filter = MongoQueryTranslator.Translate(term, obj);
@@ -208,23 +208,23 @@ namespace ActiveForge
             return true;
         }
 
-        internal override void Delete(DataObject obj, QueryTerm term, Type[] concreteTypes)
+        internal override void Delete(Record obj, QueryTerm term, Type[] concreteTypes)
             => Delete(obj, term);
 
         // ── CRUD — Update ─────────────────────────────────────────────────────────────
 
-        internal override FieldSubset Update(DataObject obj, DataObjectLock.UpdateOption option)
+        internal override FieldSubset Update(Record obj, RecordLock.UpdateOption option)
             => UpdateInternal(obj);
 
-        internal override FieldSubset UpdateAll(DataObject obj)
+        internal override FieldSubset UpdateAll(Record obj)
             => UpdateInternal(obj);
 
-        internal override FieldSubset UpdateChanged(DataObject obj)
+        internal override FieldSubset UpdateChanged(Record obj)
             => UpdateInternal(obj);
 
-        private FieldSubset UpdateInternal(DataObject obj) => RunWrite(() => UpdateCore(obj));
+        private FieldSubset UpdateInternal(Record obj) => RunWrite(() => UpdateCore(obj));
 
-        private FieldSubset UpdateCore(DataObject obj)
+        private FieldSubset UpdateCore(Record obj)
         {
             var coll    = GetCollection(obj);
             var filter  = BuildPkFilter(obj);
@@ -252,10 +252,10 @@ namespace ActiveForge
 
         // ── CRUD — Read ───────────────────────────────────────────────────────────────
 
-        public override bool Read(DataObject obj)
+        public override bool Read(Record obj)
             => Read(obj, null);
 
-        public override bool Read(DataObject obj, FieldSubset? fieldSubset)
+        public override bool Read(Record obj, FieldSubset? fieldSubset)
         {
             var coll   = GetCollection(obj);
             var filter = BuildPkFilter(obj);
@@ -272,15 +272,15 @@ namespace ActiveForge
             return true;
         }
 
-        public override bool ReadForUpdate(DataObject obj, FieldSubset? fieldSubset)
+        public override bool ReadForUpdate(Record obj, FieldSubset? fieldSubset)
             => Read(obj, fieldSubset);    // MongoDB: no advisory lock
 
         // ── QueryFirst ────────────────────────────────────────────────────────────────
 
-        public override bool QueryFirst(DataObject obj, QueryTerm? term, SortOrder? sortOrder, FieldSubset? fieldSubset)
+        public override bool QueryFirst(Record obj, QueryTerm? term, SortOrder? sortOrder, FieldSubset? fieldSubset)
             => QueryFirst(obj, term, sortOrder, fieldSubset, null);
 
-        public override bool QueryFirst(DataObject obj, QueryTerm? term, SortOrder? sortOrder, FieldSubset? fieldSubset, ObjectParameterCollectionBase? objectParameters)
+        public override bool QueryFirst(Record obj, QueryTerm? term, SortOrder? sortOrder, FieldSubset? fieldSubset, RecordParameterCollectionBase? objectParameters)
         {
             var coll   = GetCollection(obj);
             var filter = MongoQueryTranslator.Translate(term, obj);
@@ -301,16 +301,16 @@ namespace ActiveForge
 
         // ── QueryCount ────────────────────────────────────────────────────────────────
 
-        public override int QueryCount(DataObject obj)
+        public override int QueryCount(Record obj)
             => QueryCount(obj, null);
 
-        public override int QueryCount(DataObject obj, QueryTerm? term)
+        public override int QueryCount(Record obj, QueryTerm? term)
             => QueryCount(obj, term, null, null);
 
-        public override int QueryCount(DataObject obj, QueryTerm? term, Type[]? expectedTypes)
+        public override int QueryCount(Record obj, QueryTerm? term, Type[]? expectedTypes)
             => QueryCount(obj, term, expectedTypes, null);
 
-        public override int QueryCount(DataObject obj, QueryTerm? term, Type[]? expectedTypes, FieldSubset? subsetIn)
+        public override int QueryCount(Record obj, QueryTerm? term, Type[]? expectedTypes, FieldSubset? subsetIn)
         {
             var coll   = GetCollection(obj);
             var filter = MongoQueryTranslator.Translate(term, obj);
@@ -324,15 +324,15 @@ namespace ActiveForge
 
         // ── QueryAll ──────────────────────────────────────────────────────────────────
 
-        public override ObjectCollection QueryAll(DataObject obj, QueryTerm? term, SortOrder? sortOrder, int pageSize, FieldSubset? fieldSubset)
+        public override RecordCollection QueryAll(Record obj, QueryTerm? term, SortOrder? sortOrder, int pageSize, FieldSubset? fieldSubset)
             => QueryAll(obj, term, sortOrder, pageSize, null, fieldSubset);
 
-        public override ObjectCollection QueryAll(DataObject obj, QueryTerm? term, SortOrder? sortOrder, int pageSize, Type[]? expectedTypes, FieldSubset? fieldSubset)
+        public override RecordCollection QueryAll(Record obj, QueryTerm? term, SortOrder? sortOrder, int pageSize, Type[]? expectedTypes, FieldSubset? fieldSubset)
             => QueryAll(obj, term, sortOrder, pageSize, expectedTypes, fieldSubset, null);
 
-        public override ObjectCollection QueryAll(DataObject obj, QueryTerm? term, SortOrder? sortOrder, int pageSize, Type[]? expectedTypes, FieldSubset? fieldSubset, Dictionary<Type, FieldSubset>? expectedTypeFieldSubsets)
+        public override RecordCollection QueryAll(Record obj, QueryTerm? term, SortOrder? sortOrder, int pageSize, Type[]? expectedTypes, FieldSubset? fieldSubset, Dictionary<Type, FieldSubset>? expectedTypeFieldSubsets)
         {
-            // Auto-detect embedded DataObject fields and use $lookup aggregation when present
+            // Auto-detect embedded Record fields and use $lookup aggregation when present
             var joinStages = MongoJoinBuilder.BuildStages(obj.GetType());
             if (joinStages.Count > 0)
                 return QueryAll(obj, term, sortOrder, pageSize, fieldSubset, (IReadOnlyList<JoinOverride>)System.Array.Empty<JoinOverride>());
@@ -348,10 +348,10 @@ namespace ActiveForge
             if (sort != null) query = query.Sort(sort);
             if (pageSize > 0) query = query.Limit(pageSize);
 
-            var result = new ObjectCollection();
+            var result = new RecordCollection();
             foreach (BsonDocument doc in query.ToEnumerable())
             {
-                DataObject instance = CreateFresh(obj.GetType());
+                Record instance = CreateFresh(obj.GetType());
                 MongoMapper.FromBsonDocument(doc, instance);
                 instance.SetLoaded(true);
                 result.Add(instance);
@@ -366,7 +366,7 @@ namespace ActiveForge
 
         public override IEnumerable<T> LazyQueryAll<T>(T obj, QueryTerm? term, SortOrder? sortOrder, int pageSize, Type[]? expectedTypes, FieldSubset? fieldSubset)
         {
-            // Auto-detect embedded DataObject fields and use $lookup aggregation when present
+            // Auto-detect embedded Record fields and use $lookup aggregation when present
             var joinStages = MongoJoinBuilder.BuildStages(obj.GetType());
             if (joinStages.Count > 0)
             {
@@ -397,18 +397,18 @@ namespace ActiveForge
 
         // ── QueryPage ─────────────────────────────────────────────────────────────────
 
-        public override ObjectCollection QueryPage(DataObject obj, QueryTerm? term, SortOrder? sortOrder, int start, int count, FieldSubset? fieldSubset)
+        public override RecordCollection QueryPage(Record obj, QueryTerm? term, SortOrder? sortOrder, int start, int count, FieldSubset? fieldSubset)
             => QueryPage(obj, term, sortOrder, start, count, fieldSubset, null, null, false);
 
-        public override ObjectCollection QueryPage(DataObject obj, QueryTerm? term, SortOrder? sortOrder, int start, int count, FieldSubset? fieldSubset, Type[]? expectedTypes)
+        public override RecordCollection QueryPage(Record obj, QueryTerm? term, SortOrder? sortOrder, int start, int count, FieldSubset? fieldSubset, Type[]? expectedTypes)
             => QueryPage(obj, term, sortOrder, start, count, fieldSubset, expectedTypes, null, false);
 
-        public override ObjectCollection QueryPage(DataObject obj, QueryTerm? term, SortOrder? sortOrder, int start, int count, FieldSubset? fieldSubset, Type[]? expectedTypes, Dictionary<Type, FieldSubset>? expectedTypeFieldSubsets)
+        public override RecordCollection QueryPage(Record obj, QueryTerm? term, SortOrder? sortOrder, int start, int count, FieldSubset? fieldSubset, Type[]? expectedTypes, Dictionary<Type, FieldSubset>? expectedTypeFieldSubsets)
             => QueryPage(obj, term, sortOrder, start, count, fieldSubset, expectedTypes, expectedTypeFieldSubsets, false);
 
-        public override ObjectCollection QueryPage(DataObject obj, QueryTerm? term, SortOrder? sortOrder, int start, int count, FieldSubset? fieldSubset, Type[]? expectedTypes, Dictionary<Type, FieldSubset>? expectedTypeFieldSubsets, bool returnCountInfo)
+        public override RecordCollection QueryPage(Record obj, QueryTerm? term, SortOrder? sortOrder, int start, int count, FieldSubset? fieldSubset, Type[]? expectedTypes, Dictionary<Type, FieldSubset>? expectedTypeFieldSubsets, bool returnCountInfo)
         {
-            // Auto-detect embedded DataObject fields and use $lookup aggregation when present
+            // Auto-detect embedded Record fields and use $lookup aggregation when present
             var joinStages = MongoJoinBuilder.BuildStages(obj.GetType());
             if (joinStages.Count > 0)
                 return QueryPage(obj, term, sortOrder, start, count, fieldSubset, (IReadOnlyList<JoinOverride>)System.Array.Empty<JoinOverride>());
@@ -425,11 +425,11 @@ namespace ActiveForge
             if (start  > 0)     query = query.Skip(start);
             if (count  > 0)     query = query.Limit(count);
 
-            var result = new ObjectCollection { StartRecord = start, PageSize = count };
+            var result = new RecordCollection { StartRecord = start, PageSize = count };
 
             foreach (BsonDocument doc in query.ToEnumerable())
             {
-                DataObject instance = CreateFresh(obj.GetType());
+                Record instance = CreateFresh(obj.GetType());
                 MongoMapper.FromBsonDocument(doc, instance);
                 instance.SetLoaded(true);
                 result.Add(instance);
@@ -450,7 +450,7 @@ namespace ActiveForge
 
         // ── Join-aware query overrides (uses $lookup aggregation) ────────────────────
 
-        public override ObjectCollection QueryAll(DataObject obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+        public override RecordCollection QueryAll(Record obj, QueryTerm term, SortOrder sortOrder, int pageSize, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
         {
             var joinStages = MongoJoinBuilder.BuildStages(obj.GetType(), joinOverrides);
             if (joinStages.Count == 0)
@@ -475,10 +475,10 @@ namespace ActiveForge
             if (sort   != null) agg = agg.Sort(sort);
             if (pageSize > 0)   agg = agg.Limit(pageSize);
 
-            var result = new ObjectCollection();
+            var result = new RecordCollection();
             foreach (var doc in agg.ToEnumerable())
             {
-                DataObject instance = CreateFresh(obj.GetType());
+                Record instance = CreateFresh(obj.GetType());
                 MongoMapper.FromBsonDocumentWithJoins(doc, instance, joinStages);
                 instance.SetLoaded(true);
                 result.Add(instance);
@@ -523,7 +523,7 @@ namespace ActiveForge
             }
         }
 
-        public override ObjectCollection QueryPage(DataObject obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
+        public override RecordCollection QueryPage(Record obj, QueryTerm term, SortOrder sortOrder, int start, int count, FieldSubset fieldSubset, IReadOnlyList<JoinOverride> joinOverrides)
         {
             var joinStages = MongoJoinBuilder.BuildStages(obj.GetType(), joinOverrides);
             if (joinStages.Count == 0)
@@ -548,10 +548,10 @@ namespace ActiveForge
             if (start > 0)     agg = agg.Skip(start);
             if (count > 0)     agg = agg.Limit(count);
 
-            var result = new ObjectCollection { StartRecord = start, PageSize = count };
+            var result = new RecordCollection { StartRecord = start, PageSize = count };
             foreach (var doc in agg.ToEnumerable())
             {
-                DataObject instance = CreateFresh(obj.GetType());
+                Record instance = CreateFresh(obj.GetType());
                 MongoMapper.FromBsonDocumentWithJoins(doc, instance, joinStages);
                 instance.SetLoaded(true);
                 result.Add(instance);
@@ -561,19 +561,19 @@ namespace ActiveForge
 
         // ── ExecSQL / ExecStoredProcedure — not supported ─────────────────────────────
 
-        public override ObjectCollection ExecSQL(DataObject obj, string sql)
+        public override RecordCollection ExecSQL(Record obj, string sql)
             => throw new NotSupportedException("ExecSQL is not supported by MongoDataConnection. Use the MongoDB.Driver API directly.");
 
-        public override ObjectCollection ExecSQL(DataObject obj, string sqlFormat, params object[] values)
+        public override RecordCollection ExecSQL(Record obj, string sqlFormat, params object[] values)
             => throw new NotSupportedException("ExecSQL is not supported by MongoDataConnection.");
 
-        public override ObjectCollection ExecSQL(DataObject obj, string sql, Dictionary<string, object> parameters)
+        public override RecordCollection ExecSQL(Record obj, string sql, Dictionary<string, object> parameters)
             => throw new NotSupportedException("ExecSQL is not supported by MongoDataConnection.");
 
-        public override ObjectCollection ExecSQL(DataObject obj, string sql, int start, int count)
+        public override RecordCollection ExecSQL(Record obj, string sql, int start, int count)
             => throw new NotSupportedException("ExecSQL is not supported by MongoDataConnection.");
 
-        public override ObjectCollection ExecSQL(DataObject obj, string sql, int start, int count, Dictionary<string, object> parameters)
+        public override RecordCollection ExecSQL(Record obj, string sql, int start, int count, Dictionary<string, object> parameters)
             => throw new NotSupportedException("ExecSQL is not supported by MongoDataConnection.");
 
         public override ReaderBase ExecSQL(string sql)
@@ -582,18 +582,18 @@ namespace ActiveForge
         public override ReaderBase ExecSQL(string sql, Dictionary<string, CommandBase.Parameter> parameters)
             => throw new NotSupportedException("ExecSQL is not supported by MongoDataConnection.");
 
-        public override ObjectCollection ExecStoredProcedure(DataObject obj, string spName, int start, int count, params DataObject.SPParameter[] spParameters)
+        public override RecordCollection ExecStoredProcedure(Record obj, string spName, int start, int count, params Record.SPParameter[] spParameters)
             => throw new NotSupportedException("Stored procedures are not supported by MongoDataConnection.");
 
-        internal override QueryFragment GenerateExistsSQLQuery(DataObject obj, string outerAlias, string outerFieldName, TField linkField, ref int termNumber, QueryTerm? term, SortOrder? sortOrder, int start, int count, FieldSubset? fieldSubset, Type[]? expectedTypes, Dictionary<Type, FieldSubset>? expectedTypeFieldSubsets)
+        internal override QueryFragment GenerateExistsSQLQuery(Record obj, string outerAlias, string outerFieldName, TField linkField, ref int termNumber, QueryTerm? term, SortOrder? sortOrder, int start, int count, FieldSubset? fieldSubset, Type[]? expectedTypes, Dictionary<Type, FieldSubset>? expectedTypeFieldSubsets)
             => throw new NotSupportedException("ExistsTerm sub-queries are not supported by MongoDataConnection.");
 
         // ── Action queue ──────────────────────────────────────────────────────────────
 
-        public override void QueueForInsert(DataObject obj) => _actionQueue.Add((obj, 'I', null));
-        public override void QueueForUpdate(DataObject obj) => _actionQueue.Add((obj, 'U', null));
-        public override void QueueForDelete(DataObject obj) => _actionQueue.Add((obj, 'D', null));
-        public override void QueueForDelete(DataObject obj, QueryTerm term) => _actionQueue.Add((obj, 'Q', term));
+        public override void QueueForInsert(Record obj) => _actionQueue.Add((obj, 'I', null));
+        public override void QueueForUpdate(Record obj) => _actionQueue.Add((obj, 'U', null));
+        public override void QueueForDelete(Record obj) => _actionQueue.Add((obj, 'D', null));
+        public override void QueueForDelete(Record obj, QueryTerm term) => _actionQueue.Add((obj, 'Q', term));
 
         public override void ProcessActionQueue()
         {
@@ -614,19 +614,19 @@ namespace ActiveForge
 
         // ── Binding ───────────────────────────────────────────────────────────────────
 
-        public override ObjectBinding GetObjectBinding(ObjectBase obj, bool targetExists, bool useCache)
-            => MongoMapper.BuildMinimalObjectBinding((DataObject)obj);
+        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache)
+            => MongoMapper.BuildMinimalObjectBinding((Record)obj);
 
-        public override ObjectBinding GetObjectBinding(ObjectBase obj, bool targetExists, bool useCache, Type[]? expectedTypes)
-            => MongoMapper.BuildMinimalObjectBinding((DataObject)obj);
+        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[]? expectedTypes)
+            => MongoMapper.BuildMinimalObjectBinding((Record)obj);
 
-        public override ObjectBinding GetObjectBinding(ObjectBase obj, bool targetExists, bool useCache, Type[]? expectedTypes, bool includeLookupDataObjects)
-            => MongoMapper.BuildMinimalObjectBinding((DataObject)obj);
+        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[]? expectedTypes, bool includeLookupDataObjects)
+            => MongoMapper.BuildMinimalObjectBinding((Record)obj);
 
-        public override ObjectBinding GetChangedObjectBinding(ObjectBase obj, ObjectBase changedObj)
-            => MongoMapper.BuildMinimalObjectBinding((DataObject)obj);
+        public override RecordBinding GetChangedObjectBinding(RecordBase obj, RecordBase changedObj)
+            => MongoMapper.BuildMinimalObjectBinding((Record)obj);
 
-        public override ObjectBinding GetDynamicObjectBinding(ObjectBase obj, ReaderBase reader)
+        public override RecordBinding GetDynamicObjectBinding(RecordBase obj, ReaderBase reader)
             => throw new NotSupportedException("GetDynamicObjectBinding is not supported by MongoDataConnection.");
 
         // ── Schema / field info ───────────────────────────────────────────────────────
@@ -643,7 +643,7 @@ namespace ActiveForge
         public override void AddTargetFieldInfoToCache(string sourceName, string targetFieldName, TargetFieldInfo info)
         { /* no-op */ }
 
-        public override bool TableExists(ObjectBase obj)
+        public override bool TableExists(RecordBase obj)
         {
             var entry = MongoTypeCache.GetEntry(obj.GetType());
             var names = Database.ListCollectionNames().ToList();
@@ -668,19 +668,19 @@ namespace ActiveForge
 
         public override Type MapType(Type generalization) => _factory.MapType(generalization);
 
-        public override FieldSubset DefaultFieldSubset(DataObject rootObject)
+        public override FieldSubset DefaultFieldSubset(Record rootObject)
             => new global::ActiveForge.FieldSubset(rootObject, global::ActiveForge.FieldSubset.InitialState.IncludeAll, null);
 
-        public override FieldSubset FieldSubset(DataObject rootObject, global::ActiveForge.FieldSubset.InitialState state)
+        public override FieldSubset FieldSubset(Record rootObject, global::ActiveForge.FieldSubset.InitialState state)
             => new global::ActiveForge.FieldSubset(rootObject, state, null);
 
-        public override FieldSubset FieldSubset(DataObject rootObject, DataObject enclosing, TField enclosed)
+        public override FieldSubset FieldSubset(Record rootObject, Record enclosing, TField enclosed)
             => new global::ActiveForge.FieldSubset(rootObject, global::ActiveForge.FieldSubset.InitialState.ExcludeAll, null);
 
-        public override FieldSubset FieldSubset(DataObject rootObject, DataObject enclosing, DataObject enclosed)
+        public override FieldSubset FieldSubset(Record rootObject, Record enclosing, Record enclosed)
             => new global::ActiveForge.FieldSubset(rootObject, global::ActiveForge.FieldSubset.InitialState.IncludeAll, null);
 
-        public override FieldSubset FieldSubset(DataObject rootObject, DataObject enclosing, DataObject enclosed, global::ActiveForge.FieldSubset.InitialState state)
+        public override FieldSubset FieldSubset(Record rootObject, Record enclosing, Record enclosed, global::ActiveForge.FieldSubset.InitialState state)
             => new global::ActiveForge.FieldSubset(rootObject, state, null);
 
         // ── Pre/post identity ─────────────────────────────────────────────────────────
@@ -690,22 +690,22 @@ namespace ActiveForge
 
         // ── Object creation ───────────────────────────────────────────────────────────
 
-        public override DataObject Create(Type type)
+        public override Record Create(Type type)
         {
             Type mapped = _factory.MapType(type);
-            return (DataObject)Activator.CreateInstance(mapped, this)!;
+            return (Record)Activator.CreateInstance(mapped, this)!;
         }
 
-        public override DataObject Create(Type type, DataObject? owner, bool isTemplate = false)
+        public override Record Create(Type type, Record? owner, bool isTemplate = false)
         {
             Type mapped = _factory.MapType(type);
             try
             {
-                return (DataObject)Activator.CreateInstance(mapped, this)!;
+                return (Record)Activator.CreateInstance(mapped, this)!;
             }
             catch
             {
-                return (DataObject)Activator.CreateInstance(mapped)!;
+                return (Record)Activator.CreateInstance(mapped)!;
             }
         }
 
@@ -762,12 +762,12 @@ namespace ActiveForge
         // ── Descriptions (no-op stubs) ────────────────────────────────────────────────
 
         public override string GetValidationMessage(string key, string defaultValue) => defaultValue;
-        public override string GetFieldDescription(FieldInfo fi, ObjectBase obj)     => fi.Name;
-        public override string GetDataObjectDescription(ObjectBase obj)               => obj.GetType().Name;
+        public override string GetFieldDescription(FieldInfo fi, RecordBase obj)     => fi.Name;
+        public override string GetDataObjectDescription(RecordBase obj)               => obj.GetType().Name;
 
         // ── Private helpers ───────────────────────────────────────────────────────────
 
-        private FilterDefinition<BsonDocument> BuildPkFilter(DataObject obj)
+        private FilterDefinition<BsonDocument> BuildPkFilter(Record obj)
         {
             var entry = MongoTypeCache.GetEntry(obj.GetType());
             if (entry.Identity == null)
@@ -781,16 +781,16 @@ namespace ActiveForge
             return Builders<BsonDocument>.Filter.Eq("_id", MongoMapper.ClrToBson(idValue));
         }
 
-        private DataObject CreateFresh(Type type)
+        private Record CreateFresh(Type type)
         {
             Type mapped = _factory.MapType(type);
             try
             {
-                return (DataObject)Activator.CreateInstance(mapped, this)!;
+                return (Record)Activator.CreateInstance(mapped, this)!;
             }
             catch
             {
-                var obj = (DataObject)Activator.CreateInstance(mapped)!;
+                var obj = (Record)Activator.CreateInstance(mapped)!;
                 obj.SetTarget(this);
                 return obj;
             }

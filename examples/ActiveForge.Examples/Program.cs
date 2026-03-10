@@ -11,7 +11,7 @@ namespace ActiveForge.Examples
     ///
     /// SETUP — SQL Server
     /// ──────────────────
-    /// 1. Create a SQL Server database (e.g. "TurquoiseDemo").
+    /// 1. Create a SQL Server database (e.g. "ActiveForgeDemo").
     /// 2. Run the SQL in SetupSql.sql against that database to create the tables.
     /// 3. Update SqlServerConnectionString below.
     /// 4. Run this console application and choose provider S.
@@ -25,10 +25,10 @@ namespace ActiveForge.Examples
     internal static class Program
     {
         private const string SqlServerConnectionString =
-            "Server=localhost;Database=TurquoiseDemo;Integrated Security=True;" +
+            "Server=localhost;Database=ActiveForgeDemo;Integrated Security=True;" +
             "TrustServerCertificate=True;";
 
-        private const string SQLiteConnectionString = "Data Source=TurquoiseDemo.db";
+        private const string SQLiteConnectionString = "Data Source=ActiveForgeDemo.db";
 
         static void Main(string[] args)
         {

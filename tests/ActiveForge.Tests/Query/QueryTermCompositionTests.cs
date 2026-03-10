@@ -8,7 +8,7 @@ namespace ActiveForge.Tests.Query
     /// <summary>
     /// Tests for QueryTerm logical composition operators (&amp;, |, !) and for
     /// RawSqlTerm, AndTerm, OrTerm, NotTerm SQL generation.
-    /// These tests use RawSqlTerm which requires no DataObject or connection.
+    /// These tests use RawSqlTerm which requires no Record or connection.
     /// </summary>
     public class QueryTermCompositionTests
     {

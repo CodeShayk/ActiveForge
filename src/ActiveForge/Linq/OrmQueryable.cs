@@ -8,12 +8,12 @@ using ActiveForge.Query;
 namespace ActiveForge.Linq
 {
     /// <summary>
-    /// <see cref="IQueryable{T}"/> wrapper for Turquoise ORM.
+    /// <see cref="IQueryable{T}"/> wrapper for ActiveForge ORM.
     /// Accumulates LINQ operators (Where, OrderBy, Take, Skip) and join-type overrides,
     /// then executes the query against the ORM when the sequence is enumerated.
     /// </summary>
-    /// <typeparam name="T">A concrete <see cref="DataObject"/> subclass.</typeparam>
-    public sealed class OrmQueryable<T> : IOrderedQueryable<T> where T : DataObject
+    /// <typeparam name="T">A concrete <see cref="Record"/> subclass.</typeparam>
+    public sealed class OrmQueryable<T> : IOrderedQueryable<T> where T : Record
     {
         // ── Query state ───────────────────────────────────────────────────────────────
 
@@ -90,7 +90,7 @@ namespace ActiveForge.Linq
         }
 
         /// <summary>
-        /// Adds or replaces a join-type override for the embedded DataObject identified by
+        /// Adds or replaces a join-type override for the embedded Record identified by
         /// <paramref name="joinOverride"/>.<see cref="JoinOverride.TargetType"/>.
         /// If an override for the same type already exists it is replaced.
         /// </summary>
@@ -122,14 +122,14 @@ namespace ActiveForge.Linq
 
         /// <summary>
         /// Overrides the join type for the embedded <typeparamref name="TJoined"/>
-        /// DataObject to <b>INNER JOIN</b> for this query, replacing any class-level
+        /// Record to <b>INNER JOIN</b> for this query, replacing any class-level
         /// <c>[JoinSpec]</c> or convention-based join type.
         /// </summary>
         /// <typeparam name="TJoined">
-        /// The <see cref="DataObject"/> subclass embedded in <typeparamref name="T"/>
+        /// The <see cref="Record"/> subclass embedded in <typeparamref name="T"/>
         /// whose join type to override.
         /// </typeparam>
-        public OrmQueryable<T> InnerJoin<TJoined>() where TJoined : DataObject
+        public OrmQueryable<T> InnerJoin<TJoined>() where TJoined : Record
         {
             var next = WithJoin(new JoinOverride(typeof(TJoined), JoinSpecification.JoinTypeEnum.InnerJoin));
             // Reset the expression to a self-referencing constant so that LINQ operators
@@ -141,16 +141,16 @@ namespace ActiveForge.Linq
 
         /// <summary>
         /// Overrides the join type for the embedded <typeparamref name="TJoined"/>
-        /// DataObject to <b>LEFT OUTER JOIN</b> for this query, replacing any class-level
+        /// Record to <b>LEFT OUTER JOIN</b> for this query, replacing any class-level
         /// <c>[JoinSpec]</c> or convention-based join type.
         /// Rows in <typeparamref name="T"/> without a matching <typeparamref name="TJoined"/>
         /// record are still returned; joined fields will be null/default.
         /// </summary>
         /// <typeparam name="TJoined">
-        /// The <see cref="DataObject"/> subclass embedded in <typeparamref name="T"/>
+        /// The <see cref="Record"/> subclass embedded in <typeparamref name="T"/>
         /// whose join type to override.
         /// </typeparam>
-        public OrmQueryable<T> LeftOuterJoin<TJoined>() where TJoined : DataObject
+        public OrmQueryable<T> LeftOuterJoin<TJoined>() where TJoined : Record
         {
             var next = WithJoin(new JoinOverride(typeof(TJoined), JoinSpecification.JoinTypeEnum.LeftOuterJoin));
             // Same expression reset as InnerJoin — see comment there.
@@ -180,10 +180,10 @@ namespace ActiveForge.Linq
             {
                 int start = SkipCount;
                 int count = PageSize > 0 ? PageSize : int.MaxValue;
-                ObjectCollection page = hasJoins
+                RecordCollection page = hasJoins
                     ? Connection.QueryPage(Template, WhereTerm, SortOrder, start, count, null, Joins)
                     : Connection.QueryPage(Template, WhereTerm, SortOrder, start, count, null);
-                foreach (DataObject obj in page) yield return (T)obj;
+                foreach (Record obj in page) yield return (T)obj;
             }
             else
             {

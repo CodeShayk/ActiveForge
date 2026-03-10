@@ -5,9 +5,9 @@ using Xunit;
 
 namespace ActiveForge.Tests
 {
-    // Minimal DataObject for testing collection operations
+    // Minimal Record for testing collection operations
     [Table("TestItem")]
-    internal class TestItem : IdentDataObject { }
+    internal class TestItem : IdentityRecord { }
 
     public class ObjectCollectionTests
     {
@@ -16,14 +16,14 @@ namespace ActiveForge.Tests
         [Fact]
         public void Default_IsEmpty()
         {
-            var col = new ObjectCollection();
+            var col = new RecordCollection();
             col.Count.Should().Be(0);
         }
 
         [Fact]
         public void Default_Pagination_PropertiesAreZero()
         {
-            var col = new ObjectCollection();
+            var col = new RecordCollection();
             col.StartRecord.Should().Be(0);
             col.PageSize.Should().Be(0);
             col.TotalRowCount.Should().Be(0);
@@ -32,7 +32,7 @@ namespace ActiveForge.Tests
         [Fact]
         public void Default_Flags_AreFalse()
         {
-            var col = new ObjectCollection();
+            var col = new RecordCollection();
             col.IsMoreData.Should().BeFalse();
             col.TotalRowCountValid.Should().BeFalse();
         }
@@ -42,35 +42,35 @@ namespace ActiveForge.Tests
         [Fact]
         public void StartRecord_CanBeSet()
         {
-            var col = new ObjectCollection { StartRecord = 20 };
+            var col = new RecordCollection { StartRecord = 20 };
             col.StartRecord.Should().Be(20);
         }
 
         [Fact]
         public void PageSize_CanBeSet()
         {
-            var col = new ObjectCollection { PageSize = 10 };
+            var col = new RecordCollection { PageSize = 10 };
             col.PageSize.Should().Be(10);
         }
 
         [Fact]
         public void IsMoreData_CanBeSetTrue()
         {
-            var col = new ObjectCollection { IsMoreData = true };
+            var col = new RecordCollection { IsMoreData = true };
             col.IsMoreData.Should().BeTrue();
         }
 
         [Fact]
         public void TotalRowCount_CanBeSet()
         {
-            var col = new ObjectCollection { TotalRowCount = 500 };
+            var col = new RecordCollection { TotalRowCount = 500 };
             col.TotalRowCount.Should().Be(500);
         }
 
         [Fact]
         public void TotalRowCountValid_CanBeSetTrue()
         {
-            var col = new ObjectCollection { TotalRowCountValid = true };
+            var col = new RecordCollection { TotalRowCountValid = true };
             col.TotalRowCountValid.Should().BeTrue();
         }
 
@@ -79,7 +79,7 @@ namespace ActiveForge.Tests
         [Fact]
         public void AddTail_AppendsToEnd()
         {
-            var col = new ObjectCollection();
+            var col = new RecordCollection();
             var a = new TestItem();
             var b = new TestItem();
             col.AddTail(a);
@@ -94,7 +94,7 @@ namespace ActiveForge.Tests
         [Fact]
         public void AddHead_PrependToFront()
         {
-            var col = new ObjectCollection();
+            var col = new RecordCollection();
             var a = new TestItem();
             var b = new TestItem();
             col.AddTail(a);
@@ -104,13 +104,13 @@ namespace ActiveForge.Tests
             col[1].Should().BeSameAs(a);
         }
 
-        // ── Add(ObjectCollection) ─────────────────────────────────────────────────────
+        // ── Add(RecordCollection) ─────────────────────────────────────────────────────
 
         [Fact]
         public void Add_OtherCollection_MergesContents()
         {
-            var col1 = new ObjectCollection();
-            var col2 = new ObjectCollection();
+            var col1 = new RecordCollection();
+            var col2 = new RecordCollection();
             var a = new TestItem();
             var b = new TestItem();
             col1.AddTail(a);
@@ -124,22 +124,22 @@ namespace ActiveForge.Tests
         [Fact]
         public void Add_NullCollection_IsNoOp()
         {
-            var col = new ObjectCollection();
+            var col = new RecordCollection();
             col.AddTail(new TestItem());
-            col.Add((ObjectCollection)null);
+            col.Add((RecordCollection)null);
             col.Count.Should().Be(1);
         }
 
         [Fact]
         public void Add_EmptyCollection_IsNoOp()
         {
-            var col = new ObjectCollection();
+            var col = new RecordCollection();
             col.AddTail(new TestItem());
-            col.Add(new ObjectCollection());
+            col.Add(new RecordCollection());
             col.Count.Should().Be(1);
         }
 
-        // ── Generic ObjectCollection<T> ───────────────────────────────────────────────
+        // ── Generic RecordCollection<T> ───────────────────────────────────────────────
 
         [Fact]
         public void Generic_GetEnumerator_CastsElements()

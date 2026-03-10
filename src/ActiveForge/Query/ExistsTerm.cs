@@ -5,7 +5,7 @@ namespace ActiveForge.Query
     /// The sub-query is represented as a <see cref="Query{T}"/> that knows how to emit
     /// a correlated EXISTS SELECT.
     /// </summary>
-    public class ExistsTerm<T> : QueryTerm where T : DataObject
+    public class ExistsTerm<T> : QueryTerm where T : Record
     {
         private readonly T      _existsObject;
         private readonly TField _existsObjectLinkField;
@@ -13,7 +13,7 @@ namespace ActiveForge.Query
         /// <summary>
         /// Full constructor — specify both the outer link field and the inner link field explicitly.
         /// </summary>
-        public ExistsTerm(DataObject target, TField targetLinkField, T existsObject, TField existsLinkField, Query<T> subQuery)
+        public ExistsTerm(Record target, TField targetLinkField, T existsObject, TField existsLinkField, Query<T> subQuery)
             : base(target, targetLinkField, subQuery)
         {
             _existsObject          = existsObject;
@@ -21,16 +21,16 @@ namespace ActiveForge.Query
         }
 
         /// <summary>
-        /// Convenience constructor for the common case where the outer link is IdentDataObject.ID.
+        /// Convenience constructor for the common case where the outer link is IdentityRecord.ID.
         /// </summary>
-        public ExistsTerm(IdentDataObject target, T existsObject, TField existsLinkField, Query<T> subQuery)
+        public ExistsTerm(IdentityRecord target, T existsObject, TField existsLinkField, Query<T> subQuery)
             : base(target, target.ID, subQuery)
         {
             _existsObject          = existsObject;
             _existsObjectLinkField = existsLinkField;
         }
 
-        public override QueryFragment GetSQL(ObjectBinding binding, ref int termNumber)
+        public override QueryFragment GetSQL(RecordBinding binding, ref int termNumber)
         {
             FieldBinding   check = GetTermFieldInfo(binding);
             QueryFragment  term  = ((Query<T>)Value).GenerateExistsSQLQuery(
@@ -39,10 +39,10 @@ namespace ActiveForge.Query
             return term;
         }
 
-        public override string GetDeleteSQL(ObjectBinding binding, ref int termNumber)
+        public override string GetDeleteSQL(RecordBinding binding, ref int termNumber)
             => throw new System.NotImplementedException("ExistsTerm does not support delete SQL.");
 
-        public override void BindParameters(DataObject obj, ObjectBinding binding, CommandBase command, ref int termNumber)
+        public override void BindParameters(Record obj, RecordBinding binding, CommandBase command, ref int termNumber)
             => ((Query<T>)Value).BindParameters(command, ref termNumber);
     }
 }

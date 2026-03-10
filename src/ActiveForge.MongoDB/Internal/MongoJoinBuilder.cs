@@ -7,14 +7,14 @@ namespace ActiveForge.MongoDB.Internal
 {
     /// <summary>
     /// Metadata for a single MongoDB <c>$lookup</c> join stage derived from an embedded
-    /// <see cref="DataObject"/> field on a root DataObject type.
+    /// <see cref="Record"/> field on a root Record type.
     /// </summary>
     internal sealed class MongoJoinStage
     {
-        /// <summary>The reflected field on the root DataObject that holds the embedded DataObject.</summary>
+        /// <summary>The reflected field on the root Record that holds the embedded Record.</summary>
         public FieldInfo EmbeddedFieldInfo { get; init; } = null!;
 
-        /// <summary>CLR type of the embedded DataObject.</summary>
+        /// <summary>CLR type of the embedded Record.</summary>
         public Type EmbeddedType { get; init; } = null!;
 
         /// <summary>MongoDB collection name for the joined type.</summary>
@@ -39,7 +39,7 @@ namespace ActiveForge.MongoDB.Internal
 
     /// <summary>
     /// Builds a list of <see cref="MongoJoinStage"/> descriptors by scanning a root
-    /// DataObject type for public fields of a DataObject sub-type.
+    /// Record type for public fields of a Record sub-type.
     /// <para>
     /// Convention: for an embedded field named <c>Product</c> the builder looks for a
     /// sibling <c>TForeignKey</c>/<c>TInt</c> field named <c>ProductID</c> or <c>ProductId</c>.
@@ -49,10 +49,10 @@ namespace ActiveForge.MongoDB.Internal
     internal static class MongoJoinBuilder
     {
         /// <summary>
-        /// Scans <paramref name="rootType"/> for embedded DataObject fields and returns one
+        /// Scans <paramref name="rootType"/> for embedded Record fields and returns one
         /// <see cref="MongoJoinStage"/> per resolvable join relationship.
         /// </summary>
-        /// <param name="rootType">Root DataObject type to inspect.</param>
+        /// <param name="rootType">Root Record type to inspect.</param>
         /// <param name="overrides">
         /// Optional list of <see cref="JoinOverride"/> values from the LINQ provider
         /// (<c>.InnerJoin&lt;T&gt;()</c> / <c>.LeftOuterJoin&lt;T&gt;()</c>).
@@ -69,8 +69,8 @@ namespace ActiveForge.MongoDB.Internal
 
             foreach (FieldInfo fi in rootType.GetFields(bf))
             {
-                if (!typeof(DataObject).IsAssignableFrom(fi.FieldType)) continue;
-                if (fi.FieldType == typeof(DataObject))                  continue; // skip raw base-type refs
+                if (!typeof(Record).IsAssignableFrom(fi.FieldType)) continue;
+                if (fi.FieldType == typeof(Record))                  continue; // skip raw base-type refs
 
                 var joinAttr = fi.GetCustomAttribute<JoinAttribute>();
 

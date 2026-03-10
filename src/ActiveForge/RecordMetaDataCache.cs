@@ -6,10 +6,10 @@ using System.Reflection;
 namespace ActiveForge
 {
     /// <summary>
-    /// Thread-safe per-type cache of reflected field metadata for DataObject subclasses.
+    /// Thread-safe per-type cache of reflected field metadata for Record subclasses.
     /// Avoids repeated expensive reflection on hot paths.
     /// </summary>
-    public static class DataObjectMetaDataCache
+    public static class RecordMetaDataCache
     {
         private static readonly ConcurrentDictionary<Type, DataObjectMetaDataCacheEntry> _cache
             = new ConcurrentDictionary<Type, DataObjectMetaDataCacheEntry>();
@@ -22,7 +22,7 @@ namespace ActiveForge
         public class DataObjectMetaDataCacheEntry
         {
             private static readonly Type _tFieldType      = typeof(TField);
-            private static readonly Type _dataObjectType  = typeof(DataObject);
+            private static readonly Type _dataObjectType  = typeof(Record);
 
             public List<FieldInfoCacheEntry> TFields     = new List<FieldInfoCacheEntry>();
             public List<FieldInfoCacheEntry> DataObjects = new List<FieldInfoCacheEntry>();

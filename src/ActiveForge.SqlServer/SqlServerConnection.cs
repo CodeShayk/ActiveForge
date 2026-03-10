@@ -61,7 +61,7 @@ namespace ActiveForge
         /// value to the identity field declared on <paramref name="obj"/>.
         /// Called by <see cref="DBDataConnection.Insert"/> after the first table insert.
         /// </summary>
-        protected override string PopulateIdentity(DataObject obj, ObjectBinding binding, CommandBase _)
+        protected override string PopulateIdentity(Record obj, RecordBinding binding, CommandBase _)
         {
             // @@IDENTITY is connection-scoped and works even when the INSERT was executed
             // via sp_executesql (which ADO.NET uses for parameterized queries), unlike
@@ -140,10 +140,10 @@ namespace ActiveForge
         /// Checks the schema cache to determine whether a table mapped by
         /// <paramref name="obj"/>'s type exists in the database.
         /// </summary>
-        public override bool TableExists(ObjectBase obj)
+        public override bool TableExists(RecordBase obj)
         {
             var cache  = PopulateSQLFieldCache();
-            string src = DataObjectMetaDataCache.GetTypeMetaData(obj.GetType()).SourceName;
+            string src = RecordMetaDataCache.GetTypeMetaData(obj.GetType()).SourceName;
             string pfx = src + " ";
             foreach (var key in cache.Keys)
                 if (key.StartsWith(pfx, StringComparison.OrdinalIgnoreCase))

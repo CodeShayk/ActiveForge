@@ -12,7 +12,7 @@ namespace ActiveForge.PostgreSQL.Tests
     // ── Test entity ───────────────────────────────────────────────────────────────
 
     [Table("products")]
-    public sealed class PgProduct : IdentDataObject
+    public sealed class PgProduct : IdentityRecord
     {
         [Column("name")]     public TString  Name    = new TString();
         [Column("price")]    public TDecimal Price   = new TDecimal();
@@ -121,7 +121,7 @@ namespace ActiveForge.PostgreSQL.Tests
             var p = NewProduct("Original", 5m, true);
             p.Name.SetValue("Updated");
             p.Price.SetValue(10m);
-            p.Update(DataObjectLock.UpdateOption.IgnoreLock);
+            p.Update(RecordLock.UpdateOption.IgnoreLock);
 
             var r = new PgProduct(_conn);
             r.ID.SetValue(p.ID.GetValue());

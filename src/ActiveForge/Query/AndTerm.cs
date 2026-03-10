@@ -1,42 +1,118 @@
 namespace ActiveForge.Query
 {
+    /// <summary>
+    /// A composite <see cref="QueryTerm"/> that combines two child terms with a SQL
+    /// <c>AND</c> operator, producing the fragment <c>(&lt;term1&gt; AND &lt;term2&gt;)</c>.
+    /// Both child terms are fully evaluated: their SQL is generated and their parameters
+    /// are bound independently.
+    /// </summary>
     public class AndTerm : QueryTerm
     {
+        /// <summary>The left-hand child term of the AND expression.</summary>
         protected QueryTerm Term1;
+
+        /// <summary>The right-hand child term of the AND expression.</summary>
         protected QueryTerm Term2;
 
+        /// <summary>
+        /// Initialises a new <see cref="AndTerm"/> that combines <paramref name="term1"/>
+        /// and <paramref name="term2"/> with SQL <c>AND</c>.
+        /// </summary>
+        /// <param name="term1">The left-hand predicate.</param>
+        /// <param name="term2">The right-hand predicate.</param>
         public AndTerm(QueryTerm term1, QueryTerm term2) : base()
         {
             Term1 = term1;
             Term2 = term2;
         }
 
-        public override bool IncludesLookupDataObject(DataObject rootObject)
+        /// <summary>
+        /// Returns <see langword="true"/> if either child term references a
+        /// <see cref="LookupRecord"/> rooted at <paramref name="rootObject"/>.
+        /// </summary>
+        /// <param name="rootObject">The root <see cref="Record"/> of the query.</param>
+        public override bool IncludesLookupDataObject(Record rootObject)
             => Term1.IncludesLookupDataObject(rootObject) || Term2.IncludesLookupDataObject(rootObject);
 
-        public override QueryFragment GetSQL(ObjectBinding binding, ref int termNumber)
+        /// <summary>
+        /// Generates the SQL fragment <c>(&lt;term1 SQL&gt; AND &lt;term2 SQL&gt;)</c>.
+        /// Each child term increments <paramref name="termNumber"/> independently so that
+        /// parameter names remain unique across the full query.
+        /// </summary>
+        /// <param name="binding">The <see cref="RecordBinding"/> that maps fields to columns.</param>
+        /// <param name="termNumber">
+        /// Running counter used to generate unique parameter name suffixes; incremented by
+        /// each child term that emits a parameter placeholder.
+        /// </param>
+        /// <returns>A <see cref="QueryFragment"/> containing the parenthesised AND clause.</returns>
+        public override QueryFragment GetSQL(RecordBinding binding, ref int termNumber)
             => new QueryFragment("(" + Term1.GetSQL(binding, ref termNumber) + " AND " + Term2.GetSQL(binding, ref termNumber) + ")");
 
-        public override string GetDeleteSQL(ObjectBinding binding, ref int termNumber)
+        /// <summary>
+        /// Generates the SQL fragment used inside a DELETE statement's WHERE clause,
+        /// combining both child terms with <c>AND</c>.
+        /// </summary>
+        /// <param name="binding">The <see cref="RecordBinding"/> that maps fields to columns.</param>
+        /// <param name="termNumber">
+        /// Running counter used to generate unique parameter name suffixes; incremented by
+        /// each child term.
+        /// </param>
+        /// <returns>A parenthesised AND clause string suitable for DELETE SQL.</returns>
+        public override string GetDeleteSQL(RecordBinding binding, ref int termNumber)
             => "(" + Term1.GetDeleteSQL(binding, ref termNumber) + " AND " + Term2.GetDeleteSQL(binding, ref termNumber) + ")";
 
-        public override void BindParameters(DataObject obj, ObjectBinding binding, CommandBase command, ref int termNumber)
+        /// <summary>
+        /// Binds the parameters of both child terms to <paramref name="command"/> in
+        /// left-to-right order, mirroring the parameter order produced by
+        /// <see cref="GetSQL"/>.
+        /// </summary>
+        /// <param name="obj">The <see cref="Record"/> instance whose field values are used.</param>
+        /// <param name="binding">The <see cref="RecordBinding"/> that maps fields to columns.</param>
+        /// <param name="command">The <see cref="CommandBase"/> to which parameters are added.</param>
+        /// <param name="termNumber">
+        /// Running counter that must match the value used when <see cref="GetSQL"/> was called.
+        /// </param>
+        public override void BindParameters(Record obj, RecordBinding binding, CommandBase command, ref int termNumber)
         {
             Term1.BindParameters(obj, binding, command, ref termNumber);
             Term2.BindParameters(obj, binding, command, ref termNumber);
         }
 
-        public override string GetQueryValues(DataObject obj, ObjectBinding binding)
+        /// <summary>
+        /// Returns a human-readable representation of both child terms' values,
+        /// formatted as <c>[term1]and[term2]</c>. Used for diagnostics only.
+        /// </summary>
+        /// <param name="obj">The <see cref="Record"/> instance to read values from.</param>
+        /// <param name="binding">The <see cref="RecordBinding"/> that maps fields to columns.</param>
+        public override string GetQueryValues(Record obj, RecordBinding binding)
             => "[" + Term1.GetQueryValues(obj, binding) + "]and[" + Term2.GetQueryValues(obj, binding) + "]";
 
-        public override FieldSubset IncludeInFieldSubset(DataObject rootObject, ObjectBinding binding, FieldSubset fieldSubset)
+        /// <summary>
+        /// Ensures that all fields referenced by both child terms are included in
+        /// <paramref name="fieldSubset"/>, which controls which columns are fetched.
+        /// </summary>
+        /// <param name="rootObject">The root <see cref="Record"/> of the query.</param>
+        /// <param name="binding">The <see cref="RecordBinding"/> that maps fields to columns.</param>
+        /// <param name="fieldSubset">
+        /// The current <see cref="FieldSubset"/>; returned with any additional fields appended.
+        /// </param>
+        /// <returns>The updated <see cref="FieldSubset"/> including fields from both child terms.</returns>
+        public override FieldSubset IncludeInFieldSubset(Record rootObject, RecordBinding binding, FieldSubset fieldSubset)
         {
             fieldSubset = Term1.IncludeInFieldSubset(rootObject, binding, fieldSubset);
             fieldSubset = Term2.IncludeInFieldSubset(rootObject, binding, fieldSubset);
             return fieldSubset;
         }
 
-        public override void GetParameterDebugInfo(DataObject obj, ObjectBinding binding, ref int n, ref string result)
+        /// <summary>
+        /// Appends debug parameter information from both child terms to
+        /// <paramref name="result"/>. Used for diagnostic and logging output only.
+        /// </summary>
+        /// <param name="obj">The <see cref="Record"/> instance to read values from.</param>
+        /// <param name="binding">The <see cref="RecordBinding"/> that maps fields to columns.</param>
+        /// <param name="n">Running count of parameters appended so far; incremented by each child.</param>
+        /// <param name="result">Accumulator string to which parameter descriptions are appended.</param>
+        public override void GetParameterDebugInfo(Record obj, RecordBinding binding, ref int n, ref string result)
         {
             Term1.GetParameterDebugInfo(obj, binding, ref n, ref result);
             Term2.GetParameterDebugInfo(obj, binding, ref n, ref result);

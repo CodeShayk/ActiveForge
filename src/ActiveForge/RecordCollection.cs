@@ -4,9 +4,9 @@ namespace ActiveForge
 {
     /// <summary>
     /// Result set returned by query operations.
-    /// Contains the fetched DataObjects plus pagination metadata.
+    /// Contains the fetched records plus pagination metadata.
     /// </summary>
-    public class ObjectCollection : List<DataObject>
+    public class RecordCollection : List<Record>
     {
         public int  StartRecord        { get; set; }
         public int  PageSize           { get; set; }
@@ -15,15 +15,15 @@ namespace ActiveForge
         public bool TotalRowCountValid { get; set; }
 
         /// <summary>Appends an object at the end of the collection.</summary>
-        public void AddTail(DataObject obj) => Add(obj);
+        public void AddTail(Record obj) => Add(obj);
 
         /// <summary>Inserts an object at the beginning of the collection.</summary>
-        public void AddHead(DataObject obj) => Insert(0, obj);
+        public void AddHead(Record obj) => Insert(0, obj);
 
         /// <summary>
         /// Appends all objects from another collection to this one.
         /// </summary>
-        public void Add(ObjectCollection other)
+        public void Add(RecordCollection other)
         {
             if (other != null) AddRange(other);
         }
@@ -32,11 +32,11 @@ namespace ActiveForge
     /// <summary>
     /// Typed result set for query operations returning objects of type <typeparamref name="T"/>.
     /// </summary>
-    public class ObjectCollection<T> : ObjectCollection where T : DataObject
+    public class ObjectCollection<T> : RecordCollection where T : Record
     {
         public new IEnumerator<T> GetEnumerator()
         {
-            foreach (DataObject obj in (List<DataObject>)this)
+            foreach (Record obj in (List<Record>)this)
                 yield return (T)obj;
         }
     }

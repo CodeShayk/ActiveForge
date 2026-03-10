@@ -6,7 +6,7 @@ This document covers the `ActiveForge.Linq` namespace.
 
 ## Overview
 
-Turquoise ORM now supports LINQ-style query composition via `conn.Query<T>()`.
+ActiveForge ORM supports LINQ-style query composition via `conn.Query<T>()`.
 LINQ operators are translated into native `QueryTerm` / `SortOrder` objects at translation time, then executed as a single optimised ORM query when you iterate the result.
 
 ---
@@ -60,7 +60,7 @@ Internally, `Query<T>()` creates a template instance (`conn.Create(typeof(T))`),
 
 ## Supported LINQ Operators
 
-| LINQ operator | Turquoise equivalent | Notes |
+| LINQ operator | ActiveForge equivalent | Notes |
 |---------------|---------------------|-------|
 | `Where(x => x.Field == value)` | `EqualTerm` | |
 | `Where(x => x.Field != value)` | `!EqualTerm` | |
