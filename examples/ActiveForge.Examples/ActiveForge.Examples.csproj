@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <RootNamespace>ActiveForge.Examples</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ActiveForge\ActiveForge.csproj" />
+    <ProjectReference Include="..\..\src\ActiveForge.SqlServer\ActiveForge.SqlServer.csproj" />
+    <ProjectReference Include="..\..\src\ActiveForge.PostgreSQL\ActiveForge.PostgreSQL.csproj" />
+    <ProjectReference Include="..\..\src\ActiveForge.MongoDB\ActiveForge.MongoDB.csproj" />
+    <ProjectReference Include="..\..\src\ActiveForge.SQLite\ActiveForge.SQLite.csproj" />
+  </ItemGroup>
+</Project>

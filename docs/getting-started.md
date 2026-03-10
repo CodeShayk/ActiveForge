@@ -1,15 +1,15 @@
-# Getting Started with Turquoise.ORM
+# Getting Started with ActiveForge
 
 ## Installation
 
-Turquoise.ORM consists of a core library and one or more provider packages. Reference the core plus the provider for your database:
+ActiveForge consists of a core library and one or more provider packages. Reference the core plus the provider for your database:
 
 **SQL Server**
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\Turquoise.ORM\Turquoise.ORM.csproj" />
-  <ProjectReference Include="..\Turquoise.ORM.SqlServer\Turquoise.ORM.SqlServer.csproj" />
+  <ProjectReference Include="..\ActiveForge\ActiveForge.csproj" />
+  <ProjectReference Include="..\ActiveForge.SqlServer\ActiveForge.SqlServer.csproj" />
 </ItemGroup>
 ```
 
@@ -17,8 +17,8 @@ Turquoise.ORM consists of a core library and one or more provider packages. Refe
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\Turquoise.ORM\Turquoise.ORM.csproj" />
-  <ProjectReference Include="..\Turquoise.ORM.PostgreSQL\Turquoise.ORM.PostgreSQL.csproj" />
+  <ProjectReference Include="..\ActiveForge\ActiveForge.csproj" />
+  <ProjectReference Include="..\ActiveForge.PostgreSQL\ActiveForge.PostgreSQL.csproj" />
 </ItemGroup>
 ```
 
@@ -26,8 +26,8 @@ Turquoise.ORM consists of a core library and one or more provider packages. Refe
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\Turquoise.ORM\Turquoise.ORM.csproj" />
-  <ProjectReference Include="..\Turquoise.ORM.MongoDB\Turquoise.ORM.MongoDB.csproj" />
+  <ProjectReference Include="..\ActiveForge\ActiveForge.csproj" />
+  <ProjectReference Include="..\ActiveForge.MongoDB\ActiveForge.MongoDB.csproj" />
 </ItemGroup>
 ```
 
@@ -35,8 +35,8 @@ Turquoise.ORM consists of a core library and one or more provider packages. Refe
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\Turquoise.ORM\Turquoise.ORM.csproj" />
-  <ProjectReference Include="..\Turquoise.ORM.SQLite\Turquoise.ORM.SQLite.csproj" />
+  <ProjectReference Include="..\ActiveForge\ActiveForge.csproj" />
+  <ProjectReference Include="..\ActiveForge.SQLite\ActiveForge.SQLite.csproj" />
 </ItemGroup>
 ```
 
@@ -44,23 +44,23 @@ If consuming published NuGet packages:
 
 ```xml
 <!-- SQL Server -->
-<PackageReference Include="Turquoise.ORM" Version="1.0.0" />
-<PackageReference Include="Turquoise.ORM.SqlServer" Version="1.0.0" />
+<PackageReference Include="ActiveForge" Version="1.0.0" />
+<PackageReference Include="ActiveForge.SqlServer" Version="1.0.0" />
 
 <!-- PostgreSQL -->
-<PackageReference Include="Turquoise.ORM" Version="1.0.0" />
-<PackageReference Include="Turquoise.ORM.PostgreSQL" Version="1.0.0" />
+<PackageReference Include="ActiveForge" Version="1.0.0" />
+<PackageReference Include="ActiveForge.PostgreSQL" Version="1.0.0" />
 
 <!-- MongoDB -->
-<PackageReference Include="Turquoise.ORM" Version="1.0.0" />
-<PackageReference Include="Turquoise.ORM.MongoDB" Version="1.0.0" />
+<PackageReference Include="ActiveForge" Version="1.0.0" />
+<PackageReference Include="ActiveForge.MongoDB" Version="1.0.0" />
 
 <!-- SQLite -->
-<PackageReference Include="Turquoise.ORM" Version="1.0.0" />
-<PackageReference Include="Turquoise.ORM.SQLite" Version="1.0.0" />
+<PackageReference Include="ActiveForge" Version="1.0.0" />
+<PackageReference Include="ActiveForge.SQLite" Version="1.0.0" />
 ```
 
-`SqlServerConnection`, `PostgreSQLConnection`, `MongoDataConnection`, and `SQLiteConnection` all live in the `Turquoise.ORM` namespace, so no extra `using` directive is required beyond `using Turquoise.ORM;`.
+`SqlServerConnection`, `PostgreSQLConnection`, `MongoDataConnection`, and `SQLiteConnection` all live in the `ActiveForge` namespace, so no extra `using` directive is required beyond `using ActiveForge;`.
 
 ## Concepts
 
@@ -114,7 +114,7 @@ int     m = new TInt(7);      // TInt → int
 `SqlServerConnection` is the SQL Server implementation:
 
 ```csharp
-using Turquoise.ORM;
+using ActiveForge;
 
 var conn = new SqlServerConnection(connectionString, new FactoryBase());
 conn.Connect();

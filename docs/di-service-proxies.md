@@ -29,23 +29,23 @@ registered as proxied scoped services via a single `.AddServices()` call.
 ```csharp
 // Program.cs (or Startup.ConfigureServices)
 builder.Services
-    .AddTurquoiseSqlServer(
+    .AddActiveForgeSqlServer(
         "Server=.;Database=Demo;Integrated Security=True;TrustServerCertificate=True;")
     .AddServices(typeof(Program).Assembly);   // scans for IService implementations
 
 // PostgreSQL:
 builder.Services
-    .AddTurquoisePostgreSQL("Host=localhost;Database=demo;Username=app;Password=secret;")
+    .AddActiveForgePostgreSQL("Host=localhost;Database=demo;Username=app;Password=secret;")
     .AddServices(typeof(Program).Assembly);
 
 // MongoDB:
 builder.Services
-    .AddTurquoiseMongoDB("mongodb://localhost:27017", "demo")
+    .AddActiveForgeMongoDB("mongodb://localhost:27017", "demo")
     .AddServices(typeof(Program).Assembly);
 
 // SQLite:
 builder.Services
-    .AddTurquoiseSQLite("Data Source=app.db")
+    .AddActiveForgeSQLite("Data Source=app.db")
     .AddServices(typeof(Program).Assembly);
 ```
 
@@ -56,9 +56,9 @@ per-type registration needed.
 ### 2. Define the service interface + implementation
 
 ```csharp
-using Turquoise.ORM;
-using Turquoise.ORM.Attributes;
-using Turquoise.ORM.Transactions;
+using ActiveForge;
+using ActiveForge.Attributes;
+using ActiveForge.Transactions;
 
 // ── Interface ────────────────────────────────────────────────────────────────
 public interface IOrderService
@@ -137,7 +137,7 @@ public class OrdersController : ControllerBase
 ## IService marker interface
 
 ```csharp
-// Turquoise.ORM namespace — import with "using Turquoise.ORM;"
+// ActiveForge namespace — import with "using ActiveForge;"
 public interface IService { }
 ```
 
@@ -163,7 +163,7 @@ public class ReportService : IReportService, IAuditService, IService
 ### `[ConnectionScope]`
 
 ```csharp
-using Turquoise.ORM.Attributes;
+using ActiveForge.Attributes;
 
 // Method-level: only this method gets the connection scope
 [ConnectionScope]
@@ -181,7 +181,7 @@ completes.
 ### `[Transaction]`
 
 ```csharp
-using Turquoise.ORM.Transactions;
+using ActiveForge.Transactions;
 
 [Transaction]                                        // ReadCommitted (default)
 [Transaction(IsolationLevel.Serializable)]           // explicit isolation
@@ -193,21 +193,21 @@ on the same method (or at the class level).
 
 ---
 
-## ITurquoiseBuilder — fluent registration
+## IActiveForgeBuilder — fluent registration
 
-All `AddTurquoise*` extension methods return `ITurquoiseBuilder` for chaining:
+All `AddTurquoise*` extension methods return `IActiveForgeBuilder` for chaining:
 
 ```csharp
-public interface ITurquoiseBuilder
+public interface IActiveForgeBuilder
 {
     IServiceCollection Services { get; }
 
     // Auto-scan assemblies for IService implementations
-    ITurquoiseBuilder AddServices(params Assembly[] assemblies);
+    IActiveForgeBuilder AddServices(params Assembly[] assemblies);
 
     // Explicit single-service registration — use when not implementing IService
-    ITurquoiseBuilder AddService<TService>() where TService : class;
-    ITurquoiseBuilder AddService<TInterface, TImplementation>()
+    IActiveForgeBuilder AddService<TService>() where TService : class;
+    IActiveForgeBuilder AddService<TInterface, TImplementation>()
         where TInterface : class
         where TImplementation : class, TInterface;
 }
@@ -218,7 +218,7 @@ public interface ITurquoiseBuilder
 ```csharp
 // Scan one or more assemblies
 builder.Services
-    .AddTurquoiseSqlServer("...")
+    .AddActiveForgeSqlServer("...")
     .AddServices(typeof(Program).Assembly,
                  typeof(SomeLibrary.Marker).Assembly);
 ```
@@ -235,7 +235,7 @@ When a service does not implement `IService` (e.g., a third-party class or a leg
 
 ```csharp
 builder.Services
-    .AddTurquoiseSqlServer("...")
+    .AddActiveForgeSqlServer("...")
     .AddService<IOrderService, OrderService>()   // interface proxy
     .AddService<ReportEngine>();                 // class proxy (must be non-sealed + virtual)
 ```
@@ -335,7 +335,7 @@ product.Read();   // connects, reads, disconnects — no transaction
 ```csharp
 var conn = new SqlServerConnection("Server=...;...");
 var uow  = new SqlServerUnitOfWork(conn);
-var svc  = TurquoiseServiceFactory.Create<IOrderService>(
+var svc  = ActiveForgeServiceFactory.Create<IOrderService>(
     new OrderService(conn), conn, uow);
 
 svc.Ship(42);  // proxy opens connection, starts transaction, calls Ship(), commits, closes
@@ -346,11 +346,11 @@ svc.Ship(42);  // proxy opens connection, starts transaction, calls Ship(), comm
 ## Using `With.Transaction` alongside proxied services
 
 `With.Transaction` still works and shares the same scoped `IUnitOfWork`.  Configure
-`TurquoiseServiceLocator` once if you want the no-arg overload:
+`ActiveForgeServiceLocator` once if you want the no-arg overload:
 
 ```csharp
 // At startup, after building the container:
-TurquoiseServiceLocator.SetProvider(app.Services);
+ActiveForgeServiceLocator.SetProvider(app.Services);
 
 // Then anywhere (inside a DI scope):
 With.Transaction(() =>
@@ -375,11 +375,11 @@ svc.Ship(1);
 // Integration test — real proxy against test database
 var conn  = new SqlServerConnection("Server=.;Database=Test;...");
 var uow   = new SqlServerUnitOfWork(conn);
-var proxy = TurquoiseServiceFactory.Create<IOrderService>(new OrderService(conn), conn, uow);
+var proxy = ActiveForgeServiceFactory.Create<IOrderService>(new OrderService(conn), conn, uow);
 proxy.Ship(1);
 ```
 
-Call `TurquoiseServiceLocator.Reset()` in test teardown to avoid leaking state between tests.
+Call `ActiveForgeServiceLocator.Reset()` in test teardown to avoid leaking state between tests.
 
 ---
 
@@ -387,7 +387,7 @@ Call `TurquoiseServiceLocator.Reset()` in test teardown to avoid leaking state b
 
 | Package | Purpose |
 |---------|---------|
-| `Turquoise.ORM` | `IService`, `ITurquoiseBuilder`, `ConnectionScopeAttribute`, `ConnectionScopeInterceptor`, `TurquoiseServiceFactory`, `DataConnection.UnitOfWork`, `AddTurquoiseService<T>()` |
-| `Castle.Core` 5.x | DynamicProxy runtime (auto-included with `Turquoise.ORM`) |
-| `Microsoft.Extensions.DependencyInjection.Abstractions` 8.x | DI integration (auto-included with `Turquoise.ORM`) |
-| One of: `Turquoise.ORM.SqlServer`, `Turquoise.ORM.PostgreSQL`, `Turquoise.ORM.MongoDB`, `Turquoise.ORM.SQLite` | Provider + `AddTurquoise*` returning `ITurquoiseBuilder` |
+| `ActiveForge` | `IService`, `IActiveForgeBuilder`, `ConnectionScopeAttribute`, `ConnectionScopeInterceptor`, `ActiveForgeServiceFactory`, `DataConnection.UnitOfWork`, `AddActiveForgeService<T>()` |
+| `Castle.Core` 5.x | DynamicProxy runtime (auto-included with `ActiveForge`) |
+| `Microsoft.Extensions.DependencyInjection.Abstractions` 8.x | DI integration (auto-included with `ActiveForge`) |
+| One of: `ActiveForge.SqlServer`, `ActiveForge.PostgreSQL`, `ActiveForge.MongoDB`, `ActiveForge.SQLite` | Provider + `AddTurquoise*` returning `IActiveForgeBuilder` |

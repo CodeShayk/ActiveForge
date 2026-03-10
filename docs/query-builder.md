@@ -1,6 +1,6 @@
 # Query Builder
 
-Turquoise.ORM uses a predicate tree for WHERE clauses. Each `QueryTerm` is a composable
+ActiveForge uses a predicate tree for WHERE clauses. Each `QueryTerm` is a composable
 object that knows how to emit parameterised SQL and bind its parameters.
 
 ## Term Types

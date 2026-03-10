@@ -1,6 +1,6 @@
 # LINQ Query Support
 
-This document covers the `Turquoise.ORM.Linq` namespace.
+This document covers the `ActiveForge.Linq` namespace.
 
 ---
 
@@ -14,7 +14,7 @@ LINQ operators are translated into native `QueryTerm` / `SortOrder` objects at t
 ## Quick Start
 
 ```csharp
-using Turquoise.ORM.Linq;
+using ActiveForge.Linq;
 
 // Basic predicate + sort + pagination
 List<Product> products = conn.Query<Product>()
@@ -41,7 +41,7 @@ var items = conn.Query<Product>()
 ## Entry Point: `conn.Query<T>()`
 
 ```csharp
-// DataConnectionExtensions (Turquoise.ORM.Linq namespace)
+// DataConnectionExtensions (ActiveForge.Linq namespace)
 public static OrmQueryable<T> Query<T>(this DataConnection connection)
     where T : DataObject;
 
@@ -196,7 +196,7 @@ List<Product> list = q.ToList();
 ## Full Chain Example
 
 ```csharp
-using Turquoise.ORM.Linq;
+using ActiveForge.Linq;
 
 var conn     = new SqlServerConnection(connectionString);
 conn.Connect();

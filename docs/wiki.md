@@ -1,6 +1,6 @@
-﻿# Turquoise.ORM — Comprehensive Developer Wiki
+# ActiveForge — Comprehensive Developer Wiki
 
-A complete reference for every concept in Turquoise.ORM: architecture, field types, querying, transactions, unit of work, LINQ support, and advanced features.
+A complete reference for every concept in ActiveForge: architecture, field types, querying, transactions, unit of work, LINQ support, and advanced features.
 
 ---
 
@@ -39,7 +39,7 @@ A complete reference for every concept in Turquoise.ORM: architecture, field typ
 
 Active Record is a design pattern first named by Martin Fowler in *Patterns of Enterprise Application Architecture* (2003). Its defining idea is simple: **an object that represents a database row also knows how to persist itself**. The class carries both the data (fields mapping to columns) and the behaviour that reads, writes, and deletes that data from the database. There is no separate layer sitting between the object and the database — the object *is* the persistence unit.
 
-In Turquoise.ORM every entity class inherits from `DataObject`. A `DataObject` instance holds typed field objects (`TString`, `TDecimal`, `TBool`, …) for each column, and exposes methods like `Insert()`, `Update()`, `Delete()`, and `Read()` that execute the corresponding SQL:
+In ActiveForge every entity class inherits from `DataObject`. A `DataObject` instance holds typed field objects (`TString`, `TDecimal`, `TBool`, …) for each column, and exposes methods like `Insert()`, `Update()`, `Delete()`, and `Read()` that execute the corresponding SQL:
 
 ```csharp
 // The object carries data AND knows how to save itself.
@@ -108,7 +108,7 @@ Table Gateway assigns one object per *table* (not per *row*), and that object co
 
 Some teams use plain data transfer objects with a separate command/query handler (CQRS style). This decouples read and write models completely but requires hand-written SQL or a micro-ORM (Dapper) and significant ceremony to wire up. Active Record is a better fit when the read model and the write model are the same thing, which is again the common case in business software.
 
-### 1.4 Active Record in Turquoise.ORM — Key Decisions
+### 1.4 Active Record in ActiveForge — Key Decisions
 
 **Fields, not properties.** Turquoise represents columns as public `TField` instance fields rather than auto-properties. This lets the ORM discover them by reflection without attributes on every getter, lets them carry null/loaded state independently of their value, and enables the predicate system (a `TField` reference in a `QueryTerm` constructor tells the ORM exactly which column to filter on).
 
@@ -122,19 +122,19 @@ Some teams use plain data transfer objects with a separate command/query handler
 
 ## 2. Architecture Overview
 
-Turquoise.ORM is a **lightweight Active Record ORM** for .NET 8. It is split across provider assemblies to keep database-specific concerns separate from the core abstractions.
+ActiveForge is a **lightweight Active Record ORM** for .NET 8. It is split across provider assemblies to keep database-specific concerns separate from the core abstractions.
 
 ### 2.1 Assembly Split
 
 | Assembly | Contents |
 |----------|----------|
-| `Turquoise.ORM` | Core — entities, TField types, QueryTerm predicates, LINQ layer, transactions (abstract), adapters (abstract) |
-| `Turquoise.ORM.SqlServer` | SQL Server provider — `SqlServerConnection`, SQL adapters, `SqlServerUnitOfWork` |
-| `Turquoise.ORM.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork` |
-| `Turquoise.ORM.MongoDB` | MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork` |
-| `Turquoise.ORM.SQLite` | SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork` |
+| `ActiveForge` | Core — entities, TField types, QueryTerm predicates, LINQ layer, transactions (abstract), adapters (abstract) |
+| `ActiveForge.SqlServer` | SQL Server provider — `SqlServerConnection`, SQL adapters, `SqlServerUnitOfWork` |
+| `ActiveForge.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork` |
+| `ActiveForge.MongoDB` | MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork` |
+| `ActiveForge.SQLite` | SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork` |
 
-Entity classes only reference `Turquoise.ORM`. Applications add the appropriate provider package alongside it.
+Entity classes only reference `ActiveForge`. Applications add the appropriate provider package alongside it.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -158,7 +158,7 @@ Entity classes only reference `Turquoise.ORM`. Applications add the appropriate 
 - **Type-safe fields** — every column is represented by a `TField` subclass, not a bare property. This tracks null/loaded state and enables predicate construction.
 - **Composable predicates** — `QueryTerm` objects compose with C# `&`, `|`, `!` operators to build arbitrary WHERE clauses.
 - **Connection-centric** — `DataConnection` is the single point of query execution; entities delegate to it.
-- **Provider-agnostic core** — `Turquoise.ORM` has no dependency on `Microsoft.Data.SqlClient` or `Npgsql`. Only the provider packages do.
+- **Provider-agnostic core** — `ActiveForge` has no dependency on `Microsoft.Data.SqlClient` or `Npgsql`. Only the provider packages do.
 
 ---
 
@@ -174,8 +174,8 @@ Entity classes only reference `Turquoise.ORM`. Applications add the appropriate 
 ### 3.2 Defining an Entity
 
 ```csharp
-using Turquoise.ORM;
-using Turquoise.ORM.Attributes;
+using ActiveForge;
+using ActiveForge.Attributes;
 
 [Table("Products")]
 public class Product : IdentDataObject
@@ -369,11 +369,11 @@ if (!product.Name.IsLoaded()) { ... } // never set at all
 
 ### 5.1 Creating a Connection
 
-`SqlServerConnection`, `PostgreSQLConnection`, and `MongoDataConnection` all live in the `Turquoise.ORM` namespace (in their respective provider assemblies), so no extra `using` directive is needed once the provider assembly is referenced.
+`SqlServerConnection`, `PostgreSQLConnection`, and `MongoDataConnection` all live in the `ActiveForge` namespace (in their respective provider assemblies), so no extra `using` directive is needed once the provider assembly is referenced.
 
 ```csharp
-// SQL Server (reference Turquoise.ORM + Turquoise.ORM.SqlServer)
-using Turquoise.ORM;
+// SQL Server (reference ActiveForge + ActiveForge.SqlServer)
+using ActiveForge;
 
 var conn = new SqlServerConnection(
     "Server=.;Database=MyDB;Integrated Security=True;TrustServerCertificate=True;",
@@ -382,8 +382,8 @@ conn.Connect();
 ```
 
 ```csharp
-// PostgreSQL (reference Turquoise.ORM + Turquoise.ORM.PostgreSQL)
-using Turquoise.ORM;
+// PostgreSQL (reference ActiveForge + ActiveForge.PostgreSQL)
+using ActiveForge;
 
 var conn = new PostgreSQLConnection(
     "Host=localhost;Database=mydb;Username=app;Password=secret;",
@@ -392,8 +392,8 @@ conn.Connect();
 ```
 
 ```csharp
-// MongoDB (reference Turquoise.ORM + Turquoise.ORM.MongoDB)
-using Turquoise.ORM;
+// MongoDB (reference ActiveForge + ActiveForge.MongoDB)
+using ActiveForge;
 
 var conn = new MongoDataConnection(
     "mongodb://localhost:27017",
@@ -653,7 +653,7 @@ page = conn.QueryPage(template, term, sort, startRecord: 20, pageSize: 20);
 
 ## 9. LINQ Query Support
 
-*(Requires `using Turquoise.ORM.Linq;`)*
+*(Requires `using ActiveForge.Linq;`)*
 
 ### 9.1 Entry Point
 
@@ -735,7 +735,7 @@ Without `Skip`/`Take`, `LazyQueryAll` is used (memory-efficient streaming).
 ### 9.6 Full Chain
 
 ```csharp
-using Turquoise.ORM.Linq;
+using ActiveForge.Linq;
 
 var featured = new List<string> { "Widget", "Gadget" };
 decimal min  = 5m;
@@ -854,11 +854,11 @@ TransactionState state = conn.TransactionState();
 
 ## 11. Unit of Work, Transactions, and Connection Scope
 
-*(Namespace: `Turquoise.ORM.Transactions`; requires Castle.Core NuGet for interceptors)*
+*(Namespace: `ActiveForge.Transactions`; requires Castle.Core NuGet for interceptors)*
 
 ### 11.1 Overview
 
-Turquoise.ORM provides two complementary Castle DynamicProxy interceptors for managing the
+ActiveForge provides two complementary Castle DynamicProxy interceptors for managing the
 connection and transaction lifecycle at the service-method boundary:
 
 | Interceptor | Attribute | What it does |
@@ -869,7 +869,7 @@ connection and transaction lifecycle at the service-method boundary:
 `IUnitOfWork` wraps a `DataConnection`'s transaction lifecycle behind a clean abstraction, enabling:
 - **`With.Transaction`** functional helper
 - **`[Transaction]`** attribute-based automatic interception via Castle DynamicProxy
-- **Ambient registration** via `TurquoiseServiceLocator`
+- **Ambient registration** via `ActiveForgeServiceLocator`
 - **`[ConnectionScope]`** attribute for automatic connection open/close (§11.10)
 
 ### 11.2 IUnitOfWork Interface
@@ -995,16 +995,16 @@ SqlServerConnection proxied =
     DataConnectionProxyFactory.Create<SqlServerConnection>(conn, uow);
 ```
 
-### 11.8 TurquoiseServiceLocator (Ambient DI)
+### 11.8 ActiveForgeServiceLocator (Ambient DI)
 
 Register a factory so `With.Transaction()` (no UoW argument) can resolve the UoW:
 
 ```csharp
 // Register a factory:
-TurquoiseServiceLocator.SetUnitOfWorkFactory(() => new SqlServerUnitOfWork(conn));
+ActiveForgeServiceLocator.SetUnitOfWorkFactory(() => new SqlServerUnitOfWork(conn));
 
 // Or register a full IServiceProvider:
-TurquoiseServiceLocator.SetProvider(serviceProvider);
+ActiveForgeServiceLocator.SetProvider(serviceProvider);
 
 // Use without explicit UoW argument:
 With.Transaction(() =>
@@ -1013,7 +1013,7 @@ With.Transaction(() =>
 });
 
 // Reset (e.g., in tests):
-TurquoiseServiceLocator.Reset();
+ActiveForgeServiceLocator.Reset();
 ```
 
 ### 11.9 Error Handling
@@ -1035,7 +1035,7 @@ leaving the caller completely free of connection boilerplate.
 #### Attribute
 
 ```csharp
-using Turquoise.ORM.Attributes;
+using ActiveForge.Attributes;
 
 // Method level — only this method gets the scope
 [ConnectionScope]
@@ -1103,7 +1103,7 @@ proxies** — no `virtual` keyword required on any method.
 ```csharp
 // Program.cs
 builder.Services
-    .AddTurquoiseSqlServer("Server=...;...")
+    .AddActiveForgeSqlServer("Server=...;...")
     .AddServices(typeof(Program).Assembly);
 
 // Service definition
@@ -1138,7 +1138,7 @@ public class CheckoutController : ControllerBase
 ```csharp
 var conn = new SqlServerConnection("Server=...;...");
 var uow  = new SqlServerUnitOfWork(conn);
-var svc  = TurquoiseServiceFactory.Create<IOrderService>(new OrderService(conn), conn, uow);
+var svc  = ActiveForgeServiceFactory.Create<IOrderService>(new OrderService(conn), conn, uow);
 
 svc.Ship(42);   // proxy opens connection, starts transaction, executes, commits, closes
 ```
@@ -1170,7 +1170,7 @@ a transaction regardless of whether `UnitOfWork` is set.
 | `IService` + `AddServices()` (auto-scan) | `CreateInterfaceProxyWithTarget` | None — no virtual required |
 | `AddService<TInterface, TImpl>()` | `CreateInterfaceProxyWithTarget` | None |
 | `AddService<TClass>()` (class proxy) | `CreateClassProxyWithTarget` | Non-sealed; intercepted methods `virtual` |
-| `TurquoiseServiceFactory.Create<T>()` | Interface or class proxy (auto-detected) | See above |
+| `ActiveForgeServiceFactory.Create<T>()` | Interface or class proxy (auto-detected) | See above |
 
 ---
 
@@ -1498,7 +1498,7 @@ var categories = conn.QueryAll(new Category(conn), null, null, 0, null);
 ### 21.0 Assembly Boundaries
 
 ```
-Turquoise.ORM (core — no provider dependency)
+ActiveForge (core — no provider dependency)
 ├── DataObject / IdentDataObject / LookupDataObject
 ├── DataConnection (abstract) / DBDataConnection (abstract)
 ├── TField subtypes (25+)
@@ -1507,7 +1507,7 @@ Turquoise.ORM (core — no provider dependency)
 ├── Adapter abstractions (ConnectionBase, CommandBase, ReaderBase, TransactionBase)
 └── Transactions (IUnitOfWork, UnitOfWorkBase, With, TransactionInterceptor, …)
 
-Turquoise.ORM.SqlServer (depends on Turquoise.ORM + Microsoft.Data.SqlClient)
+ActiveForge.SqlServer (depends on ActiveForge + Microsoft.Data.SqlClient)
 ├── SqlServerConnection : DBDataConnection
 ├── Adapters/SqlAdapterConnection     (wraps SqlConnection)
 ├── Adapters/SqlAdapterCommand        (wraps SqlCommand)
@@ -1515,7 +1515,7 @@ Turquoise.ORM.SqlServer (depends on Turquoise.ORM + Microsoft.Data.SqlClient)
 ├── Adapters/SqlAdapterTransaction    (wraps SqlTransaction)
 └── Transactions/SqlServerUnitOfWork  : UnitOfWorkBase
 
-Turquoise.ORM.PostgreSQL (depends on Turquoise.ORM + Npgsql)
+ActiveForge.PostgreSQL (depends on ActiveForge + Npgsql)
 ├── PostgreSQLConnection : DBDataConnection
 ├── Adapters/NpgsqlAdapterConnection  (wraps NpgsqlConnection)
 ├── Adapters/NpgsqlAdapterCommand     (wraps NpgsqlCommand)
@@ -1523,7 +1523,7 @@ Turquoise.ORM.PostgreSQL (depends on Turquoise.ORM + Npgsql)
 ├── Adapters/NpgsqlAdapterTransaction (wraps NpgsqlTransaction)
 └── Transactions/PostgreSQLUnitOfWork : UnitOfWorkBase
 
-Turquoise.ORM.MongoDB (depends on Turquoise.ORM + MongoDB.Driver)
+ActiveForge.MongoDB (depends on ActiveForge + MongoDB.Driver)
 ├── MongoDataConnection : DataConnection   ← extends DataConnection directly (not DBDataConnection)
 ├── Internal/MongoFieldDescriptor          (per-field BSON name cache)
 ├── Internal/MongoTypeCache                (per-type collection name + field descriptors)
@@ -1532,7 +1532,7 @@ Turquoise.ORM.MongoDB (depends on Turquoise.ORM + MongoDB.Driver)
 └── Transactions/MongoUnitOfWork : UnitOfWorkBase
 ```
 
-All provider types use the `Turquoise.ORM` namespace — the same namespace as the core types they extend. This means consuming code only needs `using Turquoise.ORM;`.
+All provider types use the `ActiveForge` namespace — the same namespace as the core types they extend. This means consuming code only needs `using ActiveForge;`.
 
 **MongoDB vs SQL architecture:** SQL providers extend `DBDataConnection`, which inherits `DataConnection` and adds SQL generation, ADO.NET adapter management, and the `ObjectBinding` cache. `MongoDataConnection` extends `DataConnection` directly because there is no SQL to generate. It builds its own minimal `ObjectBinding` from reflection for QueryTerm lookup, and performs all CRUD via `MongoDB.Driver` API calls.
 
@@ -1661,7 +1661,7 @@ var rows = conn.QueryAll(t, q, new OrderAscending(t, t.ColA), 0, null);
 ### LINQ
 
 ```csharp
-using Turquoise.ORM.Linq;
+using ActiveForge.Linq;
 
 var rows = conn.Query<MyEntity>()
     .Where(e => e.ColA == "hello" && e.ColB > 5m)
@@ -1720,7 +1720,7 @@ foreach (MyEntity e in conn.LazyQueryAll<MyEntity>(template, term, null))
 
 ### 23.1 Overview
 
-`MongoDataConnection` brings the standard Turquoise.ORM CRUD and query API to MongoDB. It extends `DataConnection` directly (not `DBDataConnection`, which is SQL-specific) and uses the `MongoDB.Driver` 2.28.0 library.
+`MongoDataConnection` brings the standard ActiveForge CRUD and query API to MongoDB. It extends `DataConnection` directly (not `DBDataConnection`, which is SQL-specific) and uses the `MongoDB.Driver` 2.28.0 library.
 
 Key differences from SQL providers:
 
@@ -1739,7 +1739,7 @@ Key differences from SQL providers:
 ### 23.2 Connecting
 
 ```csharp
-using Turquoise.ORM;
+using ActiveForge;
 
 var conn = new MongoDataConnection(
     connectionString: "mongodb://localhost:27017",
@@ -1752,8 +1752,8 @@ conn.Connect();
 Entity definitions are provider-agnostic — use the same `[Table]` / `[Column]` / `[Identity]` attributes:
 
 ```csharp
-using Turquoise.ORM;
-using Turquoise.ORM.Attributes;
+using ActiveForge;
+using ActiveForge.Attributes;
 
 [Table("products")]
 public class Product : IdentDataObject
@@ -1894,7 +1894,7 @@ SQLite specifics compared to the other SQL providers:
 ### 24.2 Connecting
 
 ```csharp
-using Turquoise.ORM;
+using ActiveForge;
 
 // File-based database
 var conn = new SQLiteConnection("Data Source=app.db");
@@ -1929,8 +1929,8 @@ conn.ExecSQL(
 Entity definitions are provider-agnostic — the same class works with any provider:
 
 ```csharp
-using Turquoise.ORM;
-using Turquoise.ORM.Attributes;
+using ActiveForge;
+using ActiveForge.Attributes;
 
 [Table("products")]
 public class Product : IdentDataObject
@@ -2024,7 +2024,7 @@ product.Insert();  // auto: connect → begin tx → insert → commit → disco
 ```csharp
 // Program.cs
 builder.Services
-    .AddTurquoiseSQLite("Data Source=app.db")
+    .AddActiveForgeSQLite("Data Source=app.db")
     .AddServices(typeof(Program).Assembly);
 ```
 
@@ -2032,7 +2032,7 @@ Or with an in-memory database for testing:
 
 ```csharp
 builder.Services
-    .AddTurquoiseSQLite("Data Source=testdb;Mode=Memory;Cache=Shared");
+    .AddActiveForgeSQLite("Data Source=testdb;Mode=Memory;Cache=Shared");
 ```
 
 ### 24.8 Type Affinity Mapping
@@ -2060,4 +2060,4 @@ SQLite uses type affinity rather than strict types. `SQLiteConnection.MapNativeT
 
 ---
 
-*Turquoise.ORM — .NET 8 / SQL Server / PostgreSQL / MongoDB / SQLite*
+*ActiveForge — .NET 8 / SQL Server / PostgreSQL / MongoDB / SQLite*

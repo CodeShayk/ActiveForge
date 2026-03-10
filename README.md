@@ -1,20 +1,19 @@
-# Turquoise.ORM
+# ActiveForge ORM
 
 A lightweight, Active Record-style ORM for .NET 8, with first-class support for SQL Server, PostgreSQL, and MongoDB.
-
 ---
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| `Turquoise.ORM` | Core — entities, fields, predicates, LINQ, transactions, adapters, Castle proxy factory |
-| `Turquoise.ORM.SqlServer` | SQL Server provider — `SqlServerConnection`, ADO.NET adapters, `SqlServerUnitOfWork`, DI extensions |
-| `Turquoise.ORM.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork`, DI extensions |
-| `Turquoise.ORM.MongoDB` | MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork`, DI extensions |
-| `Turquoise.ORM.SQLite` | SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork`, DI extensions |
+| `ActiveForge` | Core — entities, fields, predicates, LINQ, transactions, adapters, Castle proxy factory |
+| `ActiveForge.SqlServer` | SQL Server provider — `SqlServerConnection`, ADO.NET adapters, `SqlServerUnitOfWork`, DI extensions |
+| `ActiveForge.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork`, DI extensions |
+| `ActiveForge.MongoDB` | MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork`, DI extensions |
+| `ActiveForge.SQLite` | SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork`, DI extensions |
 
-All connection types live in the `Turquoise.ORM` namespace, so a single `using Turquoise.ORM;` is sufficient regardless of the provider chosen.
+All connection types live in the `ActiveForge` namespace, so a single `using ActiveForge;` is sufficient regardless of the provider chosen.
 
 ---
 
@@ -41,7 +40,7 @@ All connection types live in the `Turquoise.ORM` namespace, so a single `using T
 - **Action queue** — batch operations via `QueueForInsert` / `QueueForUpdate` / `QueueForDelete` → `ProcessActionQueue`
 
 ### 🌐 DI & Service Proxy Integration
-- **Auto-scan registration** — `AddTurquoiseSqlServer(...).AddServices(assembly)` discovers all `IService` implementations and registers them as interface-proxied scoped services in one call. `IService` marker — implement on any service class for automatic discovery and proxy registration. `ITurquoiseBuilder` — fluent builder returned by all `AddTurquoise*` methods; chain `.AddServices()`, `.AddService<I, T>()` for granular control.
+- **Auto-scan registration** — `AddActiveForgeSqlServer(...).AddServices(assembly)` discovers all `IService` implementations and registers them as interface-proxied scoped services in one call. `IService` marker — implement on any service class for automatic discovery and proxy registration. `IActiveForgeBuilder` — fluent builder returned by all `AddTurquoise*` methods; chain `.AddServices()`, `.AddService<I, T>()` for granular control.
 
 ---
 
@@ -49,10 +48,10 @@ All connection types live in the `Turquoise.ORM` namespace, so a single `using T
 
 - .NET 8.0
 - One provider package:
-  - SQL Server → `Turquoise.ORM.SqlServer` (wraps `Microsoft.Data.SqlClient` 5.2.1)
-  - PostgreSQL → `Turquoise.ORM.PostgreSQL` (wraps `Npgsql` 8.0.3)
-  - MongoDB → `Turquoise.ORM.MongoDB` (wraps `MongoDB.Driver` 2.28.0)
-  - SQLite → `Turquoise.ORM.SQLite` (wraps `Microsoft.Data.Sqlite` 8.0.0)
+  - SQL Server → `ActiveForge.SqlServer` (wraps `Microsoft.Data.SqlClient` 5.2.1)
+  - PostgreSQL → `ActiveForge.PostgreSQL` (wraps `Npgsql` 8.0.3)
+  - MongoDB → `ActiveForge.MongoDB` (wraps `MongoDB.Driver` 2.28.0)
+  - SQLite → `ActiveForge.SQLite` (wraps `Microsoft.Data.Sqlite` 8.0.0)
 
 ---
 
@@ -61,7 +60,7 @@ All connection types live in the `Turquoise.ORM` namespace, so a single `using T
 ### 1. Connect (standalone)
 
 ```csharp
-using Turquoise.ORM;
+using ActiveForge;
 
 // SQL Server
 var conn = new SqlServerConnection(
@@ -85,26 +84,26 @@ conn.Connect();
 ### 2. Register with DI
 
 Works in any DI host — ASP.NET Core, Worker Service, console, etc.
-The `AddTurquoise*` call registers the connection + UoW and returns an `ITurquoiseBuilder`.
+The `AddTurquoise*` call registers the connection + UoW and returns an `IActiveForgeBuilder`.
 Chain `.AddServices()` to auto-scan your assembly for `IService` implementations.
 
 ```csharp
 // Program.cs — choose one provider, then scan for IService implementations:
 builder.Services
-    .AddTurquoiseSqlServer(
+    .AddActiveForgeSqlServer(
         "Server=.;Database=Demo;Integrated Security=True;TrustServerCertificate=True;")
     .AddServices(typeof(Program).Assembly);
 
 builder.Services
-    .AddTurquoisePostgreSQL("Host=localhost;Database=demo;Username=app;Password=secret;")
+    .AddActiveForgePostgreSQL("Host=localhost;Database=demo;Username=app;Password=secret;")
     .AddServices(typeof(Program).Assembly);
 
 builder.Services
-    .AddTurquoiseMongoDB("mongodb://localhost:27017", "demo")
+    .AddActiveForgeMongoDB("mongodb://localhost:27017", "demo")
     .AddServices(typeof(Program).Assembly);
 
 builder.Services
-    .AddTurquoiseSQLite("Data Source=app.db")
+    .AddActiveForgeSQLite("Data Source=app.db")
     .AddServices(typeof(Program).Assembly);
 ```
 
@@ -113,8 +112,8 @@ builder.Services
 Entity classes are provider-agnostic — the same class works with SQL Server, PostgreSQL, and MongoDB.
 
 ```csharp
-using Turquoise.ORM;
-using Turquoise.ORM.Attributes;
+using ActiveForge;
+using ActiveForge.Attributes;
 
 [Table("products")]
 public class Product : IdentDataObject
@@ -164,9 +163,9 @@ Implement `IService` on your class alongside a service interface. Castle Dynamic
 open → begin → commit → close with no virtual methods or framework coupling required.
 
 ```csharp
-using Turquoise.ORM;
-using Turquoise.ORM.Attributes;
-using Turquoise.ORM.Transactions;
+using ActiveForge;
+using ActiveForge.Attributes;
+using ActiveForge.Transactions;
 
 // ── Interface (consumed by controllers / other services)
 public interface IOrderService
@@ -199,7 +198,7 @@ public class OrderService : IOrderService, IService
 
 // Register — auto-scan picks up OrderService, registers as IOrderService:
 builder.Services
-    .AddTurquoiseSqlServer("Server=...;...")
+    .AddActiveForgeSqlServer("Server=...;...")
     .AddServices(typeof(Program).Assembly);
 
 // Inject by interface — proxy is transparent:
@@ -216,7 +215,7 @@ Manual usage (standalone, no DI):
 ```csharp
 var conn = new SqlServerConnection("...");
 var uow  = new SqlServerUnitOfWork(conn);
-var svc  = TurquoiseServiceFactory.Create(new OrderService(conn), conn, uow);
+var svc  = ActiveForgeServiceFactory.Create(new OrderService(conn), conn, uow);
 svc.Ship(42);
 
 // Or With.Transaction for ad-hoc work:
@@ -241,7 +240,7 @@ With.Transaction(uow, () =>
 | [Unit of Work](docs/unit-of-work.md) | `IUnitOfWork`, `With.Transaction`, Castle interceptor |
 | [LINQ Querying](docs/linq-querying.md) | `conn.Query<T>()` LINQ support |
 | [Field Subsets](docs/field-subsets.md) | Partial fetches and partial updates |
-| [DI & Service Proxies](docs/di-service-proxies.md) | `AddTurquoise*`, `AddTurquoiseService<T>`, `[ConnectionScope]`, `TurquoiseServiceFactory` |
+| [DI & Service Proxies](docs/di-service-proxies.md) | `AddTurquoise*`, `AddActiveForgeService<T>`, `[ConnectionScope]`, `ActiveForgeServiceFactory` |
 | [Advanced](docs/advanced.md) | Encryption, custom mappers, polymorphism |
 | [**Wiki**](docs/wiki.md) | Comprehensive reference — all concepts with examples |
 
@@ -250,43 +249,43 @@ With.Transaction(uow, () =>
 ## Project Layout
 
 ```
-Turquoise.ORM/
+ActiveForge/
 ├── src/
-│   ├── Turquoise.ORM/                  ← Core library (provider-agnostic)
+│   ├── ActiveForge/                  ← Core library (provider-agnostic)
 │   │   ├── Attributes/                 ← [Table], [Column], [Identity], etc.
 │   │   ├── Adapters/                   ← Abstract adapter interfaces
 │   │   ├── Fields/                     ← TString, TInt, TDecimal, ... (25+ types)
 │   │   ├── Linq/                       ← LINQ query support
 │   │   ├── Query/                      ← QueryTerm, SortOrder, EqualTerm, ...
 │   │   └── Transactions/               ← IUnitOfWork, UnitOfWorkBase, With, ConnectionScopeInterceptor,
-│   │                                      TransactionInterceptor, TurquoiseServiceFactory
-│   ├── Turquoise.ORM.SqlServer/        ← SQL Server provider
+│   │                                      TransactionInterceptor, ActiveForgeServiceFactory
+│   ├── ActiveForge.SqlServer/        ← SQL Server provider
 │   │   ├── Adapters/                   ← SqlAdapterCommand/Connection/Reader/Transaction
-│   │   ├── Extensions/                 ← AddTurquoiseSqlServer()
+│   │   ├── Extensions/                 ← AddActiveForgeSqlServer()
 │   │   ├── Transactions/               ← SqlServerUnitOfWork
 │   │   └── SqlServerConnection.cs
-│   ├── Turquoise.ORM.PostgreSQL/       ← PostgreSQL provider
+│   ├── ActiveForge.PostgreSQL/       ← PostgreSQL provider
 │   │   ├── Adapters/                   ← NpgsqlAdapterCommand/Connection/Reader/Transaction
-│   │   ├── Extensions/                 ← AddTurquoisePostgreSQL()
+│   │   ├── Extensions/                 ← AddActiveForgePostgreSQL()
 │   │   ├── Transactions/               ← PostgreSQLUnitOfWork
 │   │   └── PostgreSQLConnection.cs
-│   ├── Turquoise.ORM.MongoDB/          ← MongoDB provider
-│   │   ├── Extensions/                 ← AddTurquoiseMongoDB()
+│   ├── ActiveForge.MongoDB/          ← MongoDB provider
+│   │   ├── Extensions/                 ← AddActiveForgeMongoDB()
 │   │   ├── Internal/                   ← MongoMapper, MongoQueryTranslator, MongoTypeCache
 │   │   ├── Transactions/               ← MongoUnitOfWork
 │   │   └── MongoDataConnection.cs
-│   └── Turquoise.ORM.SQLite/           ← SQLite provider
+│   └── ActiveForge.SQLite/           ← SQLite provider
 │       ├── Adapters/                   ← SQLiteAdapterCommand/Connection/Reader/Transaction
-│       ├── Extensions/                 ← AddTurquoiseSQLite()
+│       ├── Extensions/                 ← AddActiveForgeSQLite()
 │       ├── Transactions/               ← SQLiteUnitOfWork
 │       └── SQLiteConnection.cs
 ├── tests/
-│   ├── Turquoise.ORM.Tests/            ← Core library tests        (314 tests)
-│   ├── Turquoise.ORM.SqlServer.Tests/  ← SQL Server provider tests  (50 tests)
-│   ├── Turquoise.ORM.PostgreSQL.Tests/ ← PostgreSQL provider tests  (52 tests)
-│   ├── Turquoise.ORM.MongoDB.Tests/    ← MongoDB provider tests     (79 tests)
-│   └── Turquoise.ORM.SQLite.Tests/     ← SQLite provider tests      (in-memory integration)
+│   ├── ActiveForge.Tests/            ← Core library tests        (314 tests)
+│   ├── ActiveForge.SqlServer.Tests/  ← SQL Server provider tests  (50 tests)
+│   ├── ActiveForge.PostgreSQL.Tests/ ← PostgreSQL provider tests  (52 tests)
+│   ├── ActiveForge.MongoDB.Tests/    ← MongoDB provider tests     (79 tests)
+│   └── ActiveForge.SQLite.Tests/     ← SQLite provider tests      (in-memory integration)
 ├── examples/
-│   └── Turquoise.ORM.Examples/         ← Runnable console examples
+│   └── ActiveForge.Examples/         ← Runnable console examples
 └── docs/                               ← Documentation
 ```

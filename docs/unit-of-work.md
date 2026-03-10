@@ -1,6 +1,6 @@
 # Unit of Work & Automatic Transactions
 
-This document covers the `Turquoise.ORM.Transactions` namespace.
+This document covers the `ActiveForge.Transactions` namespace.
 
 ---
 
@@ -24,13 +24,13 @@ Turquoise ORM ships two complementary transaction models:
 services.AddScoped<IUnitOfWork>(sp =>
     new SqlServerUnitOfWork(sp.GetRequiredService<SqlServerConnection>()));
 
-TurquoiseServiceLocator.SetProvider(app.Services);
+ActiveForgeServiceLocator.SetProvider(app.Services);
 ```
 
 Or, without a DI container:
 
 ```csharp
-TurquoiseServiceLocator.SetUnitOfWorkFactory(
+ActiveForgeServiceLocator.SetUnitOfWorkFactory(
     () => new SqlServerUnitOfWork(connection));
 ```
 
@@ -117,7 +117,7 @@ This means nested transactional methods are safe without any extra configuration
 With.Transaction(uow, () => { /* work */ });
 With.Transaction(uow, () => { /* work */ }, IsolationLevel.Serializable);
 
-// Resolved via TurquoiseServiceLocator
+// Resolved via ActiveForgeServiceLocator
 With.Transaction(() => { /* work */ });
 ```
 
@@ -191,22 +191,22 @@ proxied.Insert(product);   // if Insert() is decorated with [Transaction]
 
 ---
 
-## TurquoiseServiceLocator
+## ActiveForgeServiceLocator
 
 A thin static bridge that lets any DI container back the locator.
 
 ```csharp
 // Register once at startup:
-TurquoiseServiceLocator.SetProvider(serviceProvider);      // any IServiceProvider
+ActiveForgeServiceLocator.SetProvider(serviceProvider);      // any IServiceProvider
 // OR:
-TurquoiseServiceLocator.SetUnitOfWorkFactory(() => new SqlServerUnitOfWork(conn));
+ActiveForgeServiceLocator.SetUnitOfWorkFactory(() => new SqlServerUnitOfWork(conn));
 
 // Resolve anywhere (e.g. inside With.Transaction or your own code):
-IUnitOfWork uow = TurquoiseServiceLocator.GetUnitOfWork();
-T svc           = TurquoiseServiceLocator.Resolve<T>();
+IUnitOfWork uow = ActiveForgeServiceLocator.GetUnitOfWork();
+T svc           = ActiveForgeServiceLocator.Resolve<T>();
 ```
 
-Call `TurquoiseServiceLocator.Reset()` in test teardown to avoid leaking state between tests.
+Call `ActiveForgeServiceLocator.Reset()` in test teardown to avoid leaking state between tests.
 
 ---
 
@@ -248,7 +248,7 @@ IUnitOfWork uow = new SqlServerUnitOfWork(conn, logger);
 `With.Transaction` uses a static logger configured via:
 
 ```csharp
-With.SetLogger(loggerFactory.CreateLogger("Turquoise.ORM.Transactions.With"));
+With.SetLogger(loggerFactory.CreateLogger("ActiveForge.Transactions.With"));
 ```
 
 ---
@@ -270,24 +270,24 @@ With.SetLogger(loggerFactory.CreateLogger("Turquoise.ORM.Transactions.With"));
 
 | Package | Assembly | Purpose |
 |---------|----------|---------|
-| `Castle.Core` 5.1.1 | `Turquoise.ORM` | DynamicProxy runtime for `TransactionInterceptor` / `DataConnectionProxyFactory` |
-| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM` | `ILogger` abstraction used by `UnitOfWorkBase` |
-| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM.SqlServer` | `ILogger<SqlServerUnitOfWork>` parameter |
-| `Microsoft.Data.SqlClient` 5.2.1 | `Turquoise.ORM.SqlServer` | ADO.NET SQL Server driver |
-| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM.PostgreSQL` | `ILogger<PostgreSQLUnitOfWork>` parameter |
-| `Npgsql` 8.0.3 | `Turquoise.ORM.PostgreSQL` | ADO.NET PostgreSQL driver |
-| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `Turquoise.ORM.MongoDB` | `ILogger` parameter for `MongoUnitOfWork` |
-| `MongoDB.Driver` 2.28.0 | `Turquoise.ORM.MongoDB` | MongoDB driver |
+| `Castle.Core` 5.1.1 | `ActiveForge` | DynamicProxy runtime for `TransactionInterceptor` / `DataConnectionProxyFactory` |
+| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `ActiveForge` | `ILogger` abstraction used by `UnitOfWorkBase` |
+| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `ActiveForge.SqlServer` | `ILogger<SqlServerUnitOfWork>` parameter |
+| `Microsoft.Data.SqlClient` 5.2.1 | `ActiveForge.SqlServer` | ADO.NET SQL Server driver |
+| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `ActiveForge.PostgreSQL` | `ILogger<PostgreSQLUnitOfWork>` parameter |
+| `Npgsql` 8.0.3 | `ActiveForge.PostgreSQL` | ADO.NET PostgreSQL driver |
+| `Microsoft.Extensions.Logging.Abstractions` 8.0.0 | `ActiveForge.MongoDB` | `ILogger` parameter for `MongoUnitOfWork` |
+| `MongoDB.Driver` 2.28.0 | `ActiveForge.MongoDB` | MongoDB driver |
 
-`SqlServerUnitOfWork` is part of `Turquoise.ORM.SqlServer`; `PostgreSQLUnitOfWork` is part of `Turquoise.ORM.PostgreSQL`; `MongoUnitOfWork` is part of `Turquoise.ORM.MongoDB`. All other Unit of Work types (`IUnitOfWork`, `UnitOfWorkBase`, `With`, `TransactionInterceptor`, `TurquoiseServiceLocator`) are in `Turquoise.ORM` and have no provider dependency.
+`SqlServerUnitOfWork` is part of `ActiveForge.SqlServer`; `PostgreSQLUnitOfWork` is part of `ActiveForge.PostgreSQL`; `MongoUnitOfWork` is part of `ActiveForge.MongoDB`. All other Unit of Work types (`IUnitOfWork`, `UnitOfWorkBase`, `With`, `TransactionInterceptor`, `ActiveForgeServiceLocator`) are in `ActiveForge` and have no provider dependency.
 
 ## PostgreSQL Unit of Work
 
 Usage is identical to the SQL Server form — just swap the connection and UoW types:
 
 ```csharp
-using Turquoise.ORM;
-using Turquoise.ORM.Transactions;
+using ActiveForge;
+using ActiveForge.Transactions;
 
 var conn = new PostgreSQLConnection("Host=localhost;Database=demo;Username=app;Password=secret;");
 conn.Connect();
@@ -308,8 +308,8 @@ With.Transaction(uow, () =>
 `MongoUnitOfWork` wraps `MongoDataConnection` in the same nested-transaction model:
 
 ```csharp
-using Turquoise.ORM;
-using Turquoise.ORM.Transactions;
+using ActiveForge;
+using ActiveForge.Transactions;
 
 var conn = new MongoDataConnection("mongodb://localhost:27017", "demo");
 conn.Connect();

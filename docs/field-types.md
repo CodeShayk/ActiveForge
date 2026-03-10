@@ -107,7 +107,7 @@ Create a `TField` instance dynamically:
 TField f = TField.Create(typeof(TString), null);
 
 // By fully-qualified name
-TField g = TField.Create("Turquoise.ORM.TDecimal");
+TField g = TField.Create("ActiveForge.TDecimal");
 ```
 
 All factory-created instances start as null (`IsNull() == true`).

@@ -162,7 +162,7 @@ When using the LINQ query layer (`conn.Query<T>()`), you can:
 Navigate to the embedded DataObject field in your lambda — the ORM resolves the correct table column automatically:
 
 ```csharp
-using Turquoise.ORM.Linq;
+using ActiveForge.Linq;
 
 // Filter on a joined column — x.Category.Name navigates the embedded DataObject
 var books = conn.Query<ProductWithCategory>()
