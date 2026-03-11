@@ -30,6 +30,7 @@ namespace ActiveForge.SqlServer.Tests
     /// Each test class instance gets its own uniquely named database so test
     /// runs are fully isolated even when executed in parallel.
     /// </summary>
+    [Trait("Category", "Integration")]
     public sealed class SqlServerConnectionCrudTests : IDisposable
     {
         private static int _counter;

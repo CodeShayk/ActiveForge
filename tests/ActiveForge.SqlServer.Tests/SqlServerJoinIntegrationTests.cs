@@ -56,6 +56,7 @@ namespace ActiveForge.SqlServer.Tests
     /// Mirrors the SQLite join test suite to verify the shared DBDataConnection
     /// join infrastructure works correctly with the SQL Server dialect.
     /// </summary>
+    [Trait("Category", "Integration")]
     public sealed class SqlServerJoinIntegrationTests : IDisposable
     {
         private static int _counter;

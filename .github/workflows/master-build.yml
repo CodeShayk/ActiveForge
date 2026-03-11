@@ -1,28 +1,169 @@
-# This workflow will build a .NET project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
-
-name: .NET
+name: master-build
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
+
+# Cancel in-progress runs on the same branch when a new push arrives
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
 
+  # ── 1. Compile the whole solution ─────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --no-restore --configuration Release
+
+  # ── 2. Core + SQLite tests (no external services required) ───────────────────
+  test-core:
+    name: "Tests — Core & SQLite"
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --no-restore --configuration Release
+
+      - name: "Test: ActiveForge.Tests (core)"
+        run: >
+          dotnet test tests/ActiveForge.Tests/ActiveForge.Tests.csproj
+          --no-build --configuration Release --verbosity normal
+          --logger "console;verbosity=normal"
+
+      - name: "Test: ActiveForge.SQLite.Tests"
+        run: >
+          dotnet test tests/ActiveForge.SQLite.Tests/ActiveForge.SQLite.Tests.csproj
+          --no-build --configuration Release --verbosity normal
+          --logger "console;verbosity=normal"
+
+  # ── 3. SQL Server unit tests (no live DB — integration tests filtered out) ────
+  test-sqlserver-unit:
+    name: "Tests — SQL Server (unit only)"
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --no-restore --configuration Release
+
+      - name: "Test: ActiveForge.SqlServer.Tests (unit only)"
+        run: >
+          dotnet test tests/ActiveForge.SqlServer.Tests/ActiveForge.SqlServer.Tests.csproj
+          --no-build --configuration Release --verbosity normal
+          --filter "Category!=Integration"
+          --logger "console;verbosity=normal"
+
+  # ── 4. PostgreSQL integration tests ──────────────────────────────────────────
+  test-postgres:
+    name: "Tests — PostgreSQL"
+    needs: build
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: Pa55w0rd
+          POSTGRES_DB: postgres
+        ports:
+          - 5455:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --no-restore --configuration Release
+
+      - name: "Test: ActiveForge.PostgreSQL.Tests"
+        env:
+          PG_ADMIN_CONNSTR: "Host=localhost;Port=5455;Database=postgres;Username=postgres;Password=Pa55w0rd"
+        run: >
+          dotnet test tests/ActiveForge.PostgreSQL.Tests/ActiveForge.PostgreSQL.Tests.csproj
+          --no-build --configuration Release --verbosity normal
+          --logger "console;verbosity=normal"
+
+  # ── 5. MongoDB integration tests ─────────────────────────────────────────────
+  test-mongodb:
+    name: "Tests — MongoDB"
+    needs: build
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")' --quiet"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --no-restore --configuration Release
+
+      - name: "Test: ActiveForge.MongoDB.Tests"
+        run: >
+          dotnet test tests/ActiveForge.MongoDB.Tests/ActiveForge.MongoDB.Tests.csproj
+          --no-build --configuration Release --verbosity normal
+          --logger "console;verbosity=normal"
