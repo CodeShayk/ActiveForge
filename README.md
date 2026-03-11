@@ -1,4 +1,4 @@
-# ActiveForge ORM v1.0.0
+# <img src="https://github.com/CodeShayk/ActiveForge/blob/master/images/logo-1.png" alt="logo" style="width:80px;"/> ActiveForge ORM v1.0.0
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/CodeShayk/ActiveForge/blob/master/LICENSE.md) 
 [![GitHub Release](https://img.shields.io/github/v/release/CodeShayk/ActiveForge?logo=github&sort=semver)](https://github.com/CodeShayk/ActiveForge/releases/latest)
 [![master-build](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-build.yml/badge.svg)](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-build.yml)
