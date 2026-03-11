@@ -7,7 +7,7 @@ This document covers how ActiveForge ORM handles SQL JOINs — both the automati
 ## Overview
 
 ActiveForge ORM derives JOIN SQL from the **structure of your entity class**, not from a query builder.
-When you embed a `DataObject` field inside another `DataObject`, the ORM automatically emits a JOIN between the two tables when you query the outer type.
+When you embed a `Record` field inside another `Record`, the ORM automatically emits a JOIN between the two tables when you query the outer type.
 
 There are three layers of JOIN control:
 
@@ -23,7 +23,7 @@ There are three layers of JOIN control:
 
 If your entity class has:
 - a `TForeignKey` field named `XID` (e.g. `CategoryID`)
-- a `DataObject` field named `X` (e.g. `Category`) whose class name ends in `X`
+- a `Record` field named `X` (e.g. `Category`) whose class name ends in `X`
 
 the ORM automatically produces:
 
@@ -35,7 +35,7 @@ No attribute required.
 
 ```csharp
 [Table("Products")]
-public class ProductWithCategory : IdentDataObject
+public class ProductWithCategory : IdentityRecord
 {
     [Column("Name")]        public TString     Name       = new TString();
     [Column("Price")]       public TDecimal    Price      = new TDecimal();
@@ -65,7 +65,7 @@ Use `[JoinSpec]` to override the join type or specify non-standard column names.
 ```csharp
 [Table("Products")]
 [JoinSpec("CategoryID", "Category", "ID", JoinSpecAttribute.JoinTypeEnum.LeftOuterJoin)]
-public class ProductWithOptionalCategory : IdentDataObject
+public class ProductWithOptionalCategory : IdentityRecord
 {
     [Column("Name")]        public TString     Name       = new TString();
     [Column("Price")]       public TDecimal    Price      = new TDecimal();
@@ -89,7 +89,7 @@ var results = conn.QueryAll(new ProductWithOptionalCategory(conn), null, null, 0
 ```csharp
 [JoinSpec(
     sourceField:   "CategoryID",   // FK column on the outer table
-    targetField:   "Category",     // embedded DataObject field name
+    targetField:   "Category",     // embedded Record field name
     joinField:     "ID",           // PK column on the inner table
     joinType:      JoinSpecAttribute.JoinTypeEnum.LeftOuterJoin)]
 ```
@@ -98,11 +98,11 @@ var results = conn.QueryAll(new ProductWithOptionalCategory(conn), null, null, 0
 
 ## 3. Multiple FK Joins
 
-Embed multiple `DataObject` fields to produce multiple JOINs in one query.
+Embed multiple `Record` fields to produce multiple JOINs in one query.
 
 ```csharp
 [Table("OrderLines")]
-public class OrderLineWithDetails : IdentDataObject
+public class OrderLineWithDetails : IdentityRecord
 {
     [Column("OrderID")]   public TForeignKey OrderID   = new TForeignKey();
     [Column("ProductID")] public TForeignKey ProductID = new TForeignKey();
@@ -128,7 +128,7 @@ var lines = conn.QueryAll(new OrderLineWithDetails(conn), null, null, 0, null);
 
 ## 4. Filtering on Joined Columns (QueryTerm API)
 
-Pass the **embedded DataObject** (not the root template) as the `target` argument when building a `QueryTerm` against a joined column:
+Pass the **embedded Record** (not the root template) as the `target` argument when building a `QueryTerm` against a joined column:
 
 ```csharp
 var template = new ProductWithCategory(conn);
@@ -144,7 +144,7 @@ var both    = conn.QueryAll(template, term & inStock, null, 0, null);
 // WHERE Categories.Name = 'Books' AND Products.InStock = 1
 ```
 
-> **Note**: The first `EqualTerm` argument must be the _containing_ `DataObject` instance
+> **Note**: The first `EqualTerm` argument must be the _containing_ `Record` instance
 > (the embedded field's owner), not the root query template.
 > For top-level fields, pass the root template; for joined fields, pass the embedded object.
 
@@ -159,12 +159,12 @@ When using the LINQ query layer (`conn.Query<T>()`), you can:
 
 ### 5.1 Cross-Join `Where` Predicates
 
-Navigate to the embedded DataObject field in your lambda — the ORM resolves the correct table column automatically:
+Navigate to the embedded Record field in your lambda — the ORM resolves the correct table column automatically:
 
 ```csharp
 using ActiveForge.Linq;
 
-// Filter on a joined column — x.Category.Name navigates the embedded DataObject
+// Filter on a joined column — x.Category.Name navigates the embedded Record
 var books = conn.Query<ProductWithCategory>()
     .Where(x => x.Category.Name == "Books")
     .ToList();
@@ -275,7 +275,7 @@ var orders     = conn.QueryAll(orderTemplate, existsTerm, null, 0, null);
 
 | Limitation | Notes |
 |------------|-------|
-| No `JOIN` between unrelated tables | Joins must be expressed via embedded `DataObject` fields |
+| No `JOIN` between unrelated tables | Joins must be expressed via embedded `Record` fields |
 | No self-joins | A type cannot embed itself |
 | No many-to-many navigation | Bridge-table entities with two FKs can model this |
 | LINQ `Where` LHS must be a `TField` | `x.Category.SomeField` — works; arbitrary expressions — not supported |

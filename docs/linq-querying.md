@@ -43,11 +43,11 @@ var items = conn.Query<Product>()
 ```csharp
 // DataConnectionExtensions (ActiveForge.Linq namespace)
 public static OrmQueryable<T> Query<T>(this DataConnection connection)
-    where T : DataObject;
+    where T : Record;
 
 // Overload with pre-constructed template (useful with custom factories or join queries)
 public static OrmQueryable<T> Query<T>(this DataConnection connection, T template)
-    where T : DataObject;
+    where T : Record;
 ```
 
 Internally, `Query<T>()` creates a template instance (`conn.Create(typeof(T))`), wraps it in an `OrmQueryable<T>`, and returns it.
@@ -222,12 +222,12 @@ foreach (var product in products)
 
 ## Querying Across Joins
 
-When your entity embeds another `DataObject` (triggering a JOIN), LINQ predicates and sort selectors can navigate into the joined type directly.
+When your entity embeds another `Record` (triggering a JOIN), LINQ predicates and sort selectors can navigate into the joined type directly.
 
 ### Cross-Join `Where` Predicates
 
 ```csharp
-// x.Category.Name navigates the embedded DataObject → maps to Categories.Name
+// x.Category.Name navigates the embedded Record → maps to Categories.Name
 conn.Query(new ProductWithCategory(conn))
     .Where(x => x.Category.Name == "Books")
     .ToList();
@@ -290,14 +290,14 @@ OrmQueryable<Product> orm = (OrmQueryable<Product>)q;
 QueryTerm combined = orm.WhereTerm & new EqualTerm(product, product.Category, "Electronics");
 
 // Execute using the classic API:
-ObjectCollection results = conn.QueryAll(product, combined, null, 0, null);
+RecordCollection results = conn.QueryAll(product, combined, null, 0, null);
 ```
 
 ---
 
 ## How It Works
 
-1. `conn.Query<T>()` creates an `OrmQueryable<T>` wrapping a template `DataObject` instance.
+1. `conn.Query<T>()` creates an `OrmQueryable<T>` wrapping a template `Record` instance.
 2. Each LINQ operator (`.Where(...)`, `.OrderBy(...)`, etc.) calls `IQueryProvider.CreateQuery()` on `OrmQueryProvider<T>`.
 3. `OrmQueryProvider<T>` recursively walks the expression tree, translating each operator into ORM state (WhereTerm, SortOrder, PageSize, SkipCount).
 4. When you enumerate (`ToList()`, `foreach`, etc.), `OrmQueryable<T>.GetEnumerator()` calls `conn.LazyQueryAll<T>(...)` or `conn.QueryPage(...)` with the accumulated state.
@@ -311,8 +311,8 @@ The expression tree is traversed **at execution time**, so local variables are c
 | Limitation | Notes |
 |------------|-------|
 | No `GroupBy` | Not supported; use raw SQL or `ExecSQL`. |
-| No `Join` clause | Cross-join predicates and sorts work via embedded `DataObject` fields. See [joins.md](joins.md). |
-| No `Select` projection | Returns full typed `DataObject` instances; field subsets can be applied at the `conn.Query<T>(template)` level. |
+| No `Join` clause | Cross-join predicates and sorts work via embedded `Record` fields. See [joins.md](joins.md). |
+| No `Select` projection | Returns full typed `Record` instances; field subsets can be applied at the `conn.Query<T>(template)` level. |
 | No `Count()`, `First()`, etc. | Call the standard ORM methods (`conn.QueryCount(...)`, `conn.QueryFirst(...)`) directly. |
 | No async support | Use the synchronous API; async is planned for a future release. |
 

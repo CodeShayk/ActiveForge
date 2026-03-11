@@ -24,7 +24,7 @@ try
 
     // Update the order total
     order.TotalAmount.SetValue(59.98m);
-    order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    order.Update(RecordLock.UpdateOption.IgnoreLock);
 
     conn.CommitTransaction(tx);
 }
@@ -35,7 +35,7 @@ catch
 }
 ```
 
-All `DataObject` instances bound to the same `DataConnection` automatically participate
+All `Record` instances bound to the same `DataConnection` automatically participate
 in that connection's active transaction — there is no need to pass the transaction handle
 to each entity.
 
@@ -83,7 +83,7 @@ conn.CommitTransaction(outer);            // depth: 0 — real COMMIT
 
 ## Optimistic Locking
 
-`Update` accepts a `DataObjectLock.UpdateOption` that controls how the ORM
+`Update` accepts a `RecordLock.UpdateOption` that controls how the ORM
 handles concurrent writes:
 
 | Option | Behaviour |
@@ -95,10 +95,10 @@ handles concurrent writes:
 ```csharp
 // Most common — no concurrent locking needed
 product.Price.SetValue(14.99m);
-product.Update(DataObjectLock.UpdateOption.IgnoreLock);
+product.Update(RecordLock.UpdateOption.IgnoreLock);
 
 // Optimistic lock — throws ObjectLockException if another writer changed the row
-product.Update(DataObjectLock.UpdateOption.ReleaseLock);
+product.Update(RecordLock.UpdateOption.ReleaseLock);
 ```
 
 Catch `ObjectLockException` to handle a lost update gracefully:
@@ -106,14 +106,14 @@ Catch `ObjectLockException` to handle a lost update gracefully:
 ```csharp
 try
 {
-    product.Update(DataObjectLock.UpdateOption.ReleaseLock);
+    product.Update(RecordLock.UpdateOption.ReleaseLock);
 }
 catch (ObjectLockException)
 {
     // Another process updated this row — re-read and retry
     product.Read();
     product.Price.SetValue(14.99m);
-    product.Update(DataObjectLock.UpdateOption.ReleaseLock);
+    product.Update(RecordLock.UpdateOption.ReleaseLock);
 }
 ```
 
@@ -219,7 +219,7 @@ var tx = conn.BeginTransaction();
 conn.ReadForUpdate(product, null);   // SELECT ... WITH (UPDLOCK)
 
 product.Price.SetValue(product.Price + 5m);
-product.Update(DataObjectLock.UpdateOption.IgnoreLock);
+product.Update(RecordLock.UpdateOption.IgnoreLock);
 
 conn.CommitTransaction(tx);          // lock released
 ```
@@ -234,4 +234,4 @@ conn.CommitTransaction(tx);          // lock released
 | Multiple entities atomically | `BeginTransaction` → operations → `CommitTransaction` |
 | Bulk inserts / updates | `QueueForInsert` / `QueueForUpdate` → `ProcessActionQueue` |
 | Preventing lost updates | `ReadForUpdate` inside a transaction |
-| Optimistic concurrency | `Update(DataObjectLock.UpdateOption.ReleaseLock)` + catch `ObjectLockException` |
+| Optimistic concurrency | `Update(RecordLock.UpdateOption.ReleaseLock)` + catch `ObjectLockException` |

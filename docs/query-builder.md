@@ -8,7 +8,7 @@ object that knows how to emit parameterised SQL and bind its parameters.
 ### Comparison terms
 
 ```csharp
-// The first argument is always the "template" DataObject that owns the field.
+// The first argument is always the "template" Record that owns the field.
 var template = new Product(conn);
 
 new EqualTerm         (template, template.Name,  "Widget")   // Name = @Name1
@@ -103,7 +103,7 @@ QueryTerm term = new EqualTerm(template, template.InStock, true);
 SortOrder sort = new OrderAscending(template, template.Price);
 
 // All matching rows
-ObjectCollection all = conn.QueryAll(template, term, sort, 0 /*pageSize*/, null);
+RecordCollection all = conn.QueryAll(template, term, sort, 0 /*pageSize*/, null);
 
 // Just count
 int count = conn.QueryCount(template, term);
@@ -112,7 +112,7 @@ int count = conn.QueryCount(template, term);
 bool found = conn.QueryFirst(template, term, sort, null);
 
 // Paginated: skip 20, take 10
-ObjectCollection page = conn.QueryPage(template, term, sort, 20 /*start*/, 10 /*count*/, null);
+RecordCollection page = conn.QueryPage(template, term, sort, 20 /*start*/, 10 /*count*/, null);
 Console.WriteLine($"Page has {page.Count} rows; IsMoreData={page.IsMoreData}");
 
 // Stream without loading all into memory
@@ -133,7 +133,7 @@ with a raw ORDER BY clause.
 
 ## Fluent Query Builder
 
-`Query<T>` wraps a DataObject and provides a fluent API used primarily for EXISTS sub-queries:
+`Query<T>` wraps a Record and provides a fluent API used primarily for EXISTS sub-queries:
 
 ```csharp
 var q = new Query<OrderLine>(orderLine, conn)
@@ -143,13 +143,13 @@ var q = new Query<OrderLine>(orderLine, conn)
             .Take(10)
             .Select(fieldSubset);
 
-ObjectCollection results = q.QueryAll();
+RecordCollection results = q.QueryAll();
 int count = q.QueryCount();
 ```
 
 ## Pagination Details
 
-`QueryPage` returns an `ObjectCollection` with extra properties:
+`QueryPage` returns an `RecordCollection` with extra properties:
 
 | Property | Description |
 |----------|-------------|

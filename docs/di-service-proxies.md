@@ -96,7 +96,7 @@ public class OrderService : IOrderService, IService
         _conn.Read(order);
 
         order.Status.SetValue("Shipped");
-        order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+        order.Update(RecordLock.UpdateOption.IgnoreLock);
         shipment.OrderID.SetValue(orderId);
         shipment.Insert();
         // Connection opened before this method; transaction commits here on success.
@@ -356,7 +356,7 @@ ActiveForgeServiceLocator.SetProvider(app.Services);
 With.Transaction(() =>
 {
     order.Status.SetValue("Shipped");
-    order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    order.Update(RecordLock.UpdateOption.IgnoreLock);
 });
 ```
 

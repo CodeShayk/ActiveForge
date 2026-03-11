@@ -6,7 +6,7 @@ Mark a field with `[Encrypted]` to have values automatically encrypted before
 INSERT/UPDATE and decrypted after SELECT.
 
 ```csharp
-public class SecureData : IdentDataObject
+public class SecureData : IdentityRecord
 {
     [Column("SSN")]
     [Encrypted(typeof(AesEncryption), EncryptionMethodType.AllDataEncrypted)]
@@ -48,9 +48,9 @@ Implement `IDBFieldMapper` to handle non-standard CLR ↔ DB type conversions:
 ```csharp
 public class JsonMapper : IDBFieldMapper
 {
-    private DataObject _container;
+    private Record _container;
 
-    public void SetContainingDataObject(DataObject obj) => _container = obj;
+    public void SetContainingDataObject(Record obj) => _container = obj;
 
     public object ConvertToDBValue(object value)
         => value is MyStruct s ? System.Text.Json.JsonSerializer.Serialize(s) : null;
@@ -85,12 +85,12 @@ Pass `AppFactory` to the connection constructor.
 
 ## Lookup Objects
 
-`LookupDataObject` is a base class for reference / code-table entities whose rows are
+`LookupRecord` is a base class for reference / code-table entities whose rows are
 cached in memory after the first load.
 
 ```csharp
 [Table("Statuses")]
-public class Status : LookupDataObject
+public class Status : LookupRecord
 {
     [Column("Code")]  public TString Code  = new TString();
     [Column("Label")] public TString Label = new TString();
@@ -102,7 +102,7 @@ public class Status : LookupDataObject
 }
 ```
 
-When the ORM resolves a foreign-key relationship to a `LookupDataObject`, it reads from
+When the ORM resolves a foreign-key relationship to a `LookupRecord`, it reads from
 the in-memory cache rather than issuing a JOIN, reducing round trips for high-read
 reference tables.
 
@@ -131,13 +131,13 @@ Similarly: `QueueForUpdate()`, `QueueForDelete()`.
 var result = conn.ExecStoredProcedure(
     template, "usp_GetProductsByCategory",
     0 /*start*/, 0 /*count (0=all)*/,
-    new DataObject.SPInputParameter("@CategoryID", 2));
+    new Record.SPInputParameter("@CategoryID", 2));
 ```
 
 ## Raw SQL
 
 ```csharp
-// Returns an ObjectCollection populated from the query
+// Returns an RecordCollection populated from the query
 var results = conn.ExecSQL(template,
     "SELECT * FROM Products WHERE CreatedAt > @since",
     new Dictionary<string, object> { { "@since", DateTime.Today.AddDays(-7) } });

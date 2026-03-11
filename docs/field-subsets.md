@@ -74,7 +74,7 @@ Console.WriteLine(p.Price);         // populated
 Console.WriteLine(p.Description);   // IsNull() == true — was not fetched
 
 // QueryAll with subset
-ObjectCollection results = conn.QueryAll(template, term, sort, 0, nameAndPrice);
+RecordCollection results = conn.QueryAll(template, term, sort, 0, nameAndPrice);
 
 // QueryFirst with subset
 conn.QueryFirst(template, term, sort, nameAndPrice);
@@ -113,7 +113,7 @@ conn.ProcessActionQueue();
 
 ## Field Subsets on Embedded (Joined) Objects
 
-When a `DataObject` embeds another `DataObject` as a field (joined table), you can
+When a `Record` embeds another `Record` as a field (joined table), you can
 include or exclude the entire embedded object's fields:
 
 ```csharp
@@ -121,7 +121,7 @@ include or exclude the entire embedded object's fields:
 FieldSubset withCategory = conn.FieldSubset(
     rootObject:      product,
     enclosing:       product,
-    enclosed:        product.Category   // a nested DataObject
+    enclosed:        product.Category   // a nested Record
 );
 
 // Or exclude it to skip the JOIN entirely

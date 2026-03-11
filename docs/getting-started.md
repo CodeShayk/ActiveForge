@@ -64,14 +64,14 @@ If consuming published NuGet packages:
 
 ## Concepts
 
-### DataObject — the Active Record base
+### Record — the Active Record base
 
-Every database entity extends `DataObject` (or `IdentDataObject` for auto-increment PK tables).
+Every database entity extends `Record` (or `IdentityRecord` for auto-increment PK tables).
 Fields are declared as **public fields** of a `TField` subtype — not properties.
 
 ```csharp
 [Table("Customers")]
-public class Customer : IdentDataObject
+public class Customer : IdentityRecord
 {
     [Column("FirstName")] public TString  FirstName = new TString();
     [Column("LastName")]  public TString  LastName  = new TString();
@@ -86,7 +86,7 @@ public class Customer : IdentDataObject
 
 The `[Table]` attribute names the SQL table.
 The `[Column]` attribute names the SQL column.
-`IdentDataObject` adds an `ID` field (`TPrimaryKey`) with `[Identity]` — auto-populated after INSERT.
+`IdentityRecord` adds an `ID` field (`TPrimaryKey`) with `[Identity]` — auto-populated after INSERT.
 
 ### TField — null-aware typed wrapper
 
@@ -156,7 +156,7 @@ if (found)
 
 ```csharp
 c.Balance.SetValue(250m);
-c.Update(DataObjectLock.UpdateOption.IgnoreLock);
+c.Update(RecordLock.UpdateOption.IgnoreLock);
 
 // To update all fields unconditionally:
 c.UpdateAll();
@@ -165,7 +165,7 @@ c.UpdateAll();
 c.UpdateChanged();
 ```
 
-`DataObjectLock.UpdateOption` values:
+`RecordLock.UpdateOption` values:
 - `ReleaseLock` — release the optimistic lock after update
 - `RetainLock` — keep the lock (for subsequent updates in same transaction)
 - `IgnoreLock` — skip all locking (simplest, use for non-concurrent tables)
@@ -221,7 +221,7 @@ public class CustomerRepository
         return c.Read() ? c : null;
     }
 
-    public ObjectCollection GetActive()
+    public RecordCollection GetActive()
     {
         var template = new Customer(_conn);
         var term = new EqualTerm(template, template.Active, true);
@@ -231,7 +231,7 @@ public class CustomerRepository
     public void Save(Customer c)
     {
         if (c.ID.IsNull()) c.Insert();
-        else               c.Update(DataObjectLock.UpdateOption.IgnoreLock);
+        else               c.Update(RecordLock.UpdateOption.IgnoreLock);
     }
 
     public void Delete(Customer c) => c.Delete();

@@ -924,7 +924,7 @@ Metadata about a single mapped field. Populated by `DBDataConnection.PopulateSQL
 ```csharp
 public class TargetFieldInfo
 {
-    public FieldInfo FieldInfo;         // Reflection handle to the TField field on the DataObject
+    public FieldInfo FieldInfo;         // Reflection handle to the TField field on the Record
     public string    FieldName;         // C# field name (e.g. "Name")
     public string    TargetName;        // DB column name (e.g. "ProductName")
     public string    SourceName;        // DB table alias / source name (e.g. "Products")
@@ -1004,7 +1004,7 @@ Created by `OrmQueryable<T>.InnerJoin<TJoined>()` / `.LeftOuterJoin<TJoined>()`.
 ```csharp
 public readonly struct JoinOverride
 {
-    public readonly Type                          TargetType; // which embedded DataObject type to override
+    public readonly Type                          TargetType; // which embedded Record type to override
     public readonly JoinSpecification.JoinTypeEnum JoinType;  // the replacement join type
 
     public JoinOverride(Type targetType, JoinSpecification.JoinTypeEnum joinType);
@@ -1154,7 +1154,7 @@ Use this checklist when building a new provider.
 - [ ] Identity assignment — verify the identity field is populated after INSERT
 - [ ] Query terms — `EqualTerm`, `LikeTerm`, `GreaterThanTerm`, `ContainsTerm` (IN clause)
 - [ ] Pagination — `QueryPage` with non-zero `start`
-- [ ] JOIN queries — inner join, left outer join via `QueryAll` with embedded `DataObject`
+- [ ] JOIN queries — inner join, left outer join via `QueryAll` with embedded `Record`
 - [ ] Transactions — commit path, rollback path, nested UoW depth
 - [ ] `IUnitOfWork` depth counter — outer commit only commits at depth 0
 - [ ] LINQ layer — `conn.Query<T>().Where(...).OrderBy(...).Take(...).Skip(...).ToList()`
