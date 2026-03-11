@@ -18,9 +18,9 @@ on:
     branches: ["master"]
 
 # Cancel in-progress runs on the same branch when a new push arrives
- concurrency:
-   group: ${{ github.workflow }}-${{ github.ref }}
-   cancel-in-progress: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analyze:
