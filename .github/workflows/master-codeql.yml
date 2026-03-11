@@ -16,7 +16,12 @@ on:
     branches: ["master"]
   pull_request:
     branches: ["master"]
-    
+
+# Cancel in-progress runs on the same branch when a new push arrives
+ concurrency:
+   group: ${{ github.workflow }}-${{ github.ref }}
+   cancel-in-progress: true
+
 jobs:
   analyze:
     name: Analyze
@@ -69,4 +74,5 @@ jobs:
       uses: github/codeql-action/analyze@v2
       with:
         category: "/language:${{matrix.language}}"
+
 
