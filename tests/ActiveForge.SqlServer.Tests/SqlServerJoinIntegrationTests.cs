@@ -63,14 +63,16 @@ namespace ActiveForge.SqlServer.Tests
         private readonly string _dbName =
             $"af_join_{System.Threading.Interlocked.Increment(ref _counter)}";
 
-        private const string MasterConnStr =
-            @"Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=master;" +
-            "Integrated Security=True;TrustServerCertificate=True";
+        private static string MasterConnStr =>
+            Environment.GetEnvironmentVariable("SS_ADMIN_CONNSTR")
+            ?? @"Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=master;Integrated Security=True;TrustServerCertificate=True";
 
         private string TestConnStr =>
-            $@"Data Source=(localdb)\MSSQLLocalDB;Initial Catalog={_dbName};" +
-            "Integrated Security=True;TrustServerCertificate=True;" +
-            "MultipleActiveResultSets=True";
+            new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(MasterConnStr)
+            {
+                InitialCatalog           = _dbName,
+                MultipleActiveResultSets = true,
+            }.ConnectionString;
 
         private readonly SqlServerConnection _conn;
         private int _electronicsId;
