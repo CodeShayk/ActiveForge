@@ -8,7 +8,7 @@ A complete reference for every concept in ActiveForge: architecture, field types
 
 1. [The Active Record Pattern](#1-the-active-record-pattern)
 2. [Architecture Overview](#2-architecture-overview)
-3. [Entities — DataObject and IdentDataObject](#3-entities--dataobject-and-identdataobject)
+3. [Entities — Record and IdentityRecord](#3-entities--record-and-identityrecord)
 4. [Field Types (TField System)](#4-field-types-tfield-system)
 5. [DataConnection — The Gateway](#5-dataconnection--the-gateway)
 6. [CRUD Operations](#6-crud-operations)
@@ -30,6 +30,9 @@ A complete reference for every concept in ActiveForge: architecture, field types
 22. [Quick Reference Cheat Sheet](#22-quick-reference-cheat-sheet)
 23. [MongoDB Provider](#23-mongodb-provider)
 24. [SQLite Provider](#24-sqlite-provider)
+25. [Attributes Reference](#25-attributes-reference)
+26. [Joins and Relationships](#26-joins-and-relationships)
+27. [Complete Examples](#27-complete-examples)
 
 ---
 
@@ -39,7 +42,7 @@ A complete reference for every concept in ActiveForge: architecture, field types
 
 Active Record is a design pattern first named by Martin Fowler in *Patterns of Enterprise Application Architecture* (2003). Its defining idea is simple: **an object that represents a database row also knows how to persist itself**. The class carries both the data (fields mapping to columns) and the behaviour that reads, writes, and deletes that data from the database. There is no separate layer sitting between the object and the database — the object *is* the persistence unit.
 
-In ActiveForge every entity class inherits from `DataObject`. A `DataObject` instance holds typed field objects (`TString`, `TDecimal`, `TBool`, …) for each column, and exposes methods like `Insert()`, `Update()`, `Delete()`, and `Read()` that execute the corresponding SQL:
+In ActiveForge every entity class inherits from `Record`. A `Record` instance holds typed field objects (`TString`, `TDecimal`, `TBool`, …) for each column, and exposes methods like `Insert()`, `Update()`, `Delete()`, and `Read()` that execute the corresponding SQL:
 
 ```csharp
 // The object carries data AND knows how to save itself.
@@ -76,7 +79,7 @@ Data Mapper separates domain objects completely from persistence logic. A plain 
 
 | Concern | Active Record (ActiveForge) | Data Mapper (EF Core) |
 |---------|---------------------------|----------------------|
-| Where does persistence logic live? | On the entity class (`DataObject`) | In the ORM mapping layer, separate from the domain object |
+| Where does persistence logic live? | On the entity class (`Record`) | In the ORM mapping layer, separate from the domain object |
 | Domain object awareness | Entity knows its own columns and how to save itself | Entity is a plain class with no ORM dependency |
 | Boilerplate per table | One class | Entity + mapping configuration (fluent or attributes) + optional repository |
 | Ideal for | CRUD-heavy applications, direct DB → object mapping | Complex domain models where business logic must be insulated from persistence concerns |
@@ -114,7 +117,7 @@ Some teams use plain data transfer objects with a separate command/query handler
 
 **Shared connection, not embedded connection.** The entity does not open its own database connection. Instead, one `DataConnection` is passed in at construction time and shared across all objects in a unit of work. This keeps connection management explicit and testable, while still letting the object call `Insert()` / `Update()` without the caller needing to think about the connection.
 
-**Delegation, not inheritance from the connection.** `DataObject.Insert()` delegates to `conn.Insert(this)`. The SQL generation, parameter binding, and result hydration live in `DataConnection` (and its SQL Server implementation), not in each entity. Entities therefore stay lean — they contain field declarations and business logic, nothing else.
+**Delegation, not inheritance from the connection.** `Record.Insert()` delegates to `conn.Insert(this)`. The SQL generation, parameter binding, and result hydration live in `DataConnection` (and its SQL Server implementation), not in each entity. Entities therefore stay lean — they contain field declarations and business logic, nothing else.
 
 **Optional Unit of Work on top.** Pure Active Record is sometimes criticised for making it hard to batch multiple saves into a single transaction in a clean way. ActiveForge addresses this with the `IUnitOfWork` / `With.Transaction` layer (§11), which can wrap any number of `Insert()` / `Update()` / `Delete()` calls in a managed transaction without changing the entity code at all.
 
@@ -140,7 +143,7 @@ Entity classes only reference `ActiveForge`. Applications add the appropriate pr
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │  Your Application                                                                        │
 │                                                                                          │
-│  DataObject subclass ──── CRUD ────► DataConnection (abstract, core)                    │
+│  Record subclass ──── CRUD ────► DataConnection (abstract, core)                    │
 │  (fields, logic)                         │                                               │
 │  QueryTerm / LINQ ─── query calls ───────┤                                               │
 │                                          │ implemented by (choose one)                   │
@@ -154,7 +157,7 @@ Entity classes only reference `ActiveForge`. Applications add the appropriate pr
 
 ### 2.2 Core Principles
 
-- **Active Record** — `DataObject` instances know how to persist themselves via a shared `DataConnection`.
+- **Active Record** — `Record` instances know how to persist themselves via a shared `DataConnection`.
 - **Type-safe fields** — every column is represented by a `TField` subclass, not a bare property. This tracks null/loaded state and enables predicate construction.
 - **Composable predicates** — `QueryTerm` objects compose with C# `&`, `|`, `!` operators to build arbitrary WHERE clauses.
 - **Connection-centric** — `DataConnection` is the single point of query execution; entities delegate to it.
@@ -162,14 +165,14 @@ Entity classes only reference `ActiveForge`. Applications add the appropriate pr
 
 ---
 
-## 3. Entities — DataObject and IdentDataObject
+## 3. Entities — Record and IdentityRecord
 
 ### 3.1 Base Classes
 
 | Class | When to use |
 |-------|-------------|
-| `DataObject` | Tables without a single integer auto-identity primary key |
-| `IdentDataObject` | Tables with an `INT IDENTITY(1,1)` primary key (exposed as `ID: TPrimaryKey`) |
+| `Record` | Tables without a single integer auto-identity primary key |
+| `IdentityRecord` | Tables with an `INT IDENTITY(1,1)` primary key (exposed as `ID: TPrimaryKey`) |
 
 ### 3.2 Defining an Entity
 
@@ -178,7 +181,7 @@ using ActiveForge;
 using ActiveForge.Attributes;
 
 [Table("Products")]
-public class Product : IdentDataObject
+public class Product : IdentityRecord
 {
     // Each public field maps to a column.
     // The [Column] attribute sets the DB column name.
@@ -198,13 +201,13 @@ public class Product : IdentDataObject
 **Conventions:**
 - `[Table("TableName")]` — maps the class to a DB table.
 - `[Column("ColumnName")]` — maps a field to a DB column (required).
-- `[Identity]` — marks a field as auto-generated (implicit on `IdentDataObject.ID`).
+- `[Identity]` — marks a field as auto-generated (implicit on `IdentityRecord.ID`).
 - Fields are **public instance fields**, not properties. The ORM finds them via reflection.
 - A no-arg constructor is mandatory; the ORM calls it when hydrating query results.
 
-### 3.3 IdentDataObject.ID
+### 3.3 IdentityRecord.ID
 
-`IdentDataObject` adds:
+`IdentityRecord` adds:
 
 ```csharp
 [Column("ID")]
@@ -216,11 +219,11 @@ After `Insert()`, `ID.GetValue()` returns the new auto-generated integer.
 
 ### 3.4 Embedded / Joined Objects
 
-Embed another `DataObject` as a field to express a JOIN:
+Embed another `Record` as a field to express a JOIN:
 
 ```csharp
 [Table("OrderLines")]
-public class OrderLine : IdentDataObject
+public class OrderLine : IdentityRecord
 {
     [Column("OrderID")]  public TForeignKey OrderID  = new TForeignKey();
     [Column("Qty")]      public TInt        Qty      = new TInt();
@@ -479,7 +482,7 @@ product.Price.SetValue(19.99m);
 product.UpdateChanged();
 
 // With locking options:
-product.Update(DataObjectLock.UpdateOption.IgnoreLock);
+product.Update(RecordLock.UpdateOption.IgnoreLock);
 ```
 
 ### 6.4 Delete
@@ -600,10 +603,12 @@ QueryTerm complex = (inStock & cheap) | (named & !inStock);
 var template = new Product(conn);
 
 // All matching rows (loads into memory):
-ObjectCollection results = conn.QueryAll(template, term, sortOrder, 0, null);
+RecordCollection results = conn.QueryAll(template, term, sortOrder, 0, null);
 
-// First match only:
-DataObject first = conn.QueryFirst(template, term, sortOrder);
+// First match only — populates `template` in-place; returns true if a row was found:
+bool found = conn.QueryFirst(template, term, sortOrder, null);
+if (found)
+    Console.WriteLine(template.Name.GetValue());
 
 // Count:
 int count = conn.QueryCount(template, term);
@@ -778,7 +783,7 @@ List<Product> results = conn.Query<Product>()
 | Limitation | Workaround |
 |------------|-----------|
 | No `GroupBy` | Use raw SQL (`ExecSQL`) |
-| No `Join` | Use embedded `DataObject` fields |
+| No `Join` | Use embedded `Record` fields |
 | No `Select` projection | Use `FieldSubset` on template |
 | No `Count()`, `First()` | Use `conn.QueryCount()`, `conn.QueryFirst()` |
 | No async | Async planned for a future release |
@@ -1080,7 +1085,7 @@ public void Ship(int orderId)
     order.ID.SetValue(orderId);
     _conn.Read(order);
     order.Status.SetValue("Shipped");
-    order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    order.Update(RecordLock.UpdateOption.IgnoreLock);
     // commit on success; rollback + close on exception
 }
 ```
@@ -1266,7 +1271,7 @@ conn.ProcessActionQueue();
 
 ```csharp
 [Table("Customers")]
-public class Customer : IdentDataObject
+public class Customer : IdentityRecord
 {
     [Column("SSN")]
     [Encrypted]                          // transparent encrypt/decrypt
@@ -1330,50 +1335,43 @@ Register on a specific field type or globally via the connection.
 
 ## 16. Polymorphic Mapping (FactoryBase)
 
-Override `FactoryBase.Create(Type)` to return concrete subtypes based on a discriminator:
+`FactoryBase` maps abstract base types to concrete subtypes. The ORM uses the map when it needs to instantiate an object during query hydration.
+
+**Static type substitution** — the common case:
 
 ```csharp
-[Table("Shapes")]
-public abstract class Shape : IdentDataObject
+[Table("shapes")]
+public abstract class Shape : IdentityRecord
 {
-    [Column("Kind")]   public TString Kind   = new TString();
-    [Column("Colour")] public TString Colour = new TString();
+    [Column("kind")]   public TString  Kind   = new TString();
+    [Column("colour")] public TString  Colour = new TString();
     protected Shape() { }
     protected Shape(DataConnection conn) : base(conn) { }
 }
 
-[Table("Shapes")]
+[Table("shapes")]
 public class Circle : Shape
 {
-    [Column("Radius")] public TDecimal Radius = new TDecimal();
+    [Column("radius")] public TDecimal Radius = new TDecimal();
     public Circle() { }
     public Circle(DataConnection conn) : base(conn) { }
 }
 
-[Table("Shapes")]
+[Table("shapes")]
 public class Rectangle : Shape
 {
-    [Column("Width")]  public TDecimal Width  = new TDecimal();
-    [Column("Height")] public TDecimal Height = new TDecimal();
+    [Column("width")]  public TDecimal Width  = new TDecimal();
+    [Column("height")] public TDecimal Height = new TDecimal();
     public Rectangle() { }
     public Rectangle(DataConnection conn) : base(conn) { }
 }
 
+// Factory: always map Shape → Circle when Circle is the only concrete subtype
 public class ShapeFactory : FactoryBase
 {
-    public override DataObject Create(Type type, DataObject template)
+    protected override void CreateTypeMap()
     {
-        if (type == typeof(Shape))
-        {
-            string kind = (string)((Shape)template).Kind.GetValue();
-            return kind switch
-            {
-                "circle"    => new Circle(),
-                "rectangle" => new Rectangle(),
-                _           => base.Create(type, template)
-            };
-        }
-        return base.Create(type, template);
+        AddTypeMapping(typeof(Shape), typeof(Circle));
     }
 }
 ```
@@ -1384,24 +1382,51 @@ Register at connection time:
 var conn = new SqlServerConnection(connectionString, new ShapeFactory());
 ```
 
+Query using the abstract type — the factory substitutes `Circle` transparently:
+
+```csharp
+var template = new Shape(conn);          // Shape is the query template
+var circles  = conn.QueryAll(template, null, null, 0, null);
+// Each result is a Circle instance cast to Shape
+foreach (Shape s in circles)
+    Console.WriteLine($"Radius: {((Circle)s).Radius.GetValue()}");
+```
+
+**Multiple concrete types** — use `expectedTypes` parameter to hydrate different subtypes in one query:
+
+```csharp
+// Pass both concrete types; the ORM routes each row to the correct type via AddTypeMapping
+var results = conn.QueryAll(
+    new Shape(conn),
+    null, null, 0,
+    new[] { typeof(Circle), typeof(Rectangle) },
+    null);
+
+foreach (Shape s in results)
+{
+    if (s is Circle c)         Console.WriteLine($"Circle   radius={c.Radius.GetValue()}");
+    else if (s is Rectangle r) Console.WriteLine($"Rectangle {r.Width.GetValue()}×{r.Height.GetValue()}");
+}
+```
+
 ---
 
 ## 17. Optimistic Locking
 
-`DataObjectLock.UpdateOption` controls what happens when another process has modified the row:
+`RecordLock.UpdateOption` controls what happens when another process has modified the row:
 
 ```csharp
 // Default — throws ObjectLockException if row was modified elsewhere:
 product.Update();
 
 // Ignore lock — always overwrite:
-product.Update(DataObjectLock.UpdateOption.IgnoreLock);
+product.Update(RecordLock.UpdateOption.IgnoreLock);
 
 // Release lock after update:
-product.Update(DataObjectLock.UpdateOption.ReleaseLock);
+product.Update(RecordLock.UpdateOption.ReleaseLock);
 
 // Retain lock after update:
-product.Update(DataObjectLock.UpdateOption.RetainLock);
+product.Update(RecordLock.UpdateOption.RetainLock);
 ```
 
 Handle lock conflicts:
@@ -1476,11 +1501,11 @@ DataTable result = conn.ExecStoredProcedure("usp_GetProductsByCategory", paramet
 
 ## 20. Lookup / Cached Reference Tables
 
-`LookupDataObject` caches its rows after the first load, suitable for small reference tables:
+`LookupRecord` caches its rows after the first load, suitable for small reference tables:
 
 ```csharp
 [Table("Categories")]
-public class Category : LookupDataObject
+public class Category : LookupRecord
 {
     [Column("Name")] public TString Name = new TString();
     public Category() { }
@@ -1499,7 +1524,7 @@ var categories = conn.QueryAll(new Category(conn), null, null, 0, null);
 
 ```
 ActiveForge (core — no provider dependency)
-├── DataObject / IdentDataObject / LookupDataObject
+├── Record / IdentityRecord / LookupRecord
 ├── DataConnection (abstract) / DBDataConnection (abstract)
 ├── TField subtypes (25+)
 ├── QueryTerm tree (EqualTerm, AndTerm, InTerm, …)
@@ -1527,7 +1552,7 @@ ActiveForge.MongoDB (depends on ActiveForge + MongoDB.Driver)
 ├── MongoDataConnection : DataConnection   ← extends DataConnection directly (not DBDataConnection)
 ├── Internal/MongoFieldDescriptor          (per-field BSON name cache)
 ├── Internal/MongoTypeCache                (per-type collection name + field descriptors)
-├── Internal/MongoMapper                   (DataObject ↔ BsonDocument serialization)
+├── Internal/MongoMapper                   (Record ↔ BsonDocument serialization)
 ├── Internal/MongoQueryTranslator          (QueryTerm → FilterDefinition, SortOrder → SortDefinition)
 └── Transactions/MongoUnitOfWork : UnitOfWorkBase
 ```
@@ -1543,7 +1568,7 @@ All provider types use the `ActiveForge` namespace — the same namespace as the
 - The `[Table]` name
 - Identity field info
 
-`ObjectCollection : List<DataObject>` is returned by bulk query methods.
+`RecordCollection : List<Record>` is returned by bulk query methods.
 
 ### 21.2 OrmQueryable<T> State Machine
 
@@ -1552,7 +1577,7 @@ The LINQ pipeline accumulates state immutably in `OrmQueryable<T>`:
 ```
 OrmQueryable<T>
 ├── Connection    : DataConnection
-├── Template      : T              (template DataObject instance)
+├── Template      : T              (template Record instance)
 ├── WhereTerm     : QueryTerm?     (accumulated AND tree)
 ├── SortOrder     : SortOrder?     (primary; CombinedSortOrder for multi-column)
 ├── PageSize      : int?           (Take)
@@ -1621,7 +1646,7 @@ public class CombinedSortOrder : SortOrder
 
 ```csharp
 [Table("TableName")]
-public class MyEntity : IdentDataObject
+public class MyEntity : IdentityRecord
 {
     [Column("ColA")] public TString  ColA = new TString();
     [Column("ColB")] public TDecimal ColB = new TDecimal();
@@ -1756,7 +1781,7 @@ using ActiveForge;
 using ActiveForge.Attributes;
 
 [Table("products")]
-public class Product : IdentDataObject
+public class Product : IdentityRecord
 {
     [Column("name")]     public TString  Name    = new TString();
     [Column("price")]    public TDecimal Price   = new TDecimal();
@@ -1767,7 +1792,7 @@ public class Product : IdentDataObject
 }
 ```
 
-The `[Identity]` field (added by `IdentDataObject`) maps to MongoDB's `_id` field stored as `int32`. Auto-increment is simulated via a `__turquoise_counters` collection.
+The `[Identity]` field (added by `IdentityRecord`) maps to MongoDB's `_id` field stored as `int32`. Auto-increment is simulated via an `__activeforge_counters` collection.
 
 ### 23.4 CRUD
 
@@ -1787,7 +1812,7 @@ bool found = p2.Read();
 
 // UPDATE
 p.Price.SetValue(14.99m);
-p.Update(DataObjectLock.UpdateOption.IgnoreLock);
+p.Update(RecordLock.UpdateOption.IgnoreLock);
 
 // DELETE by primary key
 p.Delete();
@@ -1849,7 +1874,7 @@ using IUnitOfWork uow = new MongoUnitOfWork(conn);
 With.Transaction(uow, () =>
 {
     product.Status.SetValue("Shipped");
-    product.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    product.Update(RecordLock.UpdateOption.IgnoreLock);
     shipment.Insert();
 });
 ```
@@ -1933,7 +1958,7 @@ using ActiveForge;
 using ActiveForge.Attributes;
 
 [Table("products")]
-public class Product : IdentDataObject
+public class Product : IdentityRecord
 {
     [Column("name")]     public TString  Name    = new TString();
     [Column("price")]    public TDecimal Price   = new TDecimal();
@@ -1966,7 +1991,7 @@ bool found = p2.Read();
 
 // UPDATE
 p.Price.SetValue(14.99m);
-p.Update(DataObjectLock.UpdateOption.IgnoreLock);
+p.Update(RecordLock.UpdateOption.IgnoreLock);
 
 // DELETE by primary key
 p.Delete();
@@ -1995,7 +2020,7 @@ conn.BeginTransaction();
 try
 {
     order.Status.SetValue("Shipped");
-    order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    order.Update(RecordLock.UpdateOption.IgnoreLock);
     shipment.Insert();
     conn.CommitTransaction();
 }
@@ -2010,7 +2035,7 @@ var uow = new SQLiteUnitOfWork(conn);
 With.Transaction(uow, () =>
 {
     order.Status.SetValue("Shipped");
-    order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    order.Update(RecordLock.UpdateOption.IgnoreLock);
     shipment.Insert();
 });
 
@@ -2057,6 +2082,1290 @@ SQLite uses type affinity rather than strict types. `SQLiteConnection.MapNativeT
 - **`IDENTITY_INSERT` toggle** — not needed; `PreInsertIdentityCommand`/`PostInsertIdentityCommand` return empty strings.
 - **Isolation level mapping** — levels not supported by SQLite are silently promoted (see §24.6).
 - **In-memory lifetime** — a `Data Source=:memory:` connection is destroyed when it closes.  Use a named shared-cache string (`Mode=Memory;Cache=Shared`) when the connection must be reopened or shared.
+
+---
+
+## 25. Attributes Reference
+
+Every attribute lives in the `ActiveForge.Attributes` namespace (except `[Transaction]` which is in `ActiveForge.Transactions`). Add `using ActiveForge.Attributes;` to any file that uses them.
+
+---
+
+### 25.1 Entity / Class Attributes
+
+#### `[Table]`
+
+Maps a class to a database table, view, or MongoDB collection.
+
+```csharp
+[Table("products")]
+public class Product : IdentityRecord { ... }
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sourceName` | `string` | Table / collection / view name as it appears in the database |
+
+> **PostgreSQL:** fold to lower-case. **MongoDB:** used verbatim as collection name.
+
+---
+
+#### `[BaseTable]`
+
+Used in multi-table inheritance hierarchies. Marks the *root* table that the concrete class's rows ultimately belong to. Applied to the abstract base class alongside `[Table]`.
+
+```csharp
+// Abstract base stores shared columns in "employees"
+[Table("employees")]
+[BaseTable("employees")]
+public abstract class Employee : IdentityRecord
+{
+    [Column("name")]       public TString  Name     = new TString();
+    [Column("hire_date")]  public TDateTime HireDate = new TDateTime();
+
+    protected Employee() { }
+    protected Employee(DataConnection conn) : base(conn) { }
+}
+
+// Concrete type extends with columns in the same "employees" table
+[Table("employees")]
+public class Manager : Employee
+{
+    [Column("department")] public TString Department = new TString();
+    public Manager() { }
+    public Manager(DataConnection conn) : base(conn) { }
+}
+```
+
+---
+
+#### `[Computed]`
+
+Marks a class as representing a *derived* table (a computed view or joined projection) in a multi-table inheritance hierarchy. The ORM skips DDL generation for it and treats it as read-only.
+
+```csharp
+[Table("v_product_summary")]
+[Computed]
+public class ProductSummary : Record
+{
+    [Column("name")]        public TString  Name      = new TString();
+    [Column("total_sold")]  public TInt     TotalSold = new TInt();
+    [Column("revenue")]     public TDecimal Revenue   = new TDecimal();
+
+    public ProductSummary() { }
+    public ProductSummary(DataConnection conn) : base(conn) { }
+}
+```
+
+---
+
+#### `[Function]`
+
+Marks a class as mapping to a **table-valued function** rather than a table or view. The ORM passes parameters to the function call instead of issuing a plain SELECT.
+
+```csharp
+[Table("fn_products_by_category")]
+[Function]
+public class ProductByCategory : IdentityRecord
+{
+    [Column("name")]  public TString  Name  = new TString();
+    [Column("price")] public TDecimal Price = new TDecimal();
+
+    [ParameterPosition(0)] public TInt CategoryId = new TInt();
+
+    public ProductByCategory() { }
+    public ProductByCategory(DataConnection conn) : base(conn) { }
+}
+```
+
+---
+
+### 25.2 Field Mapping Attributes
+
+#### `[Column]`
+
+Maps a `TField` instance field to a database column (or BSON field for MongoDB).
+
+```csharp
+[Column("product_name")]
+public TString Name = new TString();
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `columnName` | `string` | Column name as it appears in the database |
+
+Every `TField` that should be persisted **must** have `[Column]`. Fields without it are ignored by the ORM.
+
+---
+
+#### `[Identity]`
+
+Marks a field as an auto-generated primary key. `IdentityRecord` applies it implicitly to its `ID: TPrimaryKey` field. Use explicitly only when defining a custom PK field on a `Record` subclass.
+
+```csharp
+// Explicit usage on Record (not IdentityRecord):
+[Table("orders")]
+public class Order : Record
+{
+    [Column("order_id")]
+    [Identity]
+    public TPrimaryKey OrderId = new TPrimaryKey();
+
+    [Column("customer_id")] public TForeignKey CustomerId = new TForeignKey();
+
+    public Order() { }
+    public Order(DataConnection conn) : base(conn) { }
+}
+```
+
+The ORM never writes this field in INSERT statements; the database generates the value. After `Insert()` it is populated with the generated key.
+
+---
+
+#### `[ReadOnly]`
+
+Marks a column as *read-only*: included in SELECT queries but never written in INSERT or UPDATE. Suitable for database-computed columns or columns managed by triggers.
+
+```csharp
+[Column("created_at")]
+[ReadOnly]
+public TDateTime CreatedAt = new TDateTime();
+
+[Column("row_hash")]
+[ReadOnly]
+public TString RowHash = new TString();  // computed by DB trigger
+```
+
+---
+
+#### `[DefaultValue]`
+
+Provides a default value that the ORM assigns when a new entity is constructed (before any `SetValue` call). Useful to avoid null state on fields that always carry an initial value.
+
+```csharp
+[Column("status")]
+[DefaultValue("pending")]
+public TString Status = new TString();
+
+[Column("quantity")]
+[DefaultValue(1)]
+public TInt Quantity = new TInt();
+
+[Column("created_at")]
+[DefaultValue(typeof(DateTime))]   // convention: pass Type for "DateTime.UtcNow"
+public TDateTime CreatedAt = new TDateTime();
+```
+
+---
+
+#### `[NoPreload]`
+
+Prevents a field from being included in the default SELECT. The field is still writable. Use for very large columns (e.g. `TEXT` blobs) that should only be fetched when explicitly requested via a `FieldSubset`.
+
+```csharp
+[Column("description")]
+[NoPreload]
+public TString Description = new TString();   // not fetched in QueryAll by default
+
+[Column("thumbnail")]
+[NoPreload]
+public TByteArray Thumbnail = new TByteArray();
+```
+
+To fetch a `[NoPreload]` field, include it in a `FieldSubset`:
+
+```csharp
+var template = new Product(conn);
+FieldSubset full = conn.DefaultFieldSubset(template);
+full += template.Description;   // explicitly include the no-preload field
+var results = conn.QueryAll(template, null, null, 0, full);
+```
+
+---
+
+#### `[NoTrim]`
+
+Prevents the ORM from trimming trailing whitespace when reading a `CHAR` or `VARCHAR` column. By default, `TString` trims trailing spaces on read. Apply this attribute to preserve exact stored values.
+
+```csharp
+[Column("fixed_code")]
+[NoTrim]
+public TString FixedCode = new TString();   // "ABC   " stored and returned as-is
+```
+
+---
+
+#### `[Optional]`
+
+Marks a column as *optional*: the column may not exist in the target database schema. If the column is absent from the schema introspection result, the ORM skips it silently instead of throwing. Useful when the same entity is used against multiple database versions.
+
+```csharp
+[Column("discount_pct")]
+[Optional]
+public TDecimal DiscountPct = new TDecimal();   // column may not exist in v1 schema
+```
+
+---
+
+#### `[Generator]`
+
+Specifies the name of a database **sequence** (PostgreSQL, Oracle) or **generator** that should supply the value for this field on INSERT. Used instead of `[Identity]` when the PK is fed by a named sequence rather than an `IDENTITY` / `SERIAL` column.
+
+```csharp
+[Column("invoice_no")]
+[Generator("seq_invoice_no")]
+public TInt InvoiceNo = new TInt();
+```
+
+---
+
+#### `[ParameterPosition]`
+
+Used together with `[Function]` on table-valued function entities. Assigns the positional index of a `TField` when it is passed as a parameter to the function call.
+
+```csharp
+[Table("fn_orders_by_date")]
+[Function]
+public class OrdersByDate : IdentityRecord
+{
+    [Column("total")]       public TDecimal Total = new TDecimal();
+    [Column("order_date")]  public TDate    OrderDate = new TDate();
+
+    [ParameterPosition(0)]  public TDate FromDate  = new TDate();
+    [ParameterPosition(1)]  public TDate ToDate    = new TDate();
+
+    public OrdersByDate() { }
+    public OrdersByDate(DataConnection conn) : base(conn) { }
+}
+```
+
+---
+
+#### `[Encrypted]`
+
+Marks a `TString` or `TByteArray` field for transparent encryption at the ORM layer. The raw database value is ciphertext; `GetValue()` always returns plaintext.
+
+```csharp
+using ActiveForge.Attributes;
+
+[Table("customers")]
+public class Customer : IdentityRecord
+{
+    [Column("name")]   public TString Name = new TString();
+
+    [Column("ssn")]
+    [Encrypted(typeof(AesFieldEncryption))]
+    public TString Ssn = new TString();
+
+    [Column("card_number")]
+    [Encrypted(typeof(AesFieldEncryption), EncryptedAttribute.EncryptionMethodType.PartialEncryption)]
+    public TString CardNumber = new TString();   // last 4 digits remain in plain text
+
+    public Customer() { }
+    public Customer(DataConnection conn) : base(conn) { }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `algorithmType` | `Type` | `IEncryptionAlgorithm` implementation to use |
+| `method` | `EncryptionMethodType` | `AllDataEncrypted` (default) or `PartialEncryption` |
+
+Implement the encryption algorithm:
+
+```csharp
+public class AesFieldEncryption : EncryptionAlgorithm
+{
+    private static readonly byte[] Key = /* load from secure config */;
+
+    public override byte[] Encrypt(byte[] plaintext)
+    {
+        using var aes = Aes.Create();
+        aes.Key = Key;
+        aes.GenerateIV();
+        using var enc = aes.CreateEncryptor();
+        var ct = enc.TransformFinalBlock(plaintext, 0, plaintext.Length);
+        return aes.IV.Concat(ct).ToArray();          // prepend IV
+    }
+
+    public override byte[] Decrypt(byte[] ciphertext)
+    {
+        using var aes = Aes.Create();
+        aes.Key = Key;
+        aes.IV = ciphertext[..16];
+        using var dec = aes.CreateDecryptor();
+        return dec.TransformFinalBlock(ciphertext, 16, ciphertext.Length - 16);
+    }
+}
+```
+
+---
+
+#### `[Compressible]`
+
+Instructs the ORM to compress the column value before writing to the database and decompress on read. Useful for large `TEXT` or `BLOB` columns.
+
+```csharp
+[Column("xml_payload")]
+[Compressible]
+public TString XmlPayload = new TString();
+```
+
+---
+
+#### `[Sensitive]`
+
+Marks a field as sensitive (passwords, API keys, PII). The ORM masks the value in diagnostic output, logging, and serialised diagnostic reports. Does **not** affect the actual stored or returned value.
+
+```csharp
+[Column("api_key")]
+[Sensitive]
+public TString ApiKey = new TString();
+
+[Column("password_hash")]
+[Sensitive]
+public TString PasswordHash = new TString();
+```
+
+---
+
+#### `[Description]`
+
+Attaches a human-readable description to a field or class. Used by the ORM for validation error messages and UI-hint generation. Inherited by subclasses.
+
+```csharp
+[Table("products")]
+[Description("A catalogue item offered for sale")]
+public class Product : IdentityRecord
+{
+    [Column("name")]
+    [Description("Display name shown on product listings")]
+    public TString Name = new TString();
+
+    [Column("price")]
+    [Description("Retail price excluding tax, in GBP")]
+    public TDecimal Price = new TDecimal();
+
+    public Product() { }
+    public Product(DataConnection conn) : base(conn) { }
+}
+```
+
+---
+
+#### `[FieldMapping]`
+
+Associates a custom `IDBFieldMapper` with a field, controlling how its value is transformed when reading from and writing to the database. Overrides the default type mapping.
+
+```csharp
+// Custom mapper: stores money as integer cents
+public class CentsMapper : IDBFieldMapper
+{
+    public object MapFromDB(object dbValue, TField field)
+        => dbValue is long cents ? cents / 100m : dbValue;
+
+    public object MapToDB(object clrValue, TField field)
+        => clrValue is decimal d ? (long)(d * 100) : clrValue;
+}
+
+[Table("invoices")]
+public class Invoice : IdentityRecord
+{
+    [Column("amount_cents")]
+    [FieldMapping(typeof(CentsMapper))]
+    public TDecimal Amount = new TDecimal();   // app sees decimal; DB stores long
+
+    public Invoice() { }
+    public Invoice(DataConnection conn) : base(conn) { }
+}
+```
+
+---
+
+#### `[EagerLoad]`
+
+Controls whether an embedded `Record` field (join target) is fetched eagerly (default `true`) or excluded from the default `FieldSubset` and loaded only when explicitly included.
+
+```csharp
+[Table("order_lines")]
+public class OrderLine : IdentityRecord
+{
+    [Column("order_id")] public TForeignKey OrderId = new TForeignKey();
+    [Column("qty")]      public TInt        Qty     = new TInt();
+
+    // Loaded by default in every QueryAll
+    public Order Order;
+
+    // Heavy join — only load when requested
+    [EagerLoad(false)]
+    public Product Product;
+
+    public OrderLine()                          { Order = new Order(); Product = new Product(); }
+    public OrderLine(DataConnection conn) : base(conn)
+    {
+        Order   = new Order(conn);
+        Product = new Product(conn);
+    }
+}
+
+// To include the lazy join:
+FieldSubset fs = conn.DefaultFieldSubset(template);
+fs |= conn.FieldSubset(template.Product, FieldSubsetInitialState.IncludeAll);
+var rows = conn.QueryAll(template, null, null, 0, fs);
+```
+
+---
+
+### 25.3 Join Attributes
+
+#### `[JoinSpec]`
+
+Declares an explicit SQL JOIN on the *entity class*. Applied at class level, it overrides or supplements the automatic FK convention join. `AllowMultiple = true` — stack as many as needed.
+
+```csharp
+[Table("order_lines")]
+[JoinSpec("OrderId",    "Order",    "ID", JoinSpecAttribute.JoinTypeEnum.InnerJoin)]
+[JoinSpec("ProductId",  "Product",  "ID", JoinSpecAttribute.JoinTypeEnum.LeftOuterJoin)]
+public class OrderLine : IdentityRecord
+{
+    [Column("order_id")]   public TForeignKey OrderId   = new TForeignKey();
+    [Column("product_id")] public TForeignKey ProductId = new TForeignKey();
+    [Column("qty")]        public TInt        Qty       = new TInt();
+
+    public Order   Order;
+    public Product Product;
+
+    public OrderLine()
+    {
+        Order   = new Order();
+        Product = new Product();
+    }
+    public OrderLine(DataConnection conn) : base(conn)
+    {
+        Order   = new Order(conn);
+        Product = new Product(conn);
+    }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `foreignKeyField` | `string` | Name of the FK field on *this* entity (e.g. `"OrderId"`) |
+| `targetField` | `string` | Name of the embedded `Record` field on *this* entity (e.g. `"Order"`) |
+| `targetPrimaryKeyField` | `string` | PK field name on the target entity (default `"ID"`) |
+| `joinType` | `JoinTypeEnum` | `InnerJoin` (default) or `LeftOuterJoin` |
+
+---
+
+#### `[Join]`
+
+Applied to an **embedded `Record` field** (rather than the class). Overrides the automatic FK-naming convention for that specific join. Used primarily with the MongoDB provider or when the FK field name does not follow the `<TargetType>ID` convention.
+
+```csharp
+[Table("shipments")]
+public class Shipment : IdentityRecord
+{
+    [Column("carrier_ref")] public TForeignKey CarrierRef = new TForeignKey();
+
+    // Convention would look for "CarrierId"; use [Join] to point to "carrier_ref"
+    [Join(ForeignKey = "carrier_ref", TargetField = "ID",
+          JoinType = JoinAttribute.JoinTypeEnum.LeftOuterJoin)]
+    public Carrier Carrier;
+
+    public Shipment()                          { Carrier = new Carrier(); }
+    public Shipment(DataConnection conn) : base(conn) { Carrier = new Carrier(conn); }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ForeignKey` | `string` | FK column name on *this* table |
+| `TargetField` | `string` | PK column name on the joined table |
+| `JoinType` | `JoinTypeEnum` | `InnerJoin` (default) or `LeftOuterJoin` |
+
+---
+
+### 25.4 Service / Proxy Attributes
+
+#### `[ConnectionScope]`
+
+Marks a method or class so that `ConnectionScopeInterceptor` automatically opens the `DataConnection` before the call and closes it in a `finally` block. Depth-tracked: nested scopes reuse the existing open connection.
+
+```csharp
+using ActiveForge.Attributes;
+
+// Method-level — only this method gets a managed connection scope
+public class ProductService : IProductService, IService
+{
+    private readonly DataConnection _conn;
+    public ProductService(DataConnection conn) { _conn = conn; }
+
+    [ConnectionScope]
+    public Product GetById(int id)
+    {
+        var p = new Product(_conn);
+        p.ID.SetValue(id);
+        p.Read();
+        return p;
+    }
+}
+
+// Class-level — every method on the class is scoped
+[ConnectionScope]
+public class ReportService : IReportService, IService
+{
+    private readonly DataConnection _conn;
+    public ReportService(DataConnection conn) { _conn = conn; }
+
+    public List<Product> GetTopSellers() { ... }
+    public int           CountByCategory(int catId) { ... }
+}
+```
+
+Can be combined with `[Transaction]` (connection opens first, transaction begins second):
+
+```csharp
+[ConnectionScope]
+[Transaction]
+public void PlaceOrder(int customerId, List<int> productIds) { ... }
+```
+
+---
+
+#### `[Transaction]`
+
+Marks a method or class so that `TransactionInterceptor` wraps the call in a `IUnitOfWork` transaction. Commits on successful return; rolls back on exception.
+
+```csharp
+using ActiveForge.Transactions;
+
+public class OrderService : IOrderService, IService
+{
+    private readonly DataConnection    _conn;
+    private readonly IUnitOfWork       _uow;
+
+    public OrderService(DataConnection conn, IUnitOfWork uow)
+    {
+        _conn = conn;
+        _uow  = uow;
+    }
+
+    [ConnectionScope]
+    [Transaction]                                      // ReadCommitted by default
+    public int PlaceOrder(int customerId)
+    {
+        var order = new Order(_conn);
+        order.CustomerId.SetValue(customerId);
+        order.Status.SetValue("new");
+        order.Insert();
+        return (int)order.ID.GetValue();
+    }
+
+    [ConnectionScope]
+    [Transaction(IsolationLevel.Serializable)]         // explicit isolation level
+    public void CancelOrder(int orderId)
+    {
+        var order = new Order(_conn);
+        order.ID.SetValue(orderId);
+        order.Read();
+        order.Status.SetValue("cancelled");
+        order.Update(RecordLock.UpdateOption.IgnoreLock);
+    }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `isolationLevel` | `IsolationLevel` | Default: `ReadCommitted`. Any `System.Data.IsolationLevel` value |
+
+---
+
+## 26. Joins and Relationships
+
+ActiveForge expresses table joins through **embedded `Record` fields**. When the ORM builds the SELECT query it inspects each public field that is itself a `Record` and adds the appropriate JOIN clause automatically.
+
+---
+
+### 26.1 Convention-based INNER JOIN
+
+The simplest join requires no attributes beyond the FK field declaration. If the embedded field is called `Category` and there is a column field named `CategoryID` (or `CategoryId`), the ORM wires the join automatically:
+
+```csharp
+[Table("categories")]
+public class Category : IdentityRecord
+{
+    [Column("name")] public TString Name = new TString();
+
+    public Category() { }
+    public Category(DataConnection conn) : base(conn) { }
+}
+
+[Table("products")]
+public class Product : IdentityRecord
+{
+    [Column("name")]        public TString     Name       = new TString();
+    [Column("price")]       public TDecimal    Price      = new TDecimal();
+    [Column("CategoryID")]  public TForeignKey CategoryID = new TForeignKey();
+
+    // Embedded Record — convention: field name "Category" + "ID" suffix = FK column "CategoryID"
+    public Category Category;
+
+    public Product()                          { Category = new Category(); }
+    public Product(DataConnection conn) : base(conn) { Category = new Category(conn); }
+}
+```
+
+Query — the generated SQL is an `INNER JOIN`:
+
+```csharp
+var template = new Product(conn);
+var results  = conn.QueryAll(template, null, null, 0, null);
+
+foreach (Product p in results)
+{
+    string productName  = (string)p.Name.GetValue();
+    string categoryName = (string)p.Category.Name.GetValue();
+    Console.WriteLine($"{productName} ({categoryName})");
+}
+// Products without a matching Category are excluded (INNER JOIN semantics)
+```
+
+---
+
+### 26.2 Explicit JOIN with `[JoinSpec]`
+
+Use `[JoinSpec]` on the class when the FK column name does **not** follow the `<EmbeddedFieldName>ID` convention, or when you want to specify `LeftOuterJoin` (or `RightOuterJoin`) at definition time.
+
+```csharp
+[Table("products")]
+[JoinSpec("CategoryID", "Category", "ID", JoinSpecAttribute.JoinTypeEnum.InnerJoin)]
+public class ProductWithExplicitJoin : IdentityRecord
+{
+    [Column("name")]        public TString     Name       = new TString();
+    [Column("CategoryID")]  public TForeignKey CategoryID = new TForeignKey();
+
+    public Category Category;
+
+    public ProductWithExplicitJoin()
+    { Category = new Category(); }
+    public ProductWithExplicitJoin(DataConnection conn) : base(conn)
+    { Category = new Category(conn); }
+}
+```
+
+Multiple joins on one class:
+
+```csharp
+[Table("order_lines")]
+[JoinSpec("OrderId",   "Order",   "ID", JoinSpecAttribute.JoinTypeEnum.InnerJoin)]
+[JoinSpec("ProductId", "Product", "ID", JoinSpecAttribute.JoinTypeEnum.LeftOuterJoin)]
+public class OrderLineWithJoins : IdentityRecord
+{
+    [Column("order_id")]   public TForeignKey OrderId   = new TForeignKey();
+    [Column("product_id")] public TForeignKey ProductId = new TForeignKey();
+    [Column("qty")]        public TInt        Qty       = new TInt();
+    [Column("unit_price")] public TDecimal    UnitPrice = new TDecimal();
+
+    public Order   Order;
+    public Product Product;
+
+    public OrderLineWithJoins()
+    {
+        Order   = new Order();
+        Product = new Product();
+    }
+    public OrderLineWithJoins(DataConnection conn) : base(conn)
+    {
+        Order   = new Order(conn);
+        Product = new Product(conn);
+    }
+}
+```
+
+---
+
+### 26.3 LEFT OUTER JOIN
+
+To include rows where the joined record is absent (e.g. products without a category), set `JoinTypeEnum.LeftOuterJoin`:
+
+```csharp
+[Table("products")]
+[JoinSpec("CategoryID", "Category", "ID", JoinSpecAttribute.JoinTypeEnum.LeftOuterJoin)]
+public class ProductOuter : IdentityRecord
+{
+    [Column("name")]        public TString     Name       = new TString();
+    [Column("CategoryID")]  public TForeignKey CategoryID = new TForeignKey();
+
+    public Category Category;
+
+    public ProductOuter()                          { Category = new Category(); }
+    public ProductOuter(DataConnection conn) : base(conn) { Category = new Category(conn); }
+}
+```
+
+```csharp
+var template = new ProductOuter(conn);
+var results  = conn.QueryAll(template, null, null, 0, null);
+
+foreach (ProductOuter p in results)
+{
+    // Products with no category will have Category.Name.IsNull() == true
+    string cat = p.Category.Name.IsNull() ? "(none)" : (string)p.Category.Name.GetValue();
+    Console.WriteLine($"{p.Name.GetValue()} — {cat}");
+}
+```
+
+---
+
+### 26.4 Query-time Join Type Override (`JoinOverride`)
+
+Override the join type at query time without changing the entity definition. Useful when the same entity needs INNER joins in most queries but LEFT OUTER in specific ones.
+
+```csharp
+using ActiveForge.Query;   // JoinOverride, JoinSpecification
+
+// Force LEFT OUTER on Category join for this query only
+var overrides = new List<JoinOverride>
+{
+    new JoinOverride(typeof(Category), JoinSpecification.JoinTypeEnum.LeftOuterJoin)
+};
+
+var template = new Product(conn);   // Product has convention INNER JOIN by default
+var results  = conn.QueryAll(template, null, null, 0, null, overrides);
+// → returns products WITH and WITHOUT a matching category
+```
+
+```csharp
+// Override back to INNER on an entity that has LEFT OUTER by default
+var overrides = new List<JoinOverride>
+{
+    new JoinOverride(typeof(Category), JoinSpecification.JoinTypeEnum.InnerJoin)
+};
+
+var template = new ProductOuter(conn);
+var results  = conn.QueryAll(template, null, null, 0, null, overrides);
+// → excludes products with no category
+```
+
+The override is **not** sticky — it applies only to that single `QueryAll` / `QueryPage` / `LazyQueryAll` call and does not affect subsequent queries using the same template.
+
+---
+
+### 26.5 Filtering on Joined Columns (QueryTerm API)
+
+Pass the **embedded Record** (not the root template) as the first argument to QueryTerm constructors to filter on a joined column:
+
+```csharp
+var template = new Product(conn);
+
+// Filter on the joined Category's name
+var term    = new EqualTerm(template.Category, template.Category.Name, "Electronics");
+var results = conn.QueryAll(template, term, null, 0, null);
+// → SELECT ... FROM products INNER JOIN categories ... WHERE categories.name = @name
+```
+
+```csharp
+// Combine root and joined predicates
+var inStock     = new EqualTerm(template, template.InStock, true);
+var electronics = new EqualTerm(template.Category, template.Category.Name, "Electronics");
+var combined    = inStock & electronics;
+
+var results = conn.QueryAll(template, combined, null, 0, null);
+```
+
+---
+
+### 26.6 Sorting on Joined Columns
+
+Pass the embedded Record as the first argument to `OrderAscending` / `OrderDescending`:
+
+```csharp
+var template = new Product(conn);
+
+// Sort by joined category name, then by product name
+var sortByCat  = new OrderAscending(template.Category, template.Category.Name);
+var sortByName = new OrderAscending(template, template.Name);
+
+// Single-column sort:
+var results = conn.QueryAll(template, null, sortByCat, 0, null);
+
+// Multi-column sort via LINQ:
+var results2 = conn.Query(new Product(conn))
+    .OrderBy(p => p.Category.Name)
+    .ThenBy(p => p.Name)
+    .ToList();
+```
+
+---
+
+### 26.7 LINQ with Joins
+
+The LINQ query layer fully supports cross-join predicates and sort selectors:
+
+```csharp
+using ActiveForge.Linq;
+
+// Filter on joined field
+var electronics = conn.Query(new Product(conn))
+    .Where(p => p.Category.Name == "Electronics")
+    .ToList();
+
+// Filter for products with no category (LEFT OUTER join required)
+var noCategory = conn.Query(new ProductOuter(conn))
+    .Where(p => p.Category.Name == (TString)null)
+    .ToList();
+
+// Sort by joined field, then by own field
+var sorted = conn.Query(new Product(conn))
+    .OrderBy(p => p.Category.Name)
+    .ThenBy(p => p.Price)
+    .ToList();
+
+// Join-type override, filter, sort, and paginate in one chain
+var results = conn.Query(new Product(conn))
+    .LeftOuterJoin<Category>()               // override INNER → LEFT OUTER
+    .Where(p => p.Name != (TString)null)
+    .OrderBy(p => p.Category.Name)
+    .ThenBy(p => p.Name)
+    .Skip(0)
+    .Take(20)
+    .ToList();
+```
+
+**LINQ join-type extension methods:**
+
+| Method | Effect |
+|--------|--------|
+| `.InnerJoin<TTarget>()` | Forces INNER JOIN for `TTarget` in this query |
+| `.LeftOuterJoin<TTarget>()` | Forces LEFT OUTER JOIN for `TTarget` in this query |
+
+---
+
+### 26.8 `[Join]` Attribute (field-level, non-conventional FK names)
+
+When the FK column does not follow `<EmbeddedFieldName>ID` naming, annotate the embedded field directly with `[Join]`:
+
+```csharp
+[Table("shipments")]
+public class Shipment : IdentityRecord
+{
+    [Column("tracking_no")]    public TString     TrackingNo  = new TString();
+    [Column("carrier_ref")]    public TForeignKey CarrierRef  = new TForeignKey();
+
+    // FK column is "carrier_ref", not "CarrierId" — override with [Join]
+    [Join(ForeignKey = "carrier_ref", TargetField = "ID",
+          JoinType = JoinAttribute.JoinTypeEnum.LeftOuterJoin)]
+    public Carrier Carrier;
+
+    public Shipment()                          { Carrier = new Carrier(); }
+    public Shipment(DataConnection conn) : base(conn) { Carrier = new Carrier(conn); }
+}
+```
+
+---
+
+### 26.9 MongoDB Joins
+
+MongoDB uses `$lookup` + `$unwind` aggregation pipeline stages for joins. The same convention and `[JoinSpec]` / `[Join]` attributes are honoured:
+
+```csharp
+[Table("orders")]
+public class MongoOrder : IdentityRecord
+{
+    [Column("customer_id")] public TForeignKey CustomerId = new TForeignKey();
+    [Column("total")]       public TDecimal    Total      = new TDecimal();
+
+    // Convention-based join: field "Customer" + "Id" suffix = "customer_id" FK
+    public MongoCustomer Customer;
+
+    public MongoOrder()                          { Customer = new MongoCustomer(); }
+    public MongoOrder(DataConnection conn) : base(conn) { Customer = new MongoCustomer(conn); }
+}
+```
+
+> MongoDB LEFT OUTER JOIN: `$unwind` is generated with `preserveNullAndEmptyArrays: true` for `LeftOuterJoin`.
+> MongoDB INNER JOIN: `$unwind` without that flag excludes documents with no match.
+> All LINQ join overrides (`.LeftOuterJoin<T>()` / `.InnerJoin<T>()`) work identically on `MongoDataConnection`.
+
+---
+
+## 27. Complete Examples
+
+The examples below demonstrate realistic end-to-end usage covering all major features.
+
+---
+
+### 27.1 Complete CRUD Lifecycle
+
+```csharp
+using ActiveForge;
+using ActiveForge.Attributes;
+using ActiveForge.Query;
+using ActiveForge.Linq;
+
+// ── Entity ───────────────────────────────────────────────────────────────────
+
+[Table("products")]
+[Description("A product available in the catalogue")]
+public class Product : IdentityRecord
+{
+    [Column("name")]
+    [Description("Display name shown on product listings")]
+    public TString Name = new TString();
+
+    [Column("sku")]
+    [NoTrim]                               // preserve exact SKU padding
+    public TString Sku = new TString();
+
+    [Column("price")]
+    [Description("Retail price excluding tax")]
+    public TDecimal Price = new TDecimal();
+
+    [Column("in_stock")]
+    [DefaultValue(true)]
+    public TBool InStock = new TBool();
+
+    [Column("created_at")]
+    [ReadOnly]                             // set by DB default / trigger
+    public TDateTime CreatedAt = new TDateTime();
+
+    [Column("notes")]
+    [NoPreload]                            // loaded only when explicitly requested
+    public TString Notes = new TString();
+
+    [Column("api_key")]
+    [Sensitive]                            // masked in diagnostic output
+    public TString ApiKey = new TString();
+
+    public Product() { }
+    public Product(DataConnection conn) : base(conn) { }
+}
+
+// ── Connection ────────────────────────────────────────────────────────────────
+
+var conn = new SqlServerConnection(
+    "Server=.;Database=Demo;Integrated Security=True;TrustServerCertificate=True;");
+conn.Connect();
+
+// ── INSERT ────────────────────────────────────────────────────────────────────
+
+var p = new Product(conn);
+p.Name.SetValue("Widget Pro");
+p.Sku.SetValue("WGT-001  ");             // trailing spaces preserved by [NoTrim]
+p.Price.SetValue(29.99m);
+p.InStock.SetValue(true);
+p.Insert();
+int id = (int)p.ID.GetValue();           // auto-generated identity
+
+// ── READ by primary key ───────────────────────────────────────────────────────
+
+var found = new Product(conn);
+found.ID.SetValue(id);
+found.Read();
+Console.WriteLine((string)found.Name.GetValue());  // "Widget Pro"
+
+// Fetch the [NoPreload] Notes field explicitly:
+var template = new Product(conn);
+FieldSubset withNotes = conn.DefaultFieldSubset(template);
+withNotes += template.Notes;
+var results = conn.QueryAll(template,
+    new EqualTerm(template, template.ID, id),
+    null, 0, withNotes);
+
+// ── UPDATE ────────────────────────────────────────────────────────────────────
+
+found.Price.SetValue(24.99m);
+found.Update(RecordLock.UpdateOption.IgnoreLock);   // update all columns
+
+// Or update only what changed:
+found.Notes.SetValue("Now with 10% discount");
+found.UpdateChanged();                              // generates UPDATE ... SET Notes=@Notes
+
+// ── QUERY ─────────────────────────────────────────────────────────────────────
+
+// Classic QueryTerm API:
+var inStock  = new EqualTerm(template, template.InStock, true);
+var cheap    = new LessThanTerm(template, template.Price, 30m);
+var byPrice  = new OrderAscending(template, template.Price);
+RecordCollection all = conn.QueryAll(template, inStock & cheap, byPrice, 0, null);
+
+// LINQ API:
+List<Product> linq = conn.Query(new Product(conn))
+    .Where(x => x.InStock == true && x.Price < 30m)
+    .OrderBy(x => x.Price)
+    .ToList();
+
+// Pagination (QueryTerm):
+QueryPage page = conn.QueryPage(template, inStock, byPrice, startRecord: 0, pageSize: 10);
+Console.WriteLine($"Total: {page.TotalRowCount}, more: {page.IsMoreData}");
+
+// Pagination (LINQ):
+var linqPage = conn.Query(new Product(conn))
+    .Where(x => x.InStock == true)
+    .OrderBy(x => x.Name)
+    .Skip(0).Take(10)
+    .ToList();
+
+// Count:
+int count = conn.QueryCount(template, inStock);
+
+// Lazy stream (no full buffer):
+foreach (Product item in conn.LazyQueryAll<Product>(template, inStock, byPrice))
+    Console.WriteLine(item.Name.GetValue());
+
+// ── DELETE ────────────────────────────────────────────────────────────────────
+
+found.Delete();                                     // delete by PK
+
+// Delete by predicate:
+var discontinued = new EqualTerm(template, template.InStock, false);
+template.Delete(discontinued);
+
+conn.Disconnect();
+```
+
+---
+
+### 27.2 Joins — Full Example
+
+```csharp
+using ActiveForge;
+using ActiveForge.Attributes;
+using ActiveForge.Query;
+using ActiveForge.Linq;
+
+// ── Entities ──────────────────────────────────────────────────────────────────
+
+[Table("categories")]
+public class Category : IdentityRecord
+{
+    [Column("name")] public TString Name = new TString();
+
+    public Category() { }
+    public Category(DataConnection conn) : base(conn) { }
+}
+
+// Convention INNER JOIN: "CategoryID" field + embedded "Category" object
+[Table("products")]
+public class ProductWithCategory : IdentityRecord
+{
+    [Column("name")]        public TString     Name       = new TString();
+    [Column("price")]       public TDecimal    Price      = new TDecimal();
+    [Column("CategoryID")]  public TForeignKey CategoryID = new TForeignKey();
+
+    public Category Category;
+
+    public ProductWithCategory()
+    { Category = new Category(); }
+    public ProductWithCategory(DataConnection conn) : base(conn)
+    { Category = new Category(conn); }
+}
+
+// LEFT OUTER JOIN variant via [JoinSpec]
+[Table("products")]
+[JoinSpec("CategoryID", "Category", "ID", JoinSpecAttribute.JoinTypeEnum.LeftOuterJoin)]
+public class ProductOuter : IdentityRecord
+{
+    [Column("name")]        public TString     Name       = new TString();
+    [Column("price")]       public TDecimal    Price      = new TDecimal();
+    [Column("CategoryID")]  public TForeignKey CategoryID = new TForeignKey();
+
+    public Category Category;
+
+    public ProductOuter()
+    { Category = new Category(); }
+    public ProductOuter(DataConnection conn) : base(conn)
+    { Category = new Category(conn); }
+}
+
+// ── INNER JOIN queries ────────────────────────────────────────────────────────
+
+var conn = new SqlServerConnection("...");
+conn.Connect();
+
+// All products (excludes those with no category)
+var t1      = new ProductWithCategory(conn);
+var results = conn.QueryAll(t1, null, null, 0, null);
+
+// Filter on joined column
+var term = new EqualTerm(t1.Category, t1.Category.Name, "Electronics");
+var elec = conn.QueryAll(t1, term, null, 0, null);
+
+// ── LEFT OUTER JOIN queries ───────────────────────────────────────────────────
+
+var t2  = new ProductOuter(conn);
+var all = conn.QueryAll(t2, null, null, 0, null);   // includes uncategorised products
+
+foreach (ProductOuter p in all)
+{
+    string cat = p.Category.Name.IsNull() ? "(none)" : (string)p.Category.Name.GetValue();
+    Console.WriteLine($"{p.Name.GetValue()} → {cat}");
+}
+
+// ── Query-time override ───────────────────────────────────────────────────────
+
+// Promote INNER → LEFT OUTER for one query
+var overrides = new List<JoinOverride>
+{
+    new JoinOverride(typeof(Category), JoinSpecification.JoinTypeEnum.LeftOuterJoin)
+};
+var withOrphans = conn.QueryAll(new ProductWithCategory(conn), null, null, 0, null, overrides);
+
+// ── LINQ cross-join predicates and sorts ──────────────────────────────────────
+
+// Filter by joined column
+var byCategory = conn.Query(new ProductWithCategory(conn))
+    .Where(p => p.Category.Name == "Electronics")
+    .ToList();
+
+// NULL check on joined column (LEFT OUTER)
+var orphans = conn.Query(new ProductOuter(conn))
+    .Where(p => p.Category.Name == (TString)null)
+    .ToList();
+
+// Sort by joined column
+var sorted = conn.Query(new ProductWithCategory(conn))
+    .OrderBy(p => p.Category.Name)
+    .ThenBy(p => p.Price)
+    .ToList();
+
+// Full chain: override + filter + sort + pagination
+var page = conn.Query(new ProductWithCategory(conn))
+    .LeftOuterJoin<Category>()
+    .Where(p => p.Price < 100m)
+    .OrderBy(p => p.Category.Name)
+    .ThenBy(p => p.Name)
+    .Skip(0)
+    .Take(20)
+    .ToList();
+
+conn.Disconnect();
+```
+
+---
+
+### 27.3 Polymorphic Records — Full Example
+
+`FactoryBase` maps abstract base types to concrete subtypes. Register mappings in `CreateTypeMap()`. Pass the factory instance to the connection constructor. When the ORM hydrates a query result it calls `FactoryBase.MapType(typeof(BaseType))` to determine which concrete class to instantiate.
+
+```csharp
+using ActiveForge;
+using ActiveForge.Attributes;
+using ActiveForge.Query;
+
+// ── Entities — all stored in the same table ───────────────────────────────────
+
+[Table("notifications")]
+public abstract class Notification : IdentityRecord
+{
+    [Column("recipient")]  public TString   Recipient = new TString();
+    [Column("channel")]    public TString   Channel   = new TString();   // "email"|"sms"|"push"
+    [Column("sent_at")]    public TDateTime SentAt    = new TDateTime();
+    [ReadOnly]
+    [Column("created_at")] public TDateTime CreatedAt = new TDateTime();
+
+    protected Notification() { }
+    protected Notification(DataConnection conn) : base(conn) { }
+}
+
+[Table("notifications")]
+public class EmailNotification : Notification
+{
+    [Column("subject")] public TString Subject = new TString();
+    [Column("body")]    public TString Body    = new TString();
+
+    public EmailNotification() { }
+    public EmailNotification(DataConnection conn) : base(conn) { }
+}
+
+[Table("notifications")]
+public class SmsNotification : Notification
+{
+    [Column("phone")]   public TString Phone   = new TString();
+    [Column("message")] public TString Message = new TString();
+
+    public SmsNotification() { }
+    public SmsNotification(DataConnection conn) : base(conn) { }
+}
+
+// ── Factory — static type substitution ───────────────────────────────────────
+//
+// FactoryBase.AddTypeMapping registers a static base→concrete substitution.
+// All rows queried as Notification will be instantiated as the mapped type.
+// Use the expectedTypes overload when multiple concrete types are in the result.
+
+public class NotificationFactory : FactoryBase
+{
+    protected override void CreateTypeMap()
+    {
+        // When querying Notification rows, default to EmailNotification
+        AddTypeMapping(typeof(Notification), typeof(EmailNotification));
+    }
+}
+
+// ── Usage ─────────────────────────────────────────────────────────────────────
+
+var conn = new SqlServerConnection(
+    "Server=.;Database=Demo;Integrated Security=True;TrustServerCertificate=True;",
+    new NotificationFactory());
+conn.Connect();
+
+// INSERT — use the concrete types directly
+var email = new EmailNotification(conn);
+email.Recipient.SetValue("alice@example.com");
+email.Channel.SetValue("email");
+email.SentAt.SetValue(DateTime.UtcNow);
+email.Subject.SetValue("Your order has shipped");
+email.Body.SetValue("Track it at...");
+email.Insert();
+
+var sms = new SmsNotification(conn);
+sms.Recipient.SetValue("alice@example.com");
+sms.Channel.SetValue("sms");
+sms.SentAt.SetValue(DateTime.UtcNow);
+sms.Phone.SetValue("+447700900123");
+sms.Message.SetValue("Your order has shipped");
+sms.Insert();
+
+// QUERY all rows as the abstract type — factory substitutes EmailNotification
+var template = new Notification(conn);
+var all      = conn.QueryAll(template, null, null, 0, null);
+
+foreach (Notification n in all)
+{
+    Console.WriteLine($"Channel: {n.Channel.GetValue()}, Recipient: {n.Recipient.GetValue()}");
+
+    if (n is EmailNotification e)
+        Console.WriteLine($"  Subject: {e.Subject.GetValue()}");
+    else if (n is SmsNotification s)
+        Console.WriteLine($"  Phone: {s.Phone.GetValue()}");
+}
+
+// QUERY both concrete types in one call via expectedTypes
+var mixed = conn.QueryAll(
+    new Notification(conn),
+    null, null, 0,
+    new[] { typeof(EmailNotification), typeof(SmsNotification) },
+    null);
+
+// Filter using abstract-type fields
+var emailOnly = conn.QueryAll(template,
+    new EqualTerm(template, template.Channel, "email"), null, 0, null);
+
+// Update via concrete type
+email.Subject.SetValue("Updated: your order has shipped");
+email.Update(RecordLock.UpdateOption.IgnoreLock);
+
+// UpdateChanged — only writes modified fields
+sms.Message.SetValue("Update: order dispatched");
+sms.UpdateChanged();
+
+// Delete
+sms.Delete();
+
+conn.Disconnect();
+```
 
 ---
 

@@ -89,7 +89,7 @@ conn.Connect();
 ### 2. Register with DI
 
 Works in any DI host — ASP.NET Core, Worker Service, console, etc.
-The `AddTurquoise*` call registers the connection + UoW and returns an `IActiveForgeBuilder`.
+The provider-specific `AddActiveForge*` call registers the connection + UoW and returns an `IActiveForgeBuilder`.
 Chain `.AddServices()` to auto-scan your assembly for `IService` implementations.
 
 ```csharp
@@ -112,54 +112,98 @@ builder.Services
     .AddServices(typeof(Program).Assembly);
 ```
 
-### 3. Define an entity
+### 3. Define entities
 
-Entity classes are provider-agnostic — the same class works with SQL Server, PostgreSQL, and MongoDB.
+Entity classes are provider-agnostic — the same class works with SQL Server, PostgreSQL, MongoDB, and SQLite.
 
 ```csharp
 using ActiveForge;
 using ActiveForge.Attributes;
 
-[Table("products")]
-public class Product : IdentDataObject
+[Table("categories")]
+public class Category : IdentityRecord
 {
-    [Column("name")]     public TString  Name    = new TString();
-    [Column("price")]    public TDecimal Price   = new TDecimal();
-    [Column("in_stock")] public TBool    InStock = new TBool();
+    [Column("name")] public TString Name = new TString();
 
-    public Product() { }
-    public Product(DataConnection conn) : base(conn) { }
+    public Category() { }
+    public Category(DataConnection conn) : base(conn) { }
+}
+
+[Table("products")]
+public class Product : IdentityRecord
+{
+    [Column("name")]        public TString     Name       = new TString();
+    [Column("price")]       public TDecimal    Price      = new TDecimal();
+    [Column("in_stock")]
+    [DefaultValue(true)]    public TBool       InStock    = new TBool();
+    [Column("created_at")]
+    [ReadOnly]              public TDateTime   CreatedAt  = new TDateTime();
+    [Column("notes")]
+    [NoPreload]             public TString     Notes      = new TString();
+    [Column("CategoryID")]  public TForeignKey CategoryID = new TForeignKey();
+
+    // Embedded Record — triggers automatic INNER JOIN in queries
+    public Category Category;
+
+    public Product()                          { Category = new Category(); }
+    public Product(DataConnection conn) : base(conn) { Category = new Category(conn); }
 }
 ```
 
 > **Naming conventions:** PostgreSQL folds unquoted identifiers to lower-case — use lower-case `[Table]` and `[Column]` values. MongoDB uses the attribute values as BSON field and collection names verbatim.
+>
+> **Key attributes:** `[ReadOnly]` — included in SELECT but never written. `[NoPreload]` — excluded from the default SELECT; include via `FieldSubset`. `[DefaultValue]` — pre-populates the field on construction. `[Sensitive]` — masks values in diagnostic output. `[Encrypted]` — transparent encrypt/decrypt at ORM layer.
 
 ### 4. CRUD
 
 ```csharp
-// Insert
+using ActiveForge.Query;
+using ActiveForge.Linq;
+
+// ── INSERT ────────────────────────────────────────────────────────────────────
 var p = new Product(conn);
 p.Name.SetValue("Widget");
 p.Price.SetValue(9.99m);
 p.InStock.SetValue(true);
 p.Insert();   // p.ID is populated automatically after insert
 
-// Read by primary key
+// ── READ by primary key ───────────────────────────────────────────────────────
 var p2 = new Product(conn);
 p2.ID.SetValue(1);
-bool found = p2.Read();
+p2.Read();   // throws PersistenceException if not found
 
-// Query
+// ── QUERY (QueryTerm API) ─────────────────────────────────────────────────────
 var template = new Product(conn);
 var inStock  = new EqualTerm(template, template.InStock, true);
-var results  = conn.QueryAll(template, inStock, null, 0, null);
+var byName   = new OrderAscending(template, template.Name);
+var results  = conn.QueryAll(template, inStock, byName, 0, null);
 
-// Update
+// ── QUERY (LINQ) ──────────────────────────────────────────────────────────────
+List<Product> page = conn.Query(new Product(conn))
+    .Where(x => x.InStock == true && x.Price < 50m)
+    .OrderBy(x => x.Name)
+    .Skip(0).Take(20)
+    .ToList();
+
+// ── QUERY with JOIN filter ────────────────────────────────────────────────────
+List<Product> electronics = conn.Query(new Product(conn))
+    .Where(x => x.Category.Name == "Electronics")
+    .OrderBy(x => x.Price)
+    .ToList();
+
+// ── UPDATE ────────────────────────────────────────────────────────────────────
 p.Price.SetValue(14.99m);
-p.Update(DataObjectLock.UpdateOption.IgnoreLock);
+p.Update(RecordLock.UpdateOption.IgnoreLock);   // update all columns
 
-// Delete
-p.Delete();
+p.Notes.SetValue("On sale");
+p.UpdateChanged();                              // update only changed columns
+
+// ── DELETE ────────────────────────────────────────────────────────────────────
+p.Delete();                                     // delete by PK
+
+// Delete by predicate:
+var disc = new EqualTerm(template, template.InStock, false);
+template.Delete(disc);
 ```
 
 ### 5. Service proxy — automatic connection & transaction management
@@ -196,7 +240,7 @@ public class OrderService : IOrderService, IService
         order.ID.SetValue(orderId);
         _conn.Read(order);
         order.Status.SetValue("Shipped");
-        order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+        order.Update(RecordLock.UpdateOption.IgnoreLock);
         // commit on success; rollback + connection close on exception
     }
 }
@@ -227,7 +271,7 @@ svc.Ship(42);
 With.Transaction(uow, () =>
 {
     order.Status.SetValue("Shipped");
-    order.Update(DataObjectLock.UpdateOption.IgnoreLock);
+    order.Update(RecordLock.UpdateOption.IgnoreLock);
     shipment.Insert();
 });
 ```
@@ -245,7 +289,7 @@ With.Transaction(uow, () =>
 | [Unit of Work](docs/unit-of-work.md) | `IUnitOfWork`, `With.Transaction`, Castle interceptor |
 | [LINQ Querying](docs/linq-querying.md) | `conn.Query<T>()` LINQ support |
 | [Field Subsets](docs/field-subsets.md) | Partial fetches and partial updates |
-| [DI & Service Proxies](docs/di-service-proxies.md) | `AddTurquoise*`, `AddActiveForgeService<T>`, `[ConnectionScope]`, `ActiveForgeServiceFactory` |
+| [DI & Service Proxies](docs/di-service-proxies.md) | `AddActiveForge*`, `AddActiveForgeService<T>`, `[ConnectionScope]`, `ActiveForgeServiceFactory` |
 | [Advanced](docs/advanced.md) | Encryption, custom mappers, polymorphism |
 | [**Wiki**](docs/wiki.md) | Comprehensive reference — all concepts with examples |
 
@@ -285,11 +329,11 @@ ActiveForge/
 │       ├── Transactions/               ← SQLiteUnitOfWork
 │       └── SQLiteConnection.cs
 ├── tests/
-│   ├── ActiveForge.Tests/            ← Core library tests        (314 tests)
-│   ├── ActiveForge.SqlServer.Tests/  ← SQL Server provider tests  (50 tests)
-│   ├── ActiveForge.PostgreSQL.Tests/ ← PostgreSQL provider tests  (52 tests)
-│   ├── ActiveForge.MongoDB.Tests/    ← MongoDB provider tests     (79 tests)
-│   └── ActiveForge.SQLite.Tests/     ← SQLite provider tests      (in-memory integration)
+│   ├── ActiveForge.Tests/            ← Core library tests        (340 tests)
+│   ├── ActiveForge.SqlServer.Tests/  ← SQL Server provider tests  (80 tests)
+│   ├── ActiveForge.PostgreSQL.Tests/ ← PostgreSQL provider tests  (81 tests)
+│   ├── ActiveForge.MongoDB.Tests/    ← MongoDB provider tests    (126 tests)
+│   └── ActiveForge.SQLite.Tests/     ← SQLite provider tests      (52 tests)
 ├── examples/
 │   └── ActiveForge.Examples/         ← Runnable console examples
 └── docs/                               ← Documentation
