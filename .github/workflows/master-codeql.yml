@@ -9,18 +9,14 @@
 # the `language` matrix defined below to confirm you have the correct set of
 # supported CodeQL languages.
 #
-name: "CodeQL"
+name: "master-codeQL"
 
 on:
+  push:
+    branches: ["master"]
   pull_request:
-    types: [opened, reopened, edited, synchronize]
-    paths-ignore:
-    - "**/*.md"
-    - "**/*.gitignore"
-    - "**/*.gitattributes"
-  schedule:
-    - cron: '35 15 * * 2'
-
+    branches: ["master"]
+    
 jobs:
   analyze:
     name: Analyze
@@ -73,3 +69,4 @@ jobs:
       uses: github/codeql-action/analyze@v2
       with:
         category: "/language:${{matrix.language}}"
+
