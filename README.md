@@ -1,4 +1,8 @@
 # ActiveForge ORM
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/CodeShayk/ActiveForge/blob/master/LICENSE.md) 
+[![GitHub Release](https://img.shields.io/github/v/release/CodeShayk/ActiveForge?logo=github&sort=semver)](https://github.com/CodeShayk/ActiveForge/releases/latest)
+[![master-build](https://github.com/CodeShayk/ActiveForge/actions/workflows/Master-Build.yml/badge.svg)](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-build.yml)
+[![master-codeql](https://github.com/CodeShayk/ActiveForge/actions/workflows/Master-CodeQL.yml/badge.svg)](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-codeQL.yml)
 
 A lightweight, Active Record-style ORM for .NET 8, with first-class support for SQL Server, PostgreSQL, and MongoDB.
 
