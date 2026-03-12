@@ -1440,7 +1440,7 @@ namespace ActiveForge
             return $"SELECT {fields} FROM {ResolveFullyQualifiedName(binding.SourceName, binding.Function)} {binding.GetRootAlias()}{joins} WHERE {criteria}";
         }
 
-        protected string GetReadForUpdateSQL(Record obj, RecordBinding binding, List<FieldBinding> fieldBindingSubset, FieldSubset fieldSubset)
+        protected virtual string GetReadForUpdateSQL(Record obj, RecordBinding binding, List<FieldBinding> fieldBindingSubset, FieldSubset fieldSubset)
         {
             var fields   = new StringBuilder();
             string criteria = "";

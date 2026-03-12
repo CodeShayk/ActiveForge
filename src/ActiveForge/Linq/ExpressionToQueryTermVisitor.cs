@@ -53,6 +53,12 @@ namespace ActiveForge.Linq
 
         private QueryTerm TranslateExpression(Expression expr)
         {
+            if (expr.Type == typeof(bool) && IsFieldAccess(expr))
+            {
+                var (target, field) = ExtractField(expr);
+                return new EqualTerm(target, field, true);
+            }
+
             switch (expr.NodeType)
             {
                 case ExpressionType.AndAlso:
@@ -187,6 +193,22 @@ namespace ActiveForge.Linq
                 return new ContainsTerm(target, (TString)field, value);
             }
 
+            // string.StartsWith("...") — translate to LIKE '...%'
+            if (name == "StartsWith" && mc.Object != null && IsFieldAccess(mc.Object))
+            {
+                var (target, field) = ExtractField(mc.Object);
+                string value = (string)EvaluateExpression(mc.Arguments[0]);
+                return new LikeTerm(target, (TString)field, value + "%");
+            }
+
+            // string.EndsWith("...") — translate to LIKE '%...'
+            if (name == "EndsWith" && mc.Object != null && IsFieldAccess(mc.Object))
+            {
+                var (target, field) = ExtractField(mc.Object);
+                string value = (string)EvaluateExpression(mc.Arguments[0]);
+                return new LikeTerm(target, (TString)field, "%" + value);
+            }
+
             throw new NotSupportedException(
                 $"Method call '{mc.Method.DeclaringType?.Name}.{name}' is not supported in ORM predicates.");
         }
@@ -195,6 +217,10 @@ namespace ActiveForge.Linq
 
         private bool IsFieldAccess(Expression expr)
         {
+            // Handle implicit conversions (Convert node) wrapping the field access.
+            if (expr is UnaryExpression ue && ue.NodeType == ExpressionType.Convert)
+                expr = ue.Operand;
+
             if (expr is MemberExpression me && me.Member is FieldInfo fi)
                 return fi.FieldType.IsSubclassOf(typeof(TField));
             return false;

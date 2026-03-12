@@ -207,7 +207,8 @@ conn.ProcessActionQueue();
 ## Read-for-update (advisory lock)
 
 `ReadForUpdate` acquires a row-level update lock on SQL Server
-(`SELECT ... WITH (UPDLOCK)`) so that no other session can update the row
+(`SELECT ... WITH (UPDLOCK)`) and PostgreSQL (`SELECT ... FOR UPDATE`)
+so that no other session can update the row
 between your read and your subsequent write:
 
 ```csharp

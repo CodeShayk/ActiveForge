@@ -108,9 +108,7 @@ namespace ActiveForge.MongoDB.Internal
                 GreaterOrEqualTerm _ => Builders<BsonDocument>.Filter.Gte(fieldName, MongoMapper.ClrToBson(value)),
                 LessThanTerm       _ => Builders<BsonDocument>.Filter.Lt(fieldName, MongoMapper.ClrToBson(value)),
                 LessOrEqualTerm    _ => Builders<BsonDocument>.Filter.Lte(fieldName, MongoMapper.ClrToBson(value)),
-                LikeTerm           _ => Builders<BsonDocument>.Filter.Regex(fieldName,
-                                            new BsonRegularExpression(
-                                                System.Text.RegularExpressions.Regex.Escape(value?.ToString() ?? ""), "i")),
+                LikeTerm           _ => TranslateLike(fieldName, value?.ToString() ?? ""),
                 EqualTerm          _ => Builders<BsonDocument>.Filter.Eq(fieldName, MongoMapper.ClrToBson(value)),
                 _                    => Builders<BsonDocument>.Filter.Eq(fieldName, MongoMapper.ClrToBson(value)),
             };
@@ -122,6 +120,21 @@ namespace ActiveForge.MongoDB.Internal
             foreach (var v in values)
                 bsonValues.Add(MongoMapper.ClrToBson(v));
             return Builders<BsonDocument>.Filter.In(fieldName, bsonValues);
+        }
+
+        private static FilterDefinition<BsonDocument> TranslateLike(string fieldName, string pattern)
+        {
+            // Convert SQL LIKE pattern (%) to Regex pattern (.*)
+            // SQL LIKE matches the whole string.
+            // Note: Regex.Escape does NOT escape % or _, which are SQL wildcards.
+            string regex = System.Text.RegularExpressions.Regex.Escape(pattern)
+                .Replace("%", ".*")
+                .Replace("_", ".");
+            
+            // Anchors for full string match
+            regex = "^" + regex + "$";
+
+            return Builders<BsonDocument>.Filter.Regex(fieldName, new BsonRegularExpression(regex, "i"));
         }
 
         // ── Sort translation ──────────────────────────────────────────────────────────

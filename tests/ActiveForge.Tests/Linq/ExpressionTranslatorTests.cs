@@ -162,6 +162,33 @@ namespace ActiveForge.Tests.Linq
             term.Should().BeOfType<InTerm>();
         }
 
+        [Fact]
+        public void String_StartsWith_ProducesLikeTerm()
+        {
+            Expression<Func<Product, bool>> expr = p => ((string)p.Name).StartsWith("A");
+            QueryTerm term = ExpressionToQueryTermVisitor.Translate(expr, T());
+            term.Should().BeOfType<LikeTerm>();
+            term.Value.Should().Be("A%");
+        }
+
+        [Fact]
+        public void String_EndsWith_ProducesLikeTerm()
+        {
+            Expression<Func<Product, bool>> expr = p => ((string)p.Name).EndsWith("Z");
+            QueryTerm term = ExpressionToQueryTermVisitor.Translate(expr, T());
+            term.Should().BeOfType<LikeTerm>();
+            term.Value.Should().Be("%Z");
+        }
+
+        [Fact]
+        public void ImplicitBoolean_ProducesEqualTerm()
+        {
+            Expression<Func<Product, bool>> expr = p => p.IsActive;
+            QueryTerm term = ExpressionToQueryTermVisitor.Translate(expr, T());
+            term.Should().BeOfType<EqualTerm>();
+            term.Value.Should().Be(true);
+        }
+
         // ── Local variable capture ────────────────────────────────────────────────────
 
         [Fact]

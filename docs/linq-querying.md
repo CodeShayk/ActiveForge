@@ -74,12 +74,20 @@ Internally, `Query<T>()` creates a template instance (`conn.Create(typeof(T))`),
 | `Where(x => cond1 \|\| cond2)` | `OrTerm` | |
 | `Where(x => !cond)` | `NotTerm` | |
 | `Where(x => list.Contains(x.Field))` | `InTerm` | |
+| `Where(x => x.Field.StartsWith(v))` | `LikeTerm` (`v%`) | |
+| `Where(x => x.Field.EndsWith(v))` | `LikeTerm` (`%v`) | |
+| `Where(x => x.BoolField)` | `EqualTerm` with `true` | Evaluates raw boolean fields natively |
 | `OrderBy(x => x.Field)` | `OrderAscending` | |
 | `OrderByDescending(x => x.Field)` | `OrderDescending` | |
 | `ThenBy(x => x.Field)` | Appended `OrderAscending` | Composites with primary sort |
 | `ThenByDescending(x => x.Field)` | Appended `OrderDescending` | |
 | `Take(n)` | `pageSize` parameter | |
 | `Skip(n)` | `start` parameter in `QueryPage` | |
+| `Count()`, `LongCount()` | `DataConnection.QueryCount` | Executes scalar COUNT immediately |
+| `First()`, `FirstOrDefault()` | `DataConnection.QueryFirst` | Executes scalar SELECT TOP 1 immediately |
+| `Single()`, `SingleOrDefault()`| `DataConnection.QueryFirst` | Throws if multiple results |
+| `Any()` | `DataConnection.QueryFirst` | Evaluates existence query directly |
+| `Select(x => new { ... })` | FieldSubset projection | Constructs partial SELECTs dynamically |
 
 ---
 
@@ -129,6 +137,27 @@ conn.Query<Product>().Where(p => names.Contains(p.Name))
 // → WHERE Name IN (@IN_Name0, @IN_Name1)
 ```
 
+### String Wildcards
+
+```csharp
+conn.Query<Product>().Where(p => p.Name.StartsWith("App"))
+// → WHERE Name LIKE 'App%'
+
+conn.Query<Product>().Where(p => p.Name.EndsWith("inc"))
+// → WHERE Name LIKE '%inc'
+
+// Note: MongoDB handles these as regular expressions (.*pattern or pattern.*) automatically.
+```
+
+### Implicit Booleans
+
+You can natively pass `TBool` fields directly into the lambda constraint, mimicking standard .NET semantics.
+
+```csharp
+conn.Query<Product>().Where(p => p.IsActive)
+// → WHERE IsActive = 1
+```
+
 ### Captured local variables
 
 ```csharp
@@ -173,6 +202,40 @@ conn.Query<Product>()
 
 When `Skip` or `Take` is set, execution uses `conn.QueryPage(start, count, ...)`.
 Without `Skip`/`Take`, execution uses `conn.LazyQueryAll(...)` for memory-efficient streaming.
+
+---
+
+## Scalar & Terminal Methods
+
+ActiveForge supports invoking terminal scalar executors directly on the query, compiling immediately and sending a constrained scalar demand to the DB.
+
+```csharp
+// Returns scalar INT directly
+int count = conn.Query<Product>().Where(p => p.IsActive).Count();
+
+// Returns scalar Bool (Exists check)
+bool hasAny = conn.Query<Product>().Where(p => p.Price > 100).Any();
+
+// Retrieves the TOP 1 entity
+var topItem = conn.Query<Product>().OrderBy(p => p.Price).FirstOrDefault();
+```
+
+---
+
+## Projections (Select)
+
+Anonymous type projection parses requested properties to prune the retrieved columns securely at the database level by evaluating a tailored `FieldSubset`.
+
+```csharp
+// The SQL executed will ONLY 'SELECT p.Id, p.Name FROM Products p'
+var lightweightList = conn.Query<Product>()
+    .Where(p => p.IsActive)
+    .Select(p => new {
+        p.ID,
+        p.Name
+    })
+    .ToList();
+```
 
 ---
 
@@ -312,8 +375,6 @@ The expression tree is traversed **at execution time**, so local variables are c
 |------------|-------|
 | No `GroupBy` | Not supported; use raw SQL or `ExecSQL`. |
 | No `Join` clause | Cross-join predicates and sorts work via embedded `Record` fields. See [joins.md](joins.md). |
-| No `Select` projection | Returns full typed `Record` instances; field subsets can be applied at the `conn.Query<T>(template)` level. |
-| No `Count()`, `First()`, etc. | Call the standard ORM methods (`conn.QueryCount(...)`, `conn.QueryFirst(...)`) directly. |
 | No async support | Use the synchronous API; async is planned for a future release. |
 
 ---

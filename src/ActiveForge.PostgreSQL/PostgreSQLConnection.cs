@@ -125,6 +125,40 @@ namespace ActiveForge
             return id;
         }
 
+        protected override string GetReadForUpdateSQL(Record obj, RecordBinding binding, List<FieldBinding> fieldBindingSubset, FieldSubset fieldSubset)
+        {
+            var fields   = new System.Text.StringBuilder();
+            string criteria = "";
+            string joins  = GetJoinSQL(binding, fieldSubset, true);
+
+            foreach (var fb in fieldBindingSubset)
+            {
+                var tfi  = fb.Info;
+                var node = fb.MapNode;
+                if (node == null) continue;
+
+                if (tfi.IsInPK && binding.UseAsPK(tfi) && binding.UpdateTableAliases.Contains(node.Alias))
+                {
+                    if (criteria.Length > 0) criteria += " AND ";
+                    if (node.Alias.Length > 0)
+                        criteria += node.Alias + GetSourceNameSeparator();
+                    criteria += QuoteName(tfi.TargetName) + "=" + GetParameterMark() + tfi.TargetName;
+                }
+                else
+                {
+                    if (fields.Length > 0) fields.Append(',');
+                    if (node.Alias.Length > 0)
+                        fields.Append(node.Alias).Append(GetSourceNameSeparator());
+                    fields.Append(QuoteName(tfi.TargetName));
+                    if (fb.Alias.Length > 0)
+                        fields.Append(' ').Append(fb.Alias);
+                }
+            }
+
+            if (fields.Length == 0) fields.Append('*');
+            return $"SELECT {fields} FROM {ResolveFullyQualifiedName(binding.SourceName, binding.Function)} {binding.GetRootAlias()}{joins} WHERE {criteria} FOR UPDATE";
+        }
+
         // ── Schema introspection ──────────────────────────────────────────────────────
 
         /// <summary>

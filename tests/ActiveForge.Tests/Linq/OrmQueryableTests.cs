@@ -203,6 +203,40 @@ namespace ActiveForge.Tests.Linq
             orm.PageSize.Should().Be(20);
         }
 
+        // ── Scalar Execution ──────────────────────────────────────────────────────────
+
+        [Fact]
+        public void LinqCount_ExecutesQueryCount_ThrowsNotImplementedFromStub()
+        {
+            var orm = new OrmQueryable<Item>(Conn, T());
+            Action act = () => orm.Count();
+            act.Should().Throw<NotImplementedException>();
+        }
+
+        [Fact]
+        public void LinqAny_ExecutesQueryPage_ThrowsNotImplementedFromStub()
+        {
+            var orm = new OrmQueryable<Item>(Conn, T());
+            Action act = () => orm.Any();
+            act.Should().Throw<NotImplementedException>();
+        }
+
+        [Fact]
+        public void LinqFirst_ExecutesQueryPage_ThrowsNotImplementedFromStub()
+        {
+            var orm = new OrmQueryable<Item>(Conn, T());
+            Action act = () => orm.First();
+            act.Should().Throw<NotImplementedException>();
+        }
+
+        [Fact]
+        public void LinqSingle_ExecutesQueryPage_ThrowsNotImplementedFromStub()
+        {
+            var orm = new OrmQueryable<Item>(Conn, T());
+            Action act = () => orm.Single();
+            act.Should().Throw<NotImplementedException>();
+        }
+
         // ── Unsupported LINQ method ───────────────────────────────────────────────────
 
         [Fact]

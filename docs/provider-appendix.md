@@ -478,6 +478,8 @@ public abstract class DBDataConnection : DataConnection, IDisposable
     ///
     /// SQL Server: SELECT @@IDENTITY  (not SCOPE_IDENTITY — see note in MEMORY.md)
     /// PostgreSQL: RETURNING id  (implemented via RETURNING clause in INSERT SQL)
+    ///             Note: PostgreSQL row locking (ReadForUpdate) requires overriding 
+    ///             GetReadForUpdateSQL to append "FOR UPDATE" to the end of the query.
     /// SQLite:     SELECT last_insert_rowid()
     /// MongoDB:    n/a (uses auto-increment counter collection)
     /// </summary>
@@ -602,6 +604,12 @@ public class MyConnection : DBDataConnection
     // Identity insert wrappers (if not supported, return empty strings)
     public override string PreInsertIdentityCommand(string sourceName)  => "";
     public override string PostInsertIdentityCommand(string sourceName) => "";
+
+    // PostgreSQL ReadForUpdate requires custom placement of FOR UPDATE
+    protected override string GetReadForUpdateSQL(Record obj, RecordBinding binding, List<FieldBinding> fieldBindingSubset, FieldSubset fieldSubset) {
+        // ... (see PostgreSQLConnection implementation for details)
+        return "SELECT ... FROM ... WHERE ... FOR UPDATE";
+    }
 }
 ```
 

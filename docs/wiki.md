@@ -692,7 +692,28 @@ conn.Query<Product>().Where(p => !(p.InStock == true)).ToList();
 var names = new List<string> { "Widget", "Gadget", "Gizmo" };
 conn.Query<Product>().Where(p => names.Contains(p.Name)).ToList();
 
-// Local variable capture (evaluated at translation time)
+### String Wildcards
+
+```csharp
+conn.Query<Product>().Where(p => p.Name.StartsWith("App")).ToList();
+// → WHERE Name LIKE 'App%'
+
+conn.Query<Product>().Where(p => p.Name.EndsWith("inc")).ToList();
+// → WHERE Name LIKE '%inc'
+```
+
+### Implicit Booleans
+
+You can natively pass `TBool` fields directly into the lambda constraint:
+
+```csharp
+conn.Query<Product>().Where(p => p.IsActive).ToList();
+// → WHERE IsActive = 1
+```
+
+### Captured local variables
+
+```csharp
 string target  = "Widget";
 decimal minP   = 10m;
 conn.Query<Product>().Where(p => p.Name == target && p.Price >= minP).ToList();
@@ -771,24 +792,60 @@ List<Product> results = conn.Query<Product>()
 | `a \|\| b` | `OrTerm` | |
 | `!a` | `NotTerm` | |
 | `list.Contains(x.F)` | `InTerm` | Use `List<T>`, not arrays |
+| `x.F.StartsWith(v)` | `LikeTerm` (`v%`) | |
+| `x.F.EndsWith(v)` | `LikeTerm` (`%v`) | |
+| `x.BoolField` | `EqualTerm` with `true` | Evaluates raw boolean fields natively |
 | `OrderBy` | `OrderAscending` | |
 | `OrderByDescending` | `OrderDescending` | |
 | `ThenBy` | Appended ascending | |
 | `ThenByDescending` | Appended descending | |
 | `Take(n)` | `pageSize` | |
 | `Skip(n)` | `startRecord` | |
+| `Count()`, `LongCount()` | `DataConnection.QueryCount` | Executes scalar COUNT immediately |
+| `First()`, `FirstOrDefault()` | `DataConnection.QueryFirst` | Executes scalar SELECT TOP 1 immediately |
+| `Single()`, `SingleOrDefault()`| `DataConnection.QueryFirst` | Throws if multiple results |
+| `Any()` | `DataConnection.QueryFirst` | Evaluates existence query directly |
+| `Select(x => new { ... })` | FieldSubset projection | Constructs partial SELECTs dynamically |
 
-### 9.8 Limitations
+### 9.8 Scalar & Terminal Methods
+
+ActiveForge supports invoking terminal scalar executors directly on the query, compiling immediately and sending a constrained scalar demand to the DB.
+
+```csharp
+// Returns scalar INT directly
+int count = conn.Query<Product>().Where(p => p.IsActive).Count();
+
+// Returns scalar Bool (Exists check)
+bool hasAny = conn.Query<Product>().Where(p => p.Price > 100).Any();
+
+// Retrieves the TOP 1 entity
+var topItem = conn.Query<Product>().OrderBy(p => p.Price).FirstOrDefault();
+```
+
+### 9.9 Projections (Select)
+
+Anonymous type projection parses requested properties to prune the retrieved columns securely at the database level by evaluating a tailored `FieldSubset`.
+
+```csharp
+// The SQL executed will ONLY 'SELECT p.Id, p.Name FROM Products p'
+var lightweightList = conn.Query<Product>()
+    .Where(p => p.IsActive)
+    .Select(p => new {
+        p.ID,
+        p.Name
+    })
+    .ToList();
+```
+
+### 9.10 Limitations
 
 | Limitation | Workaround |
 |------------|-----------|
 | No `GroupBy` | Use raw SQL (`ExecSQL`) |
 | No `Join` | Use embedded `Record` fields |
-| No `Select` projection | Use `FieldSubset` on template |
-| No `Count()`, `First()` | Use `conn.QueryCount()`, `conn.QueryFirst()` |
 | No async | Async planned for a future release |
 
-### 9.9 Mixing LINQ with QueryTerm
+### 9.11 Mixing LINQ with QueryTerm
 
 ```csharp
 OrmQueryable<Product> orm = (OrmQueryable<Product>)conn.Query<Product>()
@@ -1411,7 +1468,7 @@ foreach (Shape s in results)
 
 ---
 
-## 17. Optimistic Locking
+### 17.1 Optimistic Locking
 
 `RecordLock.UpdateOption` controls what happens when another process has modified the row:
 
@@ -1427,6 +1484,23 @@ product.Update(RecordLock.UpdateOption.ReleaseLock);
 
 // Retain lock after update:
 product.Update(RecordLock.UpdateOption.RetainLock);
+```
+
+### 17.2 Pessimistic Locking (ReadForUpdate)
+
+Acquires a row-level update lock (SQL Server `UPDLOCK`, PostgreSQL `FOR UPDATE`) within a transaction to block other writers until commit.
+
+```csharp
+using var tx = conn.BeginTransaction();
+
+var product = new Product(conn);
+product.ID.SetValue(42);
+conn.ReadForUpdate(product, null); // Blocks other sessions
+
+product.Price.SetValue(20.00m);
+product.Update();
+
+conn.CommitTransaction(tx); // Lock released
 ```
 
 Handle lock conflicts:
@@ -1473,28 +1547,42 @@ foreach (Product p in conn.Query<Product>().Where(p => p.InStock == true))
 
 ## 19. Raw SQL and Stored Procedures
 
-### 19.1 ExecSQL
+### 19.1 ExecSQL (Direct Results)
+
+Executes raw SQL and returns a `ReaderBase` for manual iteration.
 
 ```csharp
-// Returns DataTable:
-DataTable table = conn.ExecSQL(
-    "SELECT Name, SUM(Qty) AS Total FROM OrderLines GROUP BY Name",
-    null);
-
-foreach (DataRow row in table.Rows)
-    Console.WriteLine($"{row["Name"]} — {row["Total"]}");
+using var reader = conn.ExecSQL("SELECT COUNT(*) FROM Products");
+if (reader.Read())
+{
+    int count = (int)reader.ColumnValue(0);
+}
 ```
 
-### 19.2 Stored Procedures
+### 19.2 ExecSQL (Typed Mapping)
+
+Maps raw SQL results directly to `Record` instances using a template.
 
 ```csharp
-var parameters = new Dictionary<string, object>
-{
-    ["@CategoryId"] = 5,
-    ["@MaxPrice"]   = 100m
-};
+var template = new Product(conn);
+var results  = conn.ExecSQL(template, "SELECT * FROM Products WHERE Price > 100");
 
-DataTable result = conn.ExecStoredProcedure("usp_GetProductsByCategory", parameters);
+foreach (Product p in results)
+{
+    Console.WriteLine(p.Name.GetValue());
+}
+```
+
+### 19.3 Stored Procedures
+
+Executes a command set to `CommandType.StoredProcedure`.
+
+```csharp
+var pCategoryId = new Record.SPParameter { Name = "CategoryId", Value = 5 };
+var pMaxPrice   = new Record.SPParameter { Name = "MaxPrice",   Value = 100m };
+
+var template = new Product(conn);
+var results  = conn.ExecStoredProcedure(template, "GetProductsByCategory", 0, 0, pCategoryId, pMaxPrice);
 ```
 
 ---

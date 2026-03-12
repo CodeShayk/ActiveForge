@@ -24,6 +24,7 @@ namespace ActiveForge.Linq
         internal int                          PageSize      { get; private set; } = 0;   // 0 = no limit
         internal int                          SkipCount     { get; private set; } = 0;
         internal IReadOnlyList<JoinOverride>  Joins         { get; private set; }
+        internal FieldSubset                  FieldSubset   { get; private set; }
 
         // ── IQueryable ────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ namespace ActiveForge.Linq
             PageSize   = source.PageSize;
             SkipCount  = source.SkipCount;
             Joins      = source.Joins;
+            FieldSubset= source.FieldSubset;
             Expression = expression;
             Provider   = source.Provider;
         }
@@ -86,6 +88,13 @@ namespace ActiveForge.Linq
         {
             var next = Clone(expression);
             next.SkipCount = count;
+            return next;
+        }
+
+        internal OrmQueryable<T> WithFieldSubset(FieldSubset subset, Expression expression)
+        {
+            var next = Clone(expression);
+            next.FieldSubset = subset;
             return next;
         }
 
@@ -160,6 +169,67 @@ namespace ActiveForge.Linq
 
         // ── Execution ─────────────────────────────────────────────────────────────────
 
+        internal int ExecuteCount()
+        {
+            if (Connection == null)
+                throw new InvalidOperationException("Cannot enumerate OrmQueryable<T> without a DataConnection.");
+            
+            return Connection.QueryCount(Template, WhereTerm);
+        }
+
+        internal bool ExecuteAny()
+        {
+            if (Connection == null)
+                throw new InvalidOperationException("Cannot enumerate OrmQueryable<T> without a DataConnection.");
+            
+            bool hasJoins = Joins != null && Joins.Count > 0;
+            RecordCollection page = hasJoins
+                ? Connection.QueryPage(Template, WhereTerm, SortOrder, SkipCount, 1, null, Joins)
+                : Connection.QueryPage(Template, WhereTerm, SortOrder, SkipCount, 1, null);
+                
+            return page.Count > 0;
+        }
+
+        internal T ExecuteFirst(bool orDefault)
+        {
+            if (Connection == null)
+                throw new InvalidOperationException("Cannot enumerate OrmQueryable<T> without a DataConnection.");
+
+            bool hasJoins = Joins != null && Joins.Count > 0;
+            RecordCollection page = hasJoins
+                ? Connection.QueryPage(Template, WhereTerm, SortOrder, SkipCount, 1, null, Joins)
+                : Connection.QueryPage(Template, WhereTerm, SortOrder, SkipCount, 1, null);
+
+            if (page.Count > 0)
+                return (T)page[0];
+            
+            if (orDefault)
+                return null;
+            
+            throw new InvalidOperationException("Sequence contains no elements");
+        }
+
+        internal T ExecuteSingle(bool orDefault)
+        {
+            if (Connection == null)
+                throw new InvalidOperationException("Cannot enumerate OrmQueryable<T> without a DataConnection.");
+
+            bool hasJoins = Joins != null && Joins.Count > 0;
+            RecordCollection page = hasJoins
+                ? Connection.QueryPage(Template, WhereTerm, SortOrder, SkipCount, 2, null, Joins)
+                : Connection.QueryPage(Template, WhereTerm, SortOrder, SkipCount, 2, null);
+
+            if (page.Count == 0)
+            {
+                if (orDefault) return null;
+                throw new InvalidOperationException("Sequence contains no elements");
+            }
+            if (page.Count > 1)
+                throw new InvalidOperationException("Sequence contains more than one element");
+                
+            return (T)page[0];
+        }
+
         public IEnumerator<T> GetEnumerator()
         {
             IEnumerable<T> result = Execute();
@@ -181,15 +251,15 @@ namespace ActiveForge.Linq
                 int start = SkipCount;
                 int count = PageSize > 0 ? PageSize : int.MaxValue;
                 RecordCollection page = hasJoins
-                    ? Connection.QueryPage(Template, WhereTerm, SortOrder, start, count, null, Joins)
-                    : Connection.QueryPage(Template, WhereTerm, SortOrder, start, count, null);
+                    ? Connection.QueryPage(Template, WhereTerm, SortOrder, start, count, FieldSubset, Joins)
+                    : Connection.QueryPage(Template, WhereTerm, SortOrder, start, count, FieldSubset);
                 foreach (Record obj in page) yield return (T)obj;
             }
             else
             {
                 IEnumerable<T> lazy = hasJoins
-                    ? Connection.LazyQueryAll<T>(Template, WhereTerm, SortOrder, PageSize, null, Joins)
-                    : Connection.LazyQueryAll<T>(Template, WhereTerm, SortOrder, PageSize, null);
+                    ? Connection.LazyQueryAll<T>(Template, WhereTerm, SortOrder, PageSize, FieldSubset, Joins)
+                    : Connection.LazyQueryAll<T>(Template, WhereTerm, SortOrder, PageSize, FieldSubset);
                 foreach (T obj in lazy) yield return obj;
             }
         }
