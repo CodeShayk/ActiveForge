@@ -1,10 +1,10 @@
-# <img src="https://github.com/CodeShayk/ActiveForge/blob/master/images/logo-1.png" alt="logo" style="width:80px;"/> ActiveForge ORM v1.0.0
+# <img src="https://github.com/CodeShayk/ActiveForge/blob/master/images/Logo-5.png" alt="logo" style="width:40px;"/> ActiveForge ORM v1.0.0
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/CodeShayk/ActiveForge/blob/master/LICENSE.md) 
 [![GitHub Release](https://img.shields.io/github/v/release/CodeShayk/ActiveForge?logo=github&sort=semver)](https://github.com/CodeShayk/ActiveForge/releases/latest)
 [![master-build](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-build.yml/badge.svg)](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-build.yml)
 [![master-codeql](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-codeql.yml/badge.svg)](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-codeql.yml)
 
-A lightweight, Active Record-style ORM for .NET 8, with first-class support for SQL Server, PostgreSQL, and MongoDB.
+A lightweight, Active Record-style ORM for .NET 8 +, with first-class support for SQL Server, PostgreSQL, and MongoDB.
 
 ---
 
@@ -12,41 +12,66 @@ A lightweight, Active Record-style ORM for .NET 8, with first-class support for 
 
 | Package | Description |
 |---------|-------------|
-| `ActiveForge` | Core — entities, fields, predicates, LINQ, transactions, adapters, Castle proxy factory |
-| `ActiveForge.SqlServer` | SQL Server provider — `SqlServerConnection`, ADO.NET adapters, `SqlServerUnitOfWork`, DI extensions |
-| `ActiveForge.PostgreSQL` | PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork`, DI extensions |
-| `ActiveForge.MongoDB` | MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork`, DI extensions |
-| `ActiveForge.SQLite` | SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork`, DI extensions |
+| [![NuGet version](https://badge.fury.io/nu/ActiveForge.Core.svg)](https://badge.fury.io/nu/ActiveForge.Core) | Core — entities, fields, predicates, LINQ, transactions, adapters, Castle proxy factory |
+| [![NuGet version](https://badge.fury.io/nu/ActiveForge.SqlServer.svg)](https://badge.fury.io/nu/ActiveForge.SqlServer) | SQL Server provider — `SqlServerConnection`, ADO.NET adapters, `SqlServerUnitOfWork`, DI extensions |
+| [![NuGet version](https://badge.fury.io/nu/ActiveForge.PostgreSQL.svg)](https://badge.fury.io/nu/ActiveForge.PostgreSQL)| PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork`, DI extensions |
+| [![NuGet version](https://badge.fury.io/nu/ActiveForge.MongoDB.svg)](https://badge.fury.io/nu/ActiveForge.MongoDB)| MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork`, DI extensions |
+| [![NuGet version](https://badge.fury.io/nu/ActiveForge.SQLite.svg)](https://badge.fury.io/nu/ActiveForge.SQLite)| SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork`, DI extensions |
 
 All connection types live in the `ActiveForge` namespace, so a single `using ActiveForge;` is sufficient regardless of the provider chosen.
 
 ---
 
+
 ## Features
 
+ActiveForge streamlines data-centric development with a cohesive approach to entities, queries, and data management.
+
 ### 🗂 Entities & Mapping
-- **Active Record pattern** — entities carry both data and persistence behaviour; no separate repository class required
-- **Type-safe field wrappers** — `TString`, `TInt`, `TDecimal`, `TPrimaryKey`, `TForeignKey`, and 25+ more; each tracks null/loaded state and supports implicit conversion
-- **Polymorphic mapping** — map abstract base types to concrete subtypes via `BaseFactory`
-- **Custom field mappers** — implement `IDBFieldMapper` for non-standard type conversions
-- **Field encryption** — transparent encrypt/decrypt via `[Encrypted]` attribute
+
+- **Active Record pattern**  
+  Entities contain both state and persistence logic, removing the need for external repositories.
+- **Type-safe fields**  
+  Provides wrappers for types (string, int, decimal, keys, etc.), tracking nullability and state, and handling conversion automatically.
+- **Polymorphic mapping**  
+  Maps base types to concrete subtypes at runtime.
+- **Custom field mappers**  
+  Easily support non-standard type conversions.
+- **Field encryption**  
+  Simple attribute-based encryption/decryption for sensitive data.
 
 ### 🔍 Querying
-- **Composable query predicates** — `EqualTerm`, `ContainsTerm`, `InTerm`, `GreaterThanTerm`, `LessThanTerm`, `LessOrEqualTerm`, `GreaterOrEqualTerm`, `IsNullTerm`, `LikeTerm`, composed with `&`, `|`, `!`
-- **LINQ query support** — `conn.Query<T>().Where(...).OrderBy(...).Take(...).Skip(...)` translated to native ORM predicates
-- **Pagination** — `QueryPage` with `StartRecord`, `PageSize`, `IsMoreData`, `TotalRowCount`
-- **Lazy streaming** — `LazyQueryAll<T>` streams rows without buffering the full result set
-- **Field subsets** — partial SELECTs and partial UPDATEs via `FieldSubset`
+
+- **Composable predicates**  
+  Build queries with terms for equality, containment, ranges, null checks, and pattern matching; combine them with logical operators.
+- **LINQ support**  
+  Write queries using familiar C# syntax, auto-translated to efficient ORM operations.
+- **Pagination**  
+  Built-in paging with metadata for efficient handling of large datasets.
+- **Lazy streaming**  
+  Stream results row-by-row for memory efficiency.
+- **Field subsets**  
+  Load or update only the fields you need.
 
 ### 💾 Data Management
-- **Transactions** — manual nested transactions via `BeginTransaction` / `CommitTransaction` / `RollbackTransaction`
-- **Unit of Work** — `IUnitOfWork`, `BaseUnitOfWork`, provider-specific implementations (`SqlServerUnitOfWork`, `PostgreSQLUnitOfWork`, `MongoUnitOfWork`, `SQLiteUnitOfWork`), `With.Transaction`, `[Transaction]` attribute, Castle DynamicProxy interceptor. `[Transaction]` wraps a service method in an `IUnitOfWork` transaction; the UoW opens the connection before the first `CreateTransaction()` call and closes it after the outermost commit or rollback.
-- **Connection-level lifecycle** — set `conn.UnitOfWork = uow` once; every write operation (`Insert`, `Update`, `Delete`, `ProcessActionQueue`, `ExecStoredProcedure`) automatically opens the connection, begins a transaction, commits, and closes — no proxy required.
-- **Action queue** — batch operations via `QueueForInsert` / `QueueForUpdate` / `QueueForDelete` → `ProcessActionQueue`
 
-### 🌐 DI & Service Proxy Integration
-- **Auto-scan registration** — `AddActiveForgeSqlServer(...).AddServices(assembly)` discovers all `IService` implementations and registers them as interface-proxied scoped services in one call. `IService` marker — implement on any service class for automatic discovery and proxy registration. `IActiveForgeBuilder` — fluent builder returned by all `AddActiveForge*` methods; chain `.AddServices()`, `.AddService<I, T>()` for granular control.
+- **Transactions**  
+  Explicit and nested transaction support; control scope via code or attributes.
+- **Unit of Work**  
+  Integrated pattern for grouping multiple changes; supports both code-based and attribute-based usage.
+- **Connection lifecycle**  
+  Connections and transactions are managed automatically on every write, ensuring reliability.
+- **Batch operations**  
+  Queue up changes and execute them in bulk to reduce database round-trips.
 
+### 🌐 Dependency Injection & Service Proxy
+
+- **Auto-discovery & registration**  
+  Services marked with a simple interface are discovered and registered automatically.
+- **Fluent builder API**  
+  Register all or selected services with fine-grained control.
+- **Seamless DI integration**  
+  Simplifies service composition, testing, and enables proxy/interceptor scenarios.
 ---
 
 ## Requirements
@@ -286,7 +311,7 @@ With.Transaction(uow, () =>
 | [LINQ Querying](docs/linq-querying.md) | `conn.Query<T>()` LINQ support |
 | [Field Subsets](docs/field-subsets.md) | Partial fetches and partial updates |
 | [Advanced](docs/advanced.md) | Encryption, custom mappers, polymorphism |
-| [**Wiki**](docs/wiki.md) | Comprehensive reference — all concepts with examples |
+| [**Wiki**](https://github.com/CodeShayk/ActiveForge/wiki) | Comprehensive reference — all concepts with examples |
 
 ---
 
