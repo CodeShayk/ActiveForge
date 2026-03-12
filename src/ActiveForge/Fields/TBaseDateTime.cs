@@ -21,7 +21,7 @@ namespace ActiveForge
     /// </para>
     /// </summary>
     [Serializable]
-    public abstract class TDateTimeBase : TField, IComparable
+    public abstract class TBaseDateTime : TField, IComparable
     {
         /// <summary>
         /// Backing store for the <see cref="DateTime"/> value.  Defaults to
@@ -46,7 +46,7 @@ namespace ActiveForge
         /// Initialises a new date/time field in the null state with
         /// <c>InnerValue</c> set to <see cref="DateTime.MinValue"/>.
         /// </summary>
-        protected TDateTimeBase() { InnerValue = DateTime.MinValue; }
+        protected TBaseDateTime() { InnerValue = DateTime.MinValue; }
 
         /// <summary>
         /// Returns the underlying <see cref="DateTime"/> value boxed as an
@@ -57,7 +57,7 @@ namespace ActiveForge
 
         /// <summary>
         /// Sets <c>InnerValue</c> from <paramref name="value"/>.  Accepts another
-        /// <see cref="TDateTimeBase"/> subclass (copies its inner value directly),
+        /// <see cref="TBaseDateTime"/> subclass (copies its inner value directly),
         /// a plain <see cref="DateTime"/>, or any object that
         /// <see cref="Convert.ToDateTime(object)"/> can coerce.
         /// <para>
@@ -68,7 +68,7 @@ namespace ActiveForge
         /// <param name="value">The non-null source value.</param>
         public override void SetDerivedValue(object value)
         {
-            if (value is TDateTimeBase tb) InnerValue = tb.InnerValue;
+            if (value is TBaseDateTime tb) InnerValue = tb.InnerValue;
             else if (value is DateTime dt) InnerValue = dt;
             else                           InnerValue = Convert.ToDateTime(value);
         }
@@ -101,11 +101,11 @@ namespace ActiveForge
         /// <summary>
         /// Compares this field with <paramref name="obj"/> using chronological ordering.
         /// <para>
-        /// When comparing two <see cref="TDateTimeBase"/> instances:
+        /// When comparing two <see cref="TBaseDateTime"/> instances:
         /// null-state sorts before non-null (null is considered the earliest possible
         /// date).  Two null-state fields compare as equal.
         /// </para>
-        /// When comparing with a non-<see cref="TDateTimeBase"/> value, delegates to
+        /// When comparing with a non-<see cref="TBaseDateTime"/> value, delegates to
         /// <see cref="DateTime.CompareTo(object)"/> after converting via
         /// <see cref="Convert.ToDateTime(object)"/>.
         /// </summary>
@@ -116,7 +116,7 @@ namespace ActiveForge
         /// </returns>
         public int CompareTo(object obj)
         {
-            if (obj is TDateTimeBase other)
+            if (obj is TBaseDateTime other)
             {
                 if (IsNull() && other.IsNull()) return 0;
                 if (IsNull()) return -1;
@@ -129,7 +129,7 @@ namespace ActiveForge
         /// <summary>
         /// Returns the underlying <see cref="DateTime"/> value.  Equivalent to an
         /// explicit cast; useful when the caller has a reference typed as
-        /// <see cref="TDateTimeBase"/> rather than a concrete subclass.
+        /// <see cref="TBaseDateTime"/> rather than a concrete subclass.
         /// </summary>
         /// <returns>The wrapped <see cref="DateTime"/> value.</returns>
         public DateTime ToDateTime() => InnerValue;

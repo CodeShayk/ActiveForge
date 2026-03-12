@@ -11,7 +11,7 @@ namespace ActiveForge
     /// <c>SQLiteAdapterConnection</c>) delegate each operation to the underlying
     /// native connection object.
     /// </summary>
-    public abstract class ConnectionBase
+    public abstract class BaseConnection
     {
         /// <summary>
         /// Describes the transactional state of a connection as understood by the ORM.
@@ -53,7 +53,7 @@ namespace ActiveForge
 
         /// <summary>
         /// Starts a new database transaction at the specified isolation level and returns a
-        /// <see cref="TransactionBase"/> that wraps the native transaction object.
+        /// <see cref="BaseTransaction"/> that wraps the native transaction object.
         /// </summary>
         /// <param name="level">
         /// The <see cref="IsolationLevel"/> to use for the transaction. Providers that do
@@ -61,16 +61,16 @@ namespace ActiveForge
         /// (e.g. SQLite promotes <see cref="IsolationLevel.ReadUncommitted"/> to
         /// <see cref="IsolationLevel.ReadCommitted"/>).
         /// </param>
-        /// <returns>A <see cref="TransactionBase"/> wrapping the newly started native transaction.</returns>
-        public abstract TransactionBase BeginTransaction(IsolationLevel level);
+        /// <returns>A <see cref="BaseTransaction"/> wrapping the newly started native transaction.</returns>
+        public abstract BaseTransaction BeginTransaction(IsolationLevel level);
 
         /// <summary>
-        /// Creates a new <see cref="CommandBase"/> for the given SQL text, associated with
+        /// Creates a new <see cref="BaseCommand"/> for the given SQL text, associated with
         /// this connection. The command inherits the timeout returned by <see cref="GetTimeout"/>.
         /// </summary>
         /// <param name="sql">The SQL text (or stored-procedure name) to execute.</param>
-        /// <returns>A provider-specific <see cref="CommandBase"/> ready to execute.</returns>
-        public abstract CommandBase CreateCommand(string sql);
+        /// <returns>A provider-specific <see cref="BaseCommand"/> ready to execute.</returns>
+        public abstract BaseCommand CreateCommand(string sql);
 
         /// <summary>
         /// Returns <see langword="true"/> when the underlying native connection is currently
@@ -95,11 +95,11 @@ namespace ActiveForge
         /// is present.
         /// </summary>
         /// <param name="transaction">
-        /// The <see cref="TransactionBase"/> to inspect. If the value is not a recognised
+        /// The <see cref="BaseTransaction"/> to inspect. If the value is not a recognised
         /// provider type, implementations return <see cref="TransactionStates.NoTransaction"/>.
         /// </param>
         /// <returns>A <see cref="TransactionStates"/> value describing the current state.</returns>
-        public abstract TransactionStates TransactionState(TransactionBase transaction);
+        public abstract TransactionStates TransactionState(BaseTransaction transaction);
 
         /// <summary>
         /// Returns the command timeout, in seconds, that is applied to every command

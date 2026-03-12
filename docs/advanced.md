@@ -68,10 +68,10 @@ public TString Metadata = new TString();
 ## Polymorphic Type Mapping
 
 When you have an abstract base entity and multiple concrete subtypes (table-per-hierarchy
-or table-per-type), register the mapping in your `FactoryBase`:
+or table-per-type), register the mapping in your `BaseFactory`:
 
 ```csharp
-public class AppFactory : FactoryBase
+public class AppFactory : BaseFactory
 {
     protected override void CreateTypeMap()
     {
@@ -142,7 +142,7 @@ var results = conn.ExecSQL(template,
     "SELECT * FROM Products WHERE CreatedAt > @since",
     new Dictionary<string, object> { { "@since", DateTime.Today.AddDays(-7) } });
 
-// Returns a ReaderBase for low-level access
+// Returns a BaseReader for low-level access
 using var reader = conn.ExecSQL("SELECT COUNT(*) FROM Products");
 reader.Read();
 int count = (int)reader.GetValue(0);

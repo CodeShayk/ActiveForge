@@ -7,7 +7,7 @@ namespace ActiveForge.Query
     /// Abstract base for all composable WHERE-clause predicates.
     /// Subclasses implement <see cref="GetSQL"/> and <see cref="GetDeleteSQL"/> to emit
     /// the parameterised SQL fragment, and <see cref="BindParameters"/> to add the
-    /// corresponding <see cref="CommandBase"/> parameters.
+    /// corresponding <see cref="BaseCommand"/> parameters.
     /// <para>
     /// Leaf predicate classes (e.g. <see cref="EqualTerm"/>, <see cref="GreaterThanTerm"/>)
     /// each test one field against one value. Composite classes (<see cref="AndTerm"/>,
@@ -169,7 +169,7 @@ namespace ActiveForge.Query
         /// Adds the parameter(s) required by this term to <paramref name="command"/>.
         /// The default implementation handles single-value terms by calling
         /// <see cref="GetBindValue(TargetFieldInfo, Record, RecordBinding)"/> and
-        /// <see cref="CommandBase.AddParameter"/>.
+        /// <see cref="BaseCommand.AddParameter"/>.
         /// Multi-value terms (e.g. <see cref="InTerm"/>) override this method.
         /// </summary>
         /// <param name="obj">
@@ -177,12 +177,12 @@ namespace ActiveForge.Query
         /// converts the value.
         /// </param>
         /// <param name="binding">The <see cref="RecordBinding"/> that resolves the field to its <see cref="FieldBinding"/>.</param>
-        /// <param name="command">The <see cref="CommandBase"/> to which the parameter is added.</param>
+        /// <param name="command">The <see cref="BaseCommand"/> to which the parameter is added.</param>
         /// <param name="termNumber">
         /// Running counter that must match the value used when <see cref="GetSQL"/> was called;
         /// incremented once per parameter added.
         /// </param>
-        public virtual void BindParameters(Record obj, RecordBinding binding, CommandBase command, ref int termNumber)
+        public virtual void BindParameters(Record obj, RecordBinding binding, BaseCommand command, ref int termNumber)
         {
             FieldBinding fb        = GetTermFieldInfo(binding);
             object       bindValue = GetBindValue(fb.Info, obj, Binding: binding);

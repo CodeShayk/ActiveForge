@@ -19,6 +19,6 @@ namespace ActiveForge.Query
         public override string GetDeleteSQL(RecordBinding binding, ref int termNumber)
             => _sql;
 
-        public override void BindParameters(Record obj, RecordBinding binding, CommandBase command, ref int termNumber) { }
+        public override void BindParameters(Record obj, RecordBinding binding, BaseCommand command, ref int termNumber) { }
     }
 }

@@ -33,10 +33,10 @@ namespace ActiveForge
             AliasGenerator     = null;
         }
 
-        public RecordBinding(RecordBase obj, DataConnection connection, bool targetExists, RecordBase changedObj, Type[] expectedTypes, FactoryBase factory)
+        public RecordBinding(BaseRecord obj, DataConnection connection, bool targetExists, BaseRecord changedObj, Type[] expectedTypes, BaseFactory factory)
             : this(obj, connection, targetExists, changedObj, expectedTypes, factory, false) { }
 
-        public RecordBinding(RecordBase obj, DataConnection connection, bool targetExists, RecordBase changedObj, Type[] expectedTypes, FactoryBase factory, bool includeLookupDataObjects)
+        public RecordBinding(BaseRecord obj, DataConnection connection, bool targetExists, BaseRecord changedObj, Type[] expectedTypes, BaseFactory factory, bool includeLookupDataObjects)
         {
             DeleteSQL          = new List<DeleteSQLInfo>();
             DeleteSQLStub      = new List<DeleteSQLInfo>();
@@ -122,7 +122,7 @@ namespace ActiveForge
             PreRetrieveLookupDataObjectValues(connection, obj);
         }
 
-        protected void PreRetrieveLookupDataObjectValues(DataConnection connection, RecordBase obj)
+        protected void PreRetrieveLookupDataObjectValues(DataConnection connection, BaseRecord obj)
         {
             ObjectBindingMapRoot.PreRetrieveLookupDataObjectValues(connection, obj);
         }
@@ -186,7 +186,7 @@ namespace ActiveForge
             return "";
         }
 
-        public int GetColumnOrdinal(string name, ReaderBase reader, bool omitPK)
+        public int GetColumnOrdinal(string name, BaseReader reader, bool omitPK)
             => reader.ColumnOrdinal(name);
 
         public bool IsDBDerived()
@@ -400,7 +400,7 @@ namespace ActiveForge
         // ── Row fetch ─────────────────────────────────────────────────────────────────
 
         /// <summary>Polymorphic row fetch: determines the concrete type from diagnostic fields, then fetches into the matching cached instance.</summary>
-        public Record FetchRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, ReaderBase reader, bool omitPK, bool shallow, DBDataConnection connection, int depth)
+        public Record FetchRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, BaseReader reader, bool omitPK, bool shallow, DBDataConnection connection, int depth)
         {
             Type polymorphicType = null;
             foreach (var binding in ConcreteClassDiagnosticFields)
@@ -433,7 +433,7 @@ namespace ActiveForge
         }
 
         /// <summary>Non-polymorphic row fetch: fetches into a known concrete Record instance.</summary>
-        public void FetchRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, Record obj, ReaderBase reader, bool omitPK, bool shallow, int depth)
+        public void FetchRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, Record obj, BaseReader reader, bool omitPK, bool shallow, int depth)
         {
             if (ObjectBindingMapRoot != null)
             {

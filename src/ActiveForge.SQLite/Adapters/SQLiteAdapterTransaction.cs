@@ -4,11 +4,11 @@ using Microsoft.Data.Sqlite;
 namespace ActiveForge.Adapters.SQLite
 {
     /// <summary>
-    /// SQLite implementation of <see cref="TransactionBase"/> backed by
+    /// SQLite implementation of <see cref="BaseTransaction"/> backed by
     /// <see cref="SqliteTransaction"/> from <c>Microsoft.Data.Sqlite</c>.
     /// <para>
     /// Wraps the commit/rollback/dispose lifecycle of a SQLite transaction behind the
-    /// provider-agnostic <see cref="TransactionBase"/> API consumed by the ORM engine.
+    /// provider-agnostic <see cref="BaseTransaction"/> API consumed by the ORM engine.
     /// Instances are created by <see cref="SQLiteAdapterConnection.BeginTransaction"/> and
     /// must not be constructed directly by application code.
     /// </para>
@@ -20,7 +20,7 @@ namespace ActiveForge.Adapters.SQLite
     /// object.
     /// </para>
     /// </summary>
-    public class SQLiteAdapterTransaction : TransactionBase
+    public class SQLiteAdapterTransaction : BaseTransaction
     {
         /// <summary>The underlying SQLite transaction managed by this adapter.</summary>
         private readonly SqliteTransaction _tx;

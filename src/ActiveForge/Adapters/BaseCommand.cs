@@ -11,7 +11,7 @@ namespace ActiveForge
     /// <c>NpgsqlAdapterCommand</c>, <c>SQLiteAdapterCommand</c>) delegate each
     /// operation to the underlying native command object.
     /// </summary>
-    public abstract class CommandBase : IDisposable
+    public abstract class BaseCommand : IDisposable
     {
         /// <summary>
         /// Represents a single bound parameter that will be passed to the database command.
@@ -37,13 +37,13 @@ namespace ActiveForge
         protected string        SQL;
 
         /// <summary>The connection through which this command will be executed.</summary>
-        protected ConnectionBase Connection;
+        protected BaseConnection Connection;
 
         /// <summary>
         /// The ambient transaction to enlist in, or <see langword="null"/> when no transaction is active.
         /// Set by <see cref="SetTransaction"/>.
         /// </summary>
-        protected TransactionBase Transaction;
+        protected BaseTransaction Transaction;
 
         /// <summary>The ordered list of parameters that have been added via <see cref="AddParameter(string, object, TargetFieldInfo)"/>.</summary>
         protected List<Parameter> _parameters = new List<Parameter>();
@@ -53,7 +53,7 @@ namespace ActiveForge
         /// </summary>
         /// <param name="sql">The SQL text (or stored-procedure name) to execute.</param>
         /// <param name="connection">The connection adapter that owns this command.</param>
-        protected CommandBase(string sql, ConnectionBase connection)
+        protected BaseCommand(string sql, BaseConnection connection)
         {
             SQL        = sql;
             Connection = connection;
@@ -75,21 +75,21 @@ namespace ActiveForge
         public abstract int ExecuteNonQuery();
 
         /// <summary>
-        /// Executes the command and returns a <see cref="ReaderBase"/> that streams the
+        /// Executes the command and returns a <see cref="BaseReader"/> that streams the
         /// result set in default (random-access) mode.
         /// </summary>
-        /// <returns>A <see cref="ReaderBase"/> positioned before the first row.</returns>
+        /// <returns>A <see cref="BaseReader"/> positioned before the first row.</returns>
         /// <exception cref="PersistenceException">Wraps any provider-level database exception.</exception>
-        public abstract ReaderBase ExecuteReader();
+        public abstract BaseReader ExecuteReader();
 
         /// <summary>
-        /// Executes the command and returns a <see cref="ReaderBase"/> that streams the
+        /// Executes the command and returns a <see cref="BaseReader"/> that streams the
         /// result set in sequential-access mode, which may improve performance for large
         /// result sets by avoiding buffering of column data.
         /// </summary>
-        /// <returns>A <see cref="ReaderBase"/> positioned before the first row in sequential-access mode.</returns>
+        /// <returns>A <see cref="BaseReader"/> positioned before the first row in sequential-access mode.</returns>
         /// <exception cref="PersistenceException">Wraps any provider-level database exception.</exception>
-        public abstract ReaderBase ExecuteSequentialReader();
+        public abstract BaseReader ExecuteSequentialReader();
 
         /// <summary>
         /// Executes the command and returns the value of the first column of the first row
@@ -120,10 +120,10 @@ namespace ActiveForge
         /// calls participate in that transaction.
         /// </summary>
         /// <param name="tx">
-        /// The <see cref="TransactionBase"/> to enlist in, or <see langword="null"/> to
+        /// The <see cref="BaseTransaction"/> to enlist in, or <see langword="null"/> to
         /// remove the current transaction association.
         /// </param>
-        public void SetTransaction(TransactionBase tx) => Transaction = tx;
+        public void SetTransaction(BaseTransaction tx) => Transaction = tx;
 
         /// <summary>
         /// Adds a named parameter to the command using only a name and value.

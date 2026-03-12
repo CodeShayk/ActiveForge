@@ -12,7 +12,7 @@ namespace ActiveForge
     /// fields and optionally nested <see cref="Record"/> fields.
     /// </summary>
     [Serializable]
-    public abstract class Record : RecordBase
+    public abstract class Record : BaseRecord
     {
         // ── Backing state ─────────────────────────────────────────────────────────
 
@@ -210,9 +210,9 @@ namespace ActiveForge
             => (T)target.Create(typeof(T), copyFrom);
 
         /// <summary>Creates a new Record of the given type using this object's connection.</summary>
-        public RecordBase CreateDataObject(Type wantedType) => CreateDataObject(wantedType, Target);
+        public BaseRecord CreateDataObject(Type wantedType) => CreateDataObject(wantedType, Target);
 
-        public override RecordBase CreateCompatibleObject()
+        public override BaseRecord CreateCompatibleObject()
         {
             if (_innerTarget != null) return CreateDataObject(GetType(), _innerTarget);
             return base.CreateCompatibleObject();
@@ -606,7 +606,7 @@ namespace ActiveForge
         public virtual bool QueryFirst(QueryTerm query, SortOrder sortOrder, FieldSubset fieldSubset)
             => QueryFirst(query, sortOrder, fieldSubset, null);
 
-        public virtual bool QueryFirst(QueryTerm query, SortOrder sortOrder, FieldSubset fieldSubset, RecordParameterCollectionBase objectParameters)
+        public virtual bool QueryFirst(QueryTerm query, SortOrder sortOrder, FieldSubset fieldSubset, BaseRecordParameterCollection objectParameters)
         {
             if (Target == null) throw new PersistenceException("QueryFirst failed (no connection): " + GetType().FullName);
             return Target.QueryFirst(this, query, sortOrder, fieldSubset, objectParameters);

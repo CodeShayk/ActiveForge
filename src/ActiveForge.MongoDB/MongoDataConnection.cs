@@ -40,7 +40,7 @@ namespace ActiveForge
 
         private readonly string?        _connectionString;
         private readonly string         _databaseName;
-        private readonly FactoryBase    _factory;
+        private readonly BaseFactory    _factory;
         private readonly ILogger        _logger;
 
         // When injected via DI, an external singleton MongoClient is provided; we must not dispose it.
@@ -60,22 +60,22 @@ namespace ActiveForge
         /// <summary>
         /// Creates a connection using a MongoDB connection string.
         /// Each call to <see cref="Connect"/> creates a new <see cref="MongoClient"/>.
-        /// Prefer <see cref="MongoDataConnection(MongoClient,string,FactoryBase,ILogger)"/> in DI scenarios
+        /// Prefer <see cref="MongoDataConnection(MongoClient,string,BaseFactory,ILogger)"/> in DI scenarios
         /// so the singleton <see cref="MongoClient"/> (which owns the connection pool) is shared.
         /// </summary>
         /// <param name="connectionString">MongoDB connection string, e.g. <c>mongodb://localhost:27017</c>.</param>
         /// <param name="databaseName">Name of the MongoDB database to target.</param>
-        /// <param name="factory">Optional polymorphic type factory. Pass <c>new FactoryBase()</c> for no mapping.</param>
+        /// <param name="factory">Optional polymorphic type factory. Pass <c>new BaseFactory()</c> for no mapping.</param>
         /// <param name="logger">Optional logger; <c>NullLogger</c> used when omitted.</param>
         public MongoDataConnection(
             string connectionString,
             string databaseName,
-            FactoryBase? factory = null,
+            BaseFactory? factory = null,
             ILogger? logger      = null)
         {
             _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
             _databaseName     = databaseName     ?? throw new ArgumentNullException(nameof(databaseName));
-            _factory          = factory          ?? new FactoryBase();
+            _factory          = factory          ?? new BaseFactory();
             _logger           = logger           ?? NullLogger.Instance;
         }
 
@@ -93,12 +93,12 @@ namespace ActiveForge
         public MongoDataConnection(
             MongoClient mongoClient,
             string databaseName,
-            FactoryBase? factory = null,
+            BaseFactory? factory = null,
             ILogger? logger      = null)
         {
             _externalClient   = mongoClient ?? throw new ArgumentNullException(nameof(mongoClient));
             _databaseName     = databaseName ?? throw new ArgumentNullException(nameof(databaseName));
-            _factory          = factory ?? new FactoryBase();
+            _factory          = factory ?? new BaseFactory();
             _logger           = logger  ?? NullLogger.Instance;
         }
 
@@ -280,7 +280,7 @@ namespace ActiveForge
         public override bool QueryFirst(Record obj, QueryTerm? term, SortOrder? sortOrder, FieldSubset? fieldSubset)
             => QueryFirst(obj, term, sortOrder, fieldSubset, null);
 
-        public override bool QueryFirst(Record obj, QueryTerm? term, SortOrder? sortOrder, FieldSubset? fieldSubset, RecordParameterCollectionBase? objectParameters)
+        public override bool QueryFirst(Record obj, QueryTerm? term, SortOrder? sortOrder, FieldSubset? fieldSubset, BaseRecordParameterCollection? objectParameters)
         {
             var coll   = GetCollection(obj);
             var filter = MongoQueryTranslator.Translate(term, obj);
@@ -576,10 +576,10 @@ namespace ActiveForge
         public override RecordCollection ExecSQL(Record obj, string sql, int start, int count, Dictionary<string, object> parameters)
             => throw new NotSupportedException("ExecSQL is not supported by MongoDataConnection.");
 
-        public override ReaderBase ExecSQL(string sql)
+        public override BaseReader ExecSQL(string sql)
             => throw new NotSupportedException("ExecSQL is not supported by MongoDataConnection.");
 
-        public override ReaderBase ExecSQL(string sql, Dictionary<string, CommandBase.Parameter> parameters)
+        public override BaseReader ExecSQL(string sql, Dictionary<string, BaseCommand.Parameter> parameters)
             => throw new NotSupportedException("ExecSQL is not supported by MongoDataConnection.");
 
         public override RecordCollection ExecStoredProcedure(Record obj, string spName, int start, int count, params Record.SPParameter[] spParameters)
@@ -614,19 +614,19 @@ namespace ActiveForge
 
         // ── Binding ───────────────────────────────────────────────────────────────────
 
-        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache)
+        public override RecordBinding GetObjectBinding(BaseRecord obj, bool targetExists, bool useCache)
             => MongoMapper.BuildMinimalObjectBinding((Record)obj);
 
-        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[]? expectedTypes)
+        public override RecordBinding GetObjectBinding(BaseRecord obj, bool targetExists, bool useCache, Type[]? expectedTypes)
             => MongoMapper.BuildMinimalObjectBinding((Record)obj);
 
-        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[]? expectedTypes, bool includeLookupDataObjects)
+        public override RecordBinding GetObjectBinding(BaseRecord obj, bool targetExists, bool useCache, Type[]? expectedTypes, bool includeLookupDataObjects)
             => MongoMapper.BuildMinimalObjectBinding((Record)obj);
 
-        public override RecordBinding GetChangedObjectBinding(RecordBase obj, RecordBase changedObj)
+        public override RecordBinding GetChangedObjectBinding(BaseRecord obj, BaseRecord changedObj)
             => MongoMapper.BuildMinimalObjectBinding((Record)obj);
 
-        public override RecordBinding GetDynamicObjectBinding(RecordBase obj, ReaderBase reader)
+        public override RecordBinding GetDynamicObjectBinding(BaseRecord obj, BaseReader reader)
             => throw new NotSupportedException("GetDynamicObjectBinding is not supported by MongoDataConnection.");
 
         // ── Schema / field info ───────────────────────────────────────────────────────
@@ -643,7 +643,7 @@ namespace ActiveForge
         public override void AddTargetFieldInfoToCache(string sourceName, string targetFieldName, TargetFieldInfo info)
         { /* no-op */ }
 
-        public override bool TableExists(RecordBase obj)
+        public override bool TableExists(BaseRecord obj)
         {
             var entry = MongoTypeCache.GetEntry(obj.GetType());
             var names = Database.ListCollectionNames().ToList();
@@ -711,10 +711,10 @@ namespace ActiveForge
 
         // ── Transactions ──────────────────────────────────────────────────────────────
 
-        public override TransactionBase BeginTransaction()
+        public override BaseTransaction BeginTransaction()
             => BeginTransaction(IsolationLevel.ReadCommitted);
 
-        public override TransactionBase BeginTransaction(IsolationLevel level)
+        public override BaseTransaction BeginTransaction(IsolationLevel level)
         {
             if (_database == null)
                 throw new InvalidOperationException("Not connected. Call Connect() first.");
@@ -726,10 +726,10 @@ namespace ActiveForge
             _inTransaction = true;
 
             _logger.LogDebug("MongoDB transaction started");
-            return new MongoTransactionBase(_session, this);
+            return new BaseMongoTransaction(_session, this);
         }
 
-        public override void CommitTransaction(TransactionBase transaction)
+        public override void CommitTransaction(BaseTransaction transaction)
         {
             if (_session == null || !_inTransaction)
                 throw new InvalidOperationException("No active MongoDB transaction.");
@@ -741,7 +741,7 @@ namespace ActiveForge
             _logger.LogDebug("MongoDB transaction committed");
         }
 
-        public override void RollbackTransaction(TransactionBase transaction)
+        public override void RollbackTransaction(BaseTransaction transaction)
         {
             if (_session == null) return;
 
@@ -752,9 +752,9 @@ namespace ActiveForge
             _logger.LogDebug("MongoDB transaction rolled back");
         }
 
-        public override TransactionStates TransactionState(TransactionBase transaction)
+        public override TransactionStates TransactionState(BaseTransaction transaction)
         {
-            if (transaction is MongoTransactionBase mt)
+            if (transaction is BaseMongoTransaction mt)
                 return mt.State;
             return _inTransaction ? TransactionStates.Active : TransactionStates.None;
         }
@@ -762,8 +762,8 @@ namespace ActiveForge
         // ── Descriptions (no-op stubs) ────────────────────────────────────────────────
 
         public override string GetValidationMessage(string key, string defaultValue) => defaultValue;
-        public override string GetFieldDescription(FieldInfo fi, RecordBase obj)     => fi.Name;
-        public override string GetDataObjectDescription(RecordBase obj)               => obj.GetType().Name;
+        public override string GetFieldDescription(FieldInfo fi, BaseRecord obj)     => fi.Name;
+        public override string GetDataObjectDescription(BaseRecord obj)               => obj.GetType().Name;
 
         // ── Private helpers ───────────────────────────────────────────────────────────
 
@@ -816,16 +816,16 @@ namespace ActiveForge
         }
     }
 
-    // ── MongoTransactionBase ──────────────────────────────────────────────────────────
+    // ── BaseMongoTransaction ──────────────────────────────────────────────────────────
 
-    /// <summary>Wraps a MongoDB client session to implement the ORM TransactionBase contract.</summary>
-    public sealed class MongoTransactionBase : TransactionBase
+    /// <summary>Wraps a MongoDB client session to implement the ORM BaseTransaction contract.</summary>
+    public sealed class BaseMongoTransaction : BaseTransaction
     {
         private readonly IClientSessionHandle _session;
         private readonly MongoDataConnection  _connection;
         internal TransactionStates State { get; private set; } = TransactionStates.Active;
 
-        internal MongoTransactionBase(IClientSessionHandle session, MongoDataConnection connection)
+        internal BaseMongoTransaction(IClientSessionHandle session, MongoDataConnection connection)
         {
             _session    = session;
             _connection = connection;

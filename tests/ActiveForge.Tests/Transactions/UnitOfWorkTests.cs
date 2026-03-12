@@ -2,27 +2,28 @@ using System;
 using System.Data;
 using FluentAssertions;
 using Moq;
+using ActiveForge.Tests.Helpers;
 using ActiveForge.Transactions;
 using Xunit;
 
 namespace ActiveForge.Tests.Transactions
 {
-    /// <summary>Tests for UnitOfWorkBase lifecycle, depth counter, and rollback-only flag.</summary>
+    /// <summary>Tests for BaseUnitOfWork lifecycle, depth counter, and rollback-only flag.</summary>
     public class UnitOfWorkTests
     {
         // ── Helpers ───────────────────────────────────────────────────────────────────
 
-        /// <summary>Concrete subclass that uses a mocked TransactionBase.</summary>
-        private sealed class TestUnitOfWork : UnitOfWorkBase
+        /// <summary>Concrete subclass that uses a mocked BaseTransaction.</summary>
+        private sealed class TestUnitOfWork : BaseUnitOfWork
         {
-            private readonly Func<TransactionBase> _factory;
+            private readonly Func<BaseTransaction> _factory;
 
-            public TestUnitOfWork(Func<TransactionBase> factory = null)
-                : base(null)
+            public TestUnitOfWork(Func<BaseTransaction> factory = null, DataConnection connection = null)
+                : base(connection ?? new StubDataConnection())
             {
                 _factory = factory ?? (() =>
                 {
-                    var tx = new Mock<TransactionBase>();
+                    var tx = new Mock<BaseTransaction>();
                     tx.Setup(t => t.Commit()).Verifiable();
                     tx.Setup(t => t.Rollback()).Verifiable();
                     tx.Setup(t => t.Dispose()).Verifiable();
@@ -30,13 +31,13 @@ namespace ActiveForge.Tests.Transactions
                 });
             }
 
-            protected override TransactionBase BeginTransactionCore(IsolationLevel level)
+            protected override BaseTransaction BeginTransactionCore(IsolationLevel level)
                 => _factory();
         }
 
-        private static Mock<TransactionBase> CreateMockTransaction()
+        private static Mock<BaseTransaction> CreateMockTransaction()
         {
-            var mock = new Mock<TransactionBase>(MockBehavior.Strict);
+            var mock = new Mock<BaseTransaction>(MockBehavior.Strict);
             mock.Setup(t => t.Commit()).Verifiable();
             mock.Setup(t => t.Rollback()).Verifiable();
             mock.Setup(t => t.Dispose()).Verifiable();
@@ -192,12 +193,13 @@ namespace ActiveForge.Tests.Transactions
         // ── IsolationLevel propagated ─────────────────────────────────────────────────
 
         // Helper with level parameter
-        private sealed class TestUnitOfWork2 : UnitOfWorkBase
+        private sealed class TestUnitOfWork2 : BaseUnitOfWork
         {
-            private readonly Func<IsolationLevel, TransactionBase> _factory;
-            public TestUnitOfWork2(Func<IsolationLevel, TransactionBase> factory) : base(null)
+            private readonly Func<IsolationLevel, BaseTransaction> _factory;
+            public TestUnitOfWork2(Func<IsolationLevel, BaseTransaction> factory)
+                : base(new StubDataConnection())
                 => _factory = factory;
-            protected override TransactionBase BeginTransactionCore(IsolationLevel level)
+            protected override BaseTransaction BeginTransactionCore(IsolationLevel level)
                 => _factory(level);
         }
 

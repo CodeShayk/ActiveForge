@@ -6,7 +6,7 @@ using ActiveForge.Attributes;
 
 namespace ActiveForge
 {
-    public delegate void FieldFetcher(Record obj, ReaderBase reader, FieldBinding info, RecordBinding binding, bool omitPK, bool omitPKForOrdinals);
+    public delegate void FieldFetcher(Record obj, BaseReader reader, FieldBinding info, RecordBinding binding, bool omitPK, bool omitPKForOrdinals);
 
     /// <summary>
     /// Represents one node in the SQL join tree for a Record class hierarchy.
@@ -44,7 +44,7 @@ namespace ActiveForge
         protected AliasGenerator  AliasGenerator;
         protected Stack<Type>     SpecialisationStack;
         protected Type[]          ExpectedTypes;
-        protected FactoryBase     Factory;
+        protected BaseFactory     Factory;
         protected bool            _includeLookupDataObjects;
 
         // ── Constructors ──────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ namespace ActiveForge
         }
 
         /// <summary>Root constructor — used for the root object of a binding.</summary>
-        public RecordBindingMapNode(Type classType, AliasGenerator aliasGen, Type[] expectedTypes, FactoryBase factory, bool includeLookup)
+        public RecordBindingMapNode(Type classType, AliasGenerator aliasGen, Type[] expectedTypes, BaseFactory factory, bool includeLookup)
             : this()
         {
             Class                    = classType;
@@ -76,7 +76,7 @@ namespace ActiveForge
         }
 
         /// <summary>Relationship constructor — used for FK-joined embedded objects.</summary>
-        public RecordBindingMapNode(Type classType, AliasGenerator aliasGen, string fkJoinName, string fieldName, JoinSpecification.JoinTypeEnum joinType, FactoryBase factory, bool includeLookup)
+        public RecordBindingMapNode(Type classType, AliasGenerator aliasGen, string fkJoinName, string fieldName, JoinSpecification.JoinTypeEnum joinType, BaseFactory factory, bool includeLookup)
             : this()
         {
             Class                    = classType;
@@ -92,7 +92,7 @@ namespace ActiveForge
         }
 
         /// <summary>Polymorphic specialisation constructor.</summary>
-        public RecordBindingMapNode(Type classType, AliasGenerator aliasGen, string fkJoinName, string fieldName, JoinSpecification.JoinTypeEnum joinType, Stack<Type> specialisationStack, FactoryBase factory, RecordBindingMapNode generalisation, bool includeLookup)
+        public RecordBindingMapNode(Type classType, AliasGenerator aliasGen, string fkJoinName, string fieldName, JoinSpecification.JoinTypeEnum joinType, Stack<Type> specialisationStack, BaseFactory factory, RecordBindingMapNode generalisation, bool includeLookup)
             : this()
         {
             Class                    = classType;
@@ -112,7 +112,7 @@ namespace ActiveForge
         }
 
         /// <summary>Internal constructor used for generalisation nodes.</summary>
-        public RecordBindingMapNode(Type classType, AliasGenerator aliasGen, JoinSpecification.JoinTypeEnum joinType, FactoryBase factory, bool includeLookup)
+        public RecordBindingMapNode(Type classType, AliasGenerator aliasGen, JoinSpecification.JoinTypeEnum joinType, BaseFactory factory, bool includeLookup)
             : this()
         {
             Class                    = classType;
@@ -141,7 +141,7 @@ namespace ActiveForge
             return result;
         }
 
-        public void PreRetrieveLookupDataObjectValues(DataConnection connection, RecordBase obj)
+        public void PreRetrieveLookupDataObjectValues(DataConnection connection, BaseRecord obj)
         {
             if (Generalisation != null)
                 Generalisation.PreRetrieveLookupDataObjectValues(connection, obj);
@@ -152,7 +152,7 @@ namespace ActiveForge
                 {
                     if (rel.ObjectTargetMapNode.Class.IsSubclassOf(_lookupDataObjectType))
                     {
-                        rel.ObjectTargetMapNode.PreRetrieveLookupDataObjectValues(connection, (RecordBase)rel.ObjectTargetFieldInfo.GetValue(obj));
+                        rel.ObjectTargetMapNode.PreRetrieveLookupDataObjectValues(connection, (BaseRecord)rel.ObjectTargetFieldInfo.GetValue(obj));
                         if (rel.ObjectTargetFieldInfo != null)
                         {
                             var ldo = (LookupRecord)rel.ObjectTargetFieldInfo.GetValue(obj);
@@ -161,7 +161,7 @@ namespace ActiveForge
                     }
                     else
                     {
-                        rel.ObjectTargetMapNode.PreRetrieveLookupDataObjectValues(connection, (RecordBase)rel.ObjectTargetFieldInfo.GetValue(obj));
+                        rel.ObjectTargetMapNode.PreRetrieveLookupDataObjectValues(connection, (BaseRecord)rel.ObjectTargetFieldInfo.GetValue(obj));
                     }
                 }
             }
@@ -526,7 +526,7 @@ namespace ActiveForge
 
         // ── Field fetch ───────────────────────────────────────────────────────────────
 
-        public void FetchRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, Record obj, ReaderBase reader, RecordBinding binding, bool omitPK, bool omitPKForOrdinals, bool shallow, int depth)
+        public void FetchRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, Record obj, BaseReader reader, RecordBinding binding, bool omitPK, bool omitPKForOrdinals, bool shallow, int depth)
         {
             bool includesRelatedFields = false;
             foreach (var fb in fieldBindings)
@@ -564,14 +564,14 @@ namespace ActiveForge
             }
         }
 
-        public void FetchPolymorphicRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, Record obj, Type objectType, ReaderBase reader, RecordBinding binding, bool omitPK, bool omitPKForOrdinals, int depth)
+        public void FetchPolymorphicRowValues(List<FieldBinding> fieldBindings, FieldFetcher fetcher, Record obj, Type objectType, BaseReader reader, RecordBinding binding, bool omitPK, bool omitPKForOrdinals, int depth)
         {
             var inheritance = InheritanceStack(objectType);
             while (inheritance.Peek() != Class) inheritance.Pop();
             FetchPolymorphicRowValuesInternal(fieldBindings, fetcher, obj, reader, binding, omitPK, omitPKForOrdinals, inheritance, depth);
         }
 
-        private void FetchPolymorphicRowValuesInternal(List<FieldBinding> fieldBindings, FieldFetcher fetcher, Record obj, ReaderBase reader, RecordBinding binding, bool omitPK, bool omitPKForOrdinals, Stack<Type> inheritance, int depth)
+        private void FetchPolymorphicRowValuesInternal(List<FieldBinding> fieldBindings, FieldFetcher fetcher, Record obj, BaseReader reader, RecordBinding binding, bool omitPK, bool omitPKForOrdinals, Stack<Type> inheritance, int depth)
         {
             if (inheritance.Peek() != Class) return;
             inheritance.Pop();
@@ -589,7 +589,7 @@ namespace ActiveForge
 
         // ── Field array population ────────────────────────────────────────────────────
 
-        public void PopulateFieldArrays(RecordBase obj, DataConnection connection, bool targetExists, RecordBase changedObject, List<FieldBinding> readFields, List<FieldBinding> updateFields, List<FieldBinding> diagnosticFields)
+        public void PopulateFieldArrays(BaseRecord obj, DataConnection connection, bool targetExists, BaseRecord changedObject, List<FieldBinding> readFields, List<FieldBinding> updateFields, List<FieldBinding> diagnosticFields)
         {
             var fieldList = Class.GetFields(BindingFlags.Public | BindingFlags.Instance);
             foreach (var fi in fieldList)
@@ -789,7 +789,7 @@ namespace ActiveForge
 
         // ── Private helpers ───────────────────────────────────────────────────────────
 
-        private FieldBinding PopulateFieldInfo(FieldInfo fi, RecordBase obj, DataConnection connection, bool targetExists, RecordBase changedObject)
+        private FieldBinding PopulateFieldInfo(FieldInfo fi, BaseRecord obj, DataConnection connection, bool targetExists, BaseRecord changedObject)
         {
             bool optionalMissing = false;
             if (!ShouldIncludeField(fi, obj, changedObject)) return null;
@@ -868,7 +868,7 @@ namespace ActiveForge
             return null;
         }
 
-        private bool ShouldIncludeField(FieldInfo fi, RecordBase obj, RecordBase changedObject)
+        private bool ShouldIncludeField(FieldInfo fi, BaseRecord obj, BaseRecord changedObject)
         {
             if (changedObject == null) return true;
             var v1 = fi.GetValue(obj);

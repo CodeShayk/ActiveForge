@@ -42,7 +42,7 @@ namespace ActiveForge
 
         public PostgreSQLConnection(string connectString) : base(connectString) { }
 
-        public PostgreSQLConnection(string connectString, FactoryBase factory) : base(connectString, factory) { }
+        public PostgreSQLConnection(string connectString, BaseFactory factory) : base(connectString, factory) { }
 
         // ── Dialect ───────────────────────────────────────────────────────────────────
 
@@ -89,7 +89,7 @@ namespace ActiveForge
 
         // ── Connection factory ────────────────────────────────────────────────────────
 
-        protected override ConnectionBase CreateConnection(string connectString)
+        protected override BaseConnection CreateConnection(string connectString)
             => new NpgsqlAdapterConnection(connectString);
 
         // ── Identity retrieval ────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ namespace ActiveForge
         /// least one sequence-advancing statement (INSERT into a SERIAL / IDENTITY
         /// column, or explicit <c>nextval()</c>) has been issued in the current session.
         /// </remarks>
-        protected override string PopulateIdentity(Record obj, RecordBinding binding, CommandBase _)
+        protected override string PopulateIdentity(Record obj, RecordBinding binding, BaseCommand _)
         {
             var cmd = CreateCommand("SELECT LASTVAL()");
             if (_transactionDepth > 0) cmd.SetTransaction(_transaction);
@@ -216,7 +216,7 @@ namespace ActiveForge
         /// <summary>
         /// Checks the schema cache to determine whether a table exists in the database.
         /// </summary>
-        public override bool TableExists(RecordBase obj)
+        public override bool TableExists(BaseRecord obj)
         {
             var cache  = PopulateSQLFieldCache();
             string src = RecordMetaDataCache.GetTypeMetaData(obj.GetType()).SourceName;

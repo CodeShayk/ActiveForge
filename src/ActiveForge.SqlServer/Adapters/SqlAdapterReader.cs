@@ -5,7 +5,7 @@ using Microsoft.Data.SqlClient;
 namespace ActiveForge.Adapters.SqlServer
 {
     /// <summary>
-    /// SQL Server implementation of <see cref="ReaderBase"/> backed by
+    /// SQL Server implementation of <see cref="BaseReader"/> backed by
     /// <see cref="SqlDataReader"/> from <c>Microsoft.Data.SqlClient</c>.
     /// <para>
     /// Each method delegates directly to the corresponding member on the wrapped
@@ -15,7 +15,7 @@ namespace ActiveForge.Adapters.SqlServer
     /// directly by application code.
     /// </para>
     /// </summary>
-    public class SqlAdapterReader : ReaderBase
+    public class SqlAdapterReader : BaseReader
     {
         /// <summary>The underlying SQL Server data reader managed by this adapter.</summary>
         private readonly SqlDataReader _reader;
@@ -51,7 +51,7 @@ namespace ActiveForge.Adapters.SqlServer
 
         /// <summary>
         /// Returns the raw value of the column at the specified zero-based ordinal for the
-        /// current row. Does not perform a null check; use <see cref="ReaderBase.ColumnValue(int)"/>
+        /// current row. Does not perform a null check; use <see cref="BaseReader.ColumnValue(int)"/>
         /// for null-safe access.
         /// </summary>
         /// <param name="ordinal">The zero-based column index.</param>
@@ -100,7 +100,7 @@ namespace ActiveForge.Adapters.SqlServer
         /// <summary>
         /// Exposes the underlying <see cref="SqlDataReader"/> directly for SQL Server–
         /// specific code paths that require access to members not covered by the
-        /// <see cref="ReaderBase"/> API (e.g. asynchronous read methods).
+        /// <see cref="BaseReader"/> API (e.g. asynchronous read methods).
         /// </summary>
         /// <returns>The native <see cref="SqlDataReader"/> managed by this adapter.</returns>
         public SqlDataReader GetNativeReader() => _reader;

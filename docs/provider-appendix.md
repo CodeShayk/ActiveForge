@@ -9,16 +9,16 @@ A provider is a NuGet package (e.g. `ActiveForge.SqlServer`) that bridges the OR
 
 1. [Overview — What a Provider Must Supply](#1-overview--what-a-provider-must-supply)
 2. [Adapter Layer](#2-adapter-layer)
-   - 2.1 [ConnectionBase](#21-connectionbase)
-   - 2.2 [TransactionBase](#22-transactionbase)
-   - 2.3 [CommandBase](#23-commandbase)
-   - 2.4 [ReaderBase](#24-readerbase)
+   - 2.1 [BaseConnection](#21-baseconnection)
+   - 2.2 [BaseTransaction](#22-basetransaction)
+   - 2.3 [BaseCommand](#23-basecommand)
+   - 2.4 [BaseReader](#24-basereader)
 3. [Connection Class](#3-connection-class)
    - 3.1 [DBDataConnection (SQL providers)](#31-dbdataconnection--sql-providers)
    - 3.2 [DataConnection (non-SQL / document providers)](#32-dataconnection--non-sql--document-providers)
 4. [Unit of Work](#4-unit-of-work)
    - 4.1 [IUnitOfWork](#41-iunitofwork)
-   - 4.2 [UnitOfWorkBase](#42-unitofworkbase)
+   - 4.2 [BaseUnitOfWork](#42-baseunitofwork)
 5. [DI Registration](#5-di-registration)
 6. [Core Supporting Types](#6-core-supporting-types)
    - 6.1 [TField Hierarchy](#61-tfield-hierarchy)
@@ -37,12 +37,12 @@ A provider consists of exactly these pieces:
 
 | Piece | Base type | Required |
 |---|---|---|
-| Connection adapter | `ConnectionBase` | Yes |
-| Transaction adapter | `TransactionBase` | Yes |
-| Command adapter | `CommandBase` | Yes |
-| Reader adapter | `ReaderBase` | Yes |
+| Connection adapter | `BaseConnection` | Yes |
+| Transaction adapter | `BaseTransaction` | Yes |
+| Command adapter | `BaseCommand` | Yes |
+| Reader adapter | `BaseReader` | Yes |
 | ORM connection | `DBDataConnection` (SQL) or `DataConnection` (document) | Yes |
-| Unit of work | `UnitOfWorkBase` | Yes |
+| Unit of work | `BaseUnitOfWork` | Yes |
 | DI extension | `IServiceCollection` extension returning `IActiveForgeBuilder` | Yes |
 
 The four adapter types form an abstraction layer over the native ADO.NET (or driver) objects. The ORM engine only ever calls the abstract adapter API — it never references the native types directly.
@@ -52,12 +52,12 @@ The four adapter types form an abstraction layer over the native ADO.NET (or dri
 ```
 ActiveForge.MyProvider/
 ├── Adapters/
-│   ├── MyAdapterConnection.cs    ← ConnectionBase subclass
-│   ├── MyAdapterTransaction.cs   ← TransactionBase subclass
-│   ├── MyAdapterCommand.cs       ← CommandBase subclass
-│   └── MyAdapterReader.cs        ← ReaderBase subclass
+│   ├── MyAdapterConnection.cs    ← BaseConnection subclass
+│   ├── MyAdapterTransaction.cs   ← BaseTransaction subclass
+│   ├── MyAdapterCommand.cs       ← BaseCommand subclass
+│   └── MyAdapterReader.cs        ← BaseReader subclass
 ├── Transactions/
-│   └── MyUnitOfWork.cs           ← UnitOfWorkBase subclass
+│   └── MyUnitOfWork.cs           ← BaseUnitOfWork subclass
 ├── Extensions/
 │   └── MyServiceCollectionExtensions.cs
 └── MyConnection.cs               ← DBDataConnection (or DataConnection) subclass
@@ -67,15 +67,15 @@ ActiveForge.MyProvider/
 
 ## 2. Adapter Layer
 
-### 2.1 `ConnectionBase`
+### 2.1 `BaseConnection`
 
 **Namespace:** `ActiveForge`
-**File:** `src/ActiveForge/Adapters/ConnectionBase.cs`
+**File:** `src/ActiveForge/Adapters/BaseConnection.cs`
 
 Abstract wrapper around the native database connection object.
 
 ```csharp
-public abstract class ConnectionBase
+public abstract class BaseConnection
 {
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -88,26 +88,26 @@ public abstract class ConnectionBase
     // ── Commands ─────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Creates a new provider-specific CommandBase for the given SQL text.
+    /// Creates a new provider-specific BaseCommand for the given SQL text.
     /// The command inherits the timeout from GetTimeout().
     /// </summary>
-    public abstract CommandBase CreateCommand(string sql);
+    public abstract BaseCommand CreateCommand(string sql);
 
     // ── Transactions ─────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Starts a new transaction at the given isolation level and returns a
-    /// TransactionBase wrapping the native transaction object.
+    /// BaseTransaction wrapping the native transaction object.
     /// </summary>
-    public abstract TransactionBase BeginTransaction(IsolationLevel level);
+    public abstract BaseTransaction BeginTransaction(IsolationLevel level);
 
     /// <summary>
-    /// Inspects the state of the supplied TransactionBase.
+    /// Inspects the state of the supplied BaseTransaction.
     /// Implementations query the database (e.g. SELECT XACT_STATE() for SQL Server,
     /// txid_current_if_assigned() for PostgreSQL) or inspect driver state.
     /// Return NoTransaction when the argument is not a recognised provider type.
     /// </summary>
-    public abstract TransactionStates TransactionState(TransactionBase transaction);
+    public abstract TransactionStates TransactionState(BaseTransaction transaction);
 
     // ── State ────────────────────────────────────────────────────────────────────
 
@@ -124,7 +124,7 @@ public abstract class ConnectionBase
 }
 ```
 
-#### `TransactionStates` enum (nested in `ConnectionBase`)
+#### `TransactionStates` enum (nested in `BaseConnection`)
 
 | Value | Meaning |
 |---|---|
@@ -135,7 +135,7 @@ public abstract class ConnectionBase
 #### Implementation pattern
 
 ```csharp
-public class MyAdapterConnection : ConnectionBase
+public class MyAdapterConnection : BaseConnection
 {
     private readonly MyNativeConnection _conn;
 
@@ -147,16 +147,16 @@ public class MyAdapterConnection : ConnectionBase
     public override bool IsConnected() => _conn.State == ConnectionState.Open;
     public override string DatabaseName() => _conn.Database;
 
-    public override TransactionBase BeginTransaction(IsolationLevel level)
+    public override BaseTransaction BeginTransaction(IsolationLevel level)
         => new MyAdapterTransaction(_conn.BeginTransaction(level));
 
-    public override CommandBase CreateCommand(string sql)
+    public override BaseCommand CreateCommand(string sql)
         => new MyAdapterCommand(sql, this);
 
     // Expose native connection for MyAdapterCommand to bind to:
     public MyNativeConnection GetNativeConnection() => _conn;
 
-    public override TransactionStates TransactionState(TransactionBase tx)
+    public override TransactionStates TransactionState(BaseTransaction tx)
     {
         if (tx is MyAdapterTransaction mat)
         {
@@ -171,16 +171,16 @@ public class MyAdapterConnection : ConnectionBase
 
 ---
 
-### 2.2 `TransactionBase`
+### 2.2 `BaseTransaction`
 
 **Namespace:** `ActiveForge`
-**File:** `src/ActiveForge/Adapters/TransactionBase.cs`
+**File:** `src/ActiveForge/Adapters/BaseTransaction.cs`
 
 Abstract wrapper around the native transaction object. Instances are created by
-`ConnectionBase.BeginTransaction` and associated with commands via `CommandBase.SetTransaction`.
+`BaseConnection.BeginTransaction` and associated with commands via `BaseCommand.SetTransaction`.
 
 ```csharp
-public abstract class TransactionBase : IDisposable
+public abstract class BaseTransaction : IDisposable
 {
     /// <summary>
     /// Commits all changes. After a successful commit the object must not be reused.
@@ -203,7 +203,7 @@ public abstract class TransactionBase : IDisposable
 #### Implementation pattern
 
 ```csharp
-public class MyAdapterTransaction : TransactionBase
+public class MyAdapterTransaction : BaseTransaction
 {
     private readonly MyNativeTransaction _tx;
 
@@ -220,28 +220,28 @@ public class MyAdapterTransaction : TransactionBase
 
 ---
 
-### 2.3 `CommandBase`
+### 2.3 `BaseCommand`
 
 **Namespace:** `ActiveForge`
-**File:** `src/ActiveForge/Adapters/CommandBase.cs`
+**File:** `src/ActiveForge/Adapters/BaseCommand.cs`
 
 Abstract wrapper around the native command object. The ORM engine calls `AddParameter` to bind
 values and then `ExecuteNonQuery`, `ExecuteReader`, `ExecuteSequentialReader`, or `ExecuteScalar`
 to run the statement.
 
 ```csharp
-public abstract class CommandBase : IDisposable
+public abstract class BaseCommand : IDisposable
 {
     // ── Execution ────────────────────────────────────────────────────────────────
 
     /// <summary>Executes a non-row-returning statement. Returns rows-affected count.</summary>
     public abstract int ExecuteNonQuery();
 
-    /// <summary>Executes and returns a ReaderBase in default (random-access) mode.</summary>
-    public abstract ReaderBase ExecuteReader();
+    /// <summary>Executes and returns a BaseReader in default (random-access) mode.</summary>
+    public abstract BaseReader ExecuteReader();
 
-    /// <summary>Executes and returns a ReaderBase in sequential-access mode (lower memory).</summary>
-    public abstract ReaderBase ExecuteSequentialReader();
+    /// <summary>Executes and returns a BaseReader in sequential-access mode (lower memory).</summary>
+    public abstract BaseReader ExecuteSequentialReader();
 
     /// <summary>Executes and returns the value of the first column of the first row, or null.</summary>
     public abstract object ExecuteScalar();
@@ -279,7 +279,7 @@ public abstract class CommandBase : IDisposable
     // ── Concrete helpers (no override needed) ────────────────────────────────────
 
     /// <summary>Associates a transaction with this command.</summary>
-    public void SetTransaction(TransactionBase tx);
+    public void SetTransaction(BaseTransaction tx);
 
     /// <summary>Adds a parameter with name + value only (no field metadata).</summary>
     public virtual void AddParameter(string name, object value);
@@ -292,7 +292,7 @@ public abstract class CommandBase : IDisposable
 }
 ```
 
-#### `Parameter` inner class (in `CommandBase`)
+#### `Parameter` inner class (in `BaseCommand`)
 
 ```csharp
 public class Parameter
@@ -307,7 +307,7 @@ public class Parameter
 #### Implementation pattern
 
 ```csharp
-public class MyAdapterCommand : CommandBase
+public class MyAdapterCommand : BaseCommand
 {
     private readonly MyNativeCommand _cmd;
 
@@ -320,8 +320,8 @@ public class MyAdapterCommand : CommandBase
 
     public override int        ExecuteNonQuery()         => _cmd.ExecuteNonQuery();
     public override object     ExecuteScalar()           => _cmd.ExecuteScalar();
-    public override ReaderBase ExecuteReader()           => new MyAdapterReader(_cmd.ExecuteReader());
-    public override ReaderBase ExecuteSequentialReader() => new MyAdapterReader(
+    public override BaseReader ExecuteReader()           => new MyAdapterReader(_cmd.ExecuteReader());
+    public override BaseReader ExecuteSequentialReader() => new MyAdapterReader(
         _cmd.ExecuteReader(CommandBehavior.SequentialAccess));
 
     public override void SetToStoredProcedure()
@@ -350,16 +350,16 @@ public class MyAdapterCommand : CommandBase
 
 ---
 
-### 2.4 `ReaderBase`
+### 2.4 `BaseReader`
 
 **Namespace:** `ActiveForge`
-**File:** `src/ActiveForge/Adapters/ReaderBase.cs`
+**File:** `src/ActiveForge/Adapters/BaseReader.cs`
 
 Abstract wrapper around a forward-only data reader. The ORM engine calls `Read()` in a loop,
 then retrieves column values via `ColumnValue(int)` or `ColumnValue(string)`.
 
 ```csharp
-public abstract class ReaderBase : IDisposable
+public abstract class BaseReader : IDisposable
 {
     // ── Row navigation ────────────────────────────────────────────────────────────
 
@@ -408,7 +408,7 @@ public abstract class ReaderBase : IDisposable
 #### Implementation pattern
 
 ```csharp
-public class MyAdapterReader : ReaderBase
+public class MyAdapterReader : BaseReader
 {
     private readonly MyNativeReader _reader;
 
@@ -445,10 +445,10 @@ public abstract class DBDataConnection : DataConnection, IDisposable
     // ── MUST override ─────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Creates and returns a new ConnectionBase wrapping the native connection for
+    /// Creates and returns a new BaseConnection wrapping the native connection for
     /// the given connection string. Called once per Connect() call.
     /// </summary>
-    protected abstract ConnectionBase CreateConnection(string connectString);
+    protected abstract BaseConnection CreateConnection(string connectString);
 
     /// <summary>
     /// Returns SQL that limits the result set to <paramref name="count"/> rows.
@@ -483,7 +483,7 @@ public abstract class DBDataConnection : DataConnection, IDisposable
     /// SQLite:     SELECT last_insert_rowid()
     /// MongoDB:    n/a (uses auto-increment counter collection)
     /// </summary>
-    protected virtual string PopulateIdentity(Record obj, RecordBinding binding, CommandBase command);
+    protected virtual string PopulateIdentity(Record obj, RecordBinding binding, BaseCommand command);
 
     /// <summary>
     /// When true, identity field values are included in INSERT statements.
@@ -560,7 +560,7 @@ public abstract class DBDataConnection : DataConnection, IDisposable
 ```csharp
 // All DBDataConnection subclasses call one of these base constructors:
 protected DBDataConnection(string connectString)
-protected DBDataConnection(string connectString, FactoryBase factory)
+protected DBDataConnection(string connectString, BaseFactory factory)
 ```
 
 #### Minimum viable SQL provider
@@ -569,10 +569,10 @@ protected DBDataConnection(string connectString, FactoryBase factory)
 public class MyConnection : DBDataConnection
 {
     public MyConnection(string connectString) : base(connectString) { }
-    public MyConnection(string connectString, FactoryBase factory) : base(connectString, factory) { }
+    public MyConnection(string connectString, BaseFactory factory) : base(connectString, factory) { }
 
     // Adapter factory
-    protected override ConnectionBase CreateConnection(string connectString)
+    protected override BaseConnection CreateConnection(string connectString)
         => new MyAdapterConnection(connectString);
 
     // Dialect
@@ -593,7 +593,7 @@ public class MyConnection : DBDataConnection
         => $"LIMIT {count} OFFSET {start}";
 
     // Identity retrieval
-    protected override string PopulateIdentity(Record obj, RecordBinding binding, CommandBase _)
+    protected override string PopulateIdentity(Record obj, RecordBinding binding, BaseCommand _)
     {
         using var cmd = CreateCommand("SELECT last_insert_rowid()");
         object raw = cmd.ExecuteScalar();
@@ -663,14 +663,14 @@ public abstract class DataConnection
 
     // ── Raw SQL (throw NotSupportedException for non-SQL providers) ───────────────
     public abstract RecordCollection ExecSQL(Record obj, string sql);
-    public abstract ReaderBase       ExecSQL(string sql);
+    public abstract BaseReader       ExecSQL(string sql);
 
     // ── Transactions ──────────────────────────────────────────────────────────────
-    public abstract TransactionBase   BeginTransaction();
-    public abstract TransactionBase   BeginTransaction(IsolationLevel level);
-    public abstract void              CommitTransaction(TransactionBase tx);
-    public abstract void              RollbackTransaction(TransactionBase tx);
-    public abstract TransactionStates TransactionState(TransactionBase tx);
+    public abstract BaseTransaction   BeginTransaction();
+    public abstract BaseTransaction   BeginTransaction(IsolationLevel level);
+    public abstract void              CommitTransaction(BaseTransaction tx);
+    public abstract void              RollbackTransaction(BaseTransaction tx);
+    public abstract TransactionStates TransactionState(BaseTransaction tx);
 
     // ── Dialect helpers ───────────────────────────────────────────────────────────
     public abstract string GetParameterMark();
@@ -700,9 +700,9 @@ public interface IUnitOfWork : IDisposable
     /// <summary>
     /// Begins (or re-enters) a transaction. Depth-tracked: only the outermost
     /// call opens an ADO.NET transaction; inner calls increment depth only.
-    /// Returns the active TransactionBase (shared for all depth levels).
+    /// Returns the active BaseTransaction (shared for all depth levels).
     /// </summary>
-    TransactionBase CreateTransaction(IsolationLevel level = IsolationLevel.ReadCommitted);
+    BaseTransaction CreateTransaction(IsolationLevel level = IsolationLevel.ReadCommitted);
 
     /// <summary>
     /// Decrements depth. When depth reaches 0, commits the ADO.NET transaction
@@ -720,22 +720,22 @@ public interface IUnitOfWork : IDisposable
 
 ---
 
-### 4.2 `UnitOfWorkBase`
+### 4.2 `BaseUnitOfWork`
 
 **Namespace:** `ActiveForge.Transactions`
-**File:** `src/ActiveForge/Transactions/UnitOfWorkBase.cs`
+**File:** `src/ActiveForge/Transactions/BaseUnitOfWork.cs`
 
 Concrete base that implements all depth-tracking and rollback-only logic.
 Provider implementations only need to supply `BeginTransactionCore`.
 
 ```csharp
-public abstract class UnitOfWorkBase : IUnitOfWork
+public abstract class BaseUnitOfWork : IUnitOfWork
 {
-    protected UnitOfWorkBase(ILogger logger = null);
+    protected BaseUnitOfWork(DataConnection connection, ILogger logger = null);
 
     // ── IUnitOfWork (fully implemented — no override needed) ──────────────────────
     public bool InTransaction { get; }
-    public TransactionBase CreateTransaction(IsolationLevel level = IsolationLevel.ReadCommitted);
+    public BaseTransaction CreateTransaction(IsolationLevel level = IsolationLevel.ReadCommitted);
     public void Commit();
     public void Rollback();
     public void Dispose();
@@ -745,9 +745,9 @@ public abstract class UnitOfWorkBase : IUnitOfWork
     /// <summary>
     /// Opens a new ADO.NET transaction on the underlying connection at the given
     /// isolation level. Called only when the depth transitions from 0 → 1.
-    /// Return the TransactionBase wrapping the new native transaction.
+    /// Return the BaseTransaction wrapping the new native transaction.
     /// </summary>
-    protected abstract TransactionBase BeginTransactionCore(IsolationLevel level);
+    protected abstract BaseTransaction BeginTransactionCore(IsolationLevel level);
 
     // ── MAY override ──────────────────────────────────────────────────────────────
 
@@ -759,20 +759,18 @@ public abstract class UnitOfWorkBase : IUnitOfWork
 #### Implementation pattern
 
 ```csharp
-public sealed class MyUnitOfWork : UnitOfWorkBase
+public sealed class MyUnitOfWork : BaseUnitOfWork
 {
-    private readonly MyConnection _connection;
+    private readonly MyConnection _conn;
 
     public MyUnitOfWork(MyConnection connection, ILogger<MyUnitOfWork> logger = null)
-        : base(logger)
+        : base(connection, logger)
     {
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+        _conn = connection ?? throw new ArgumentNullException(nameof(connection));
     }
 
-    public MyConnection Connection => _connection;
-
-    protected override TransactionBase BeginTransactionCore(IsolationLevel level)
-        => _connection.BeginTransaction(level);
+    protected override BaseTransaction BeginTransactionCore(IsolationLevel level)
+        => _conn.BeginTransaction(level);
 }
 ```
 
@@ -802,7 +800,7 @@ public static class MyServiceCollectionExtensions
     public static IActiveForgeBuilder AddActiveForgeMyDb(
         this IServiceCollection services,
         string connectionString,
-        FactoryBase factory = null)
+        BaseFactory factory = null)
     {
         if (services         == null) throw new ArgumentNullException(nameof(services));
         if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));
@@ -1045,9 +1043,9 @@ public class FieldSubset
     }
 
     // Constructors
-    public FieldSubset(RecordBase rootObject, FactoryBase factory)
+    public FieldSubset(BaseRecord rootObject, BaseFactory factory)
         // starts in ExcludeAll state; caller adds required fields
-    public FieldSubset(RecordBase rootObject, InitialState state, FactoryBase factory)
+    public FieldSubset(BaseRecord rootObject, InitialState state, BaseFactory factory)
 
     // Set operators (create new FieldSubset instances — non-mutating)
     public static FieldSubset operator +(FieldSubset a, FieldSubset b)   // union
@@ -1059,8 +1057,8 @@ public class FieldSubset
     public bool IncludesField(string fieldName);
     public bool IncludesField(FieldBinding fieldBinding);
     public bool IncludesJoin(string objectBaseName);
-    public bool IncludesField(RecordBase root, RecordBase enclosing, TField field);
-    public bool IncludesEmbeddedObject(RecordBase root, RecordBase enclosing, RecordBase embedded);
+    public bool IncludesField(BaseRecord root, BaseRecord enclosing, TField field);
+    public bool IncludesEmbeddedObject(BaseRecord root, BaseRecord enclosing, BaseRecord embedded);
 
     // Bulk operations
     public void IncludeAll(bool include);
@@ -1068,10 +1066,10 @@ public class FieldSubset
     public int  CountIncludedFields();
 
     // Individual field/join control
-    public void Include(RecordBase root, RecordBase enclosing, TField field);
-    public void Exclude(RecordBase root, RecordBase enclosing, TField field);
-    public void Include(RecordBase root, RecordBase enclosing, RecordBase joinTarget);
-    public void Exclude(RecordBase root, RecordBase enclosing, RecordBase joinTarget);
+    public void Include(BaseRecord root, BaseRecord enclosing, TField field);
+    public void Exclude(BaseRecord root, BaseRecord enclosing, TField field);
+    public void Include(BaseRecord root, BaseRecord enclosing, BaseRecord joinTarget);
+    public void Exclude(BaseRecord root, BaseRecord enclosing, BaseRecord joinTarget);
 
     // Primary key guarantee
     public void EnsurePrimaryKeysIncluded();
@@ -1136,10 +1134,10 @@ a reference when implementing a new provider.
 Use this checklist when building a new provider.
 
 ### Adapter layer
-- [ ] `MyAdapterConnection : ConnectionBase` — `Open`, `Close`, `IsConnected`, `DatabaseName`, `BeginTransaction`, `CreateCommand`, `TransactionState`
-- [ ] `MyAdapterTransaction : TransactionBase` — `Commit`, `Rollback`, `Dispose`; expose `GetNativeTransaction()` for command binding
-- [ ] `MyAdapterCommand : CommandBase` — `ExecuteNonQuery`, `ExecuteReader`, `ExecuteSequentialReader`, `ExecuteScalar`, `AddNativeParameter`, `SetToStoredProcedure`, `Cancel`, `Dispose`; unwrap `TField` objects in `AddNativeParameter`
-- [ ] `MyAdapterReader : ReaderBase` — `Read`, `Close`, `Dispose`, `GetValue`, `IsDBNull`, `GetOrdinal`, `FieldCount`, `GetName`, `Record`
+- [ ] `MyAdapterConnection : BaseConnection` — `Open`, `Close`, `IsConnected`, `DatabaseName`, `BeginTransaction`, `CreateCommand`, `TransactionState`
+- [ ] `MyAdapterTransaction : BaseTransaction` — `Commit`, `Rollback`, `Dispose`; expose `GetNativeTransaction()` for command binding
+- [ ] `MyAdapterCommand : BaseCommand` — `ExecuteNonQuery`, `ExecuteReader`, `ExecuteSequentialReader`, `ExecuteScalar`, `AddNativeParameter`, `SetToStoredProcedure`, `Cancel`, `Dispose`; unwrap `TField` objects in `AddNativeParameter`
+- [ ] `MyAdapterReader : BaseReader` — `Read`, `Close`, `Dispose`, `GetValue`, `IsDBNull`, `GetOrdinal`, `FieldCount`, `GetName`, `Record`
 
 ### Connection class
 - [ ] `MyConnection : DBDataConnection` (SQL) or `MyConnection : DataConnection` (document)
@@ -1152,10 +1150,10 @@ Use this checklist when building a new provider.
 - [ ] `OnUoWCommitted` / `OnUoWRolledBack` — sync `_transactionDepth` if needed
 
 ### Unit of Work
-- [ ] `MyUnitOfWork : UnitOfWorkBase` — constructor accepts `MyConnection` + optional `ILogger`; override `BeginTransactionCore` to call `_connection.BeginTransaction(level)`
+- [ ] `MyUnitOfWork : BaseUnitOfWork` — constructor accepts `MyConnection` + optional `ILogger`; override `BeginTransactionCore` to call `_connection.BeginTransaction(level)`
 
 ### DI extension
-- [ ] `AddActiveForge{Name}(IServiceCollection, string, FactoryBase?)` — register scoped `MyConnection`, scoped `DataConnection` alias, scoped `IUnitOfWork`; return `new ActiveForgeBuilder(services)`
+- [ ] `AddActiveForge{Name}(IServiceCollection, string, BaseFactory?)` — register scoped `MyConnection`, scoped `DataConnection` alias, scoped `IUnitOfWork`; return `new ActiveForgeBuilder(services)`
 
 ### Testing
 - [ ] CRUD integration tests — insert, read, update, delete a simple entity

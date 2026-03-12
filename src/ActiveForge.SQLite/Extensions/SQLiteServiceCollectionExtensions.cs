@@ -29,7 +29,7 @@ namespace ActiveForge
         public static IActiveForgeBuilder AddActiveForgeSQLite(
             this IServiceCollection services,
             string connectionString,
-            FactoryBase factory = null)
+            BaseFactory factory = null)
         {
             if (services         == null) throw new ArgumentNullException(nameof(services));
             if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));

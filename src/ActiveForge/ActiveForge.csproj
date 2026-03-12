@@ -1,24 +1,32 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
     <AssemblyName>ActiveForge</AssemblyName>
     <RootNamespace>ActiveForge</RootNamespace>
-    <Version>1.0.0</Version>
-    <Authors>CodeShayk</Authors>
-    <Description>ActiveForge ORM - A lightweight active-record ORM for .NET 8</Description>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>0618,1591</NoWarn>
+
+    <!-- ── Package identity ─────────────────────────────────────────────── -->
     <PackageId>ActiveForge.Core</PackageId>
-    <Title>ActiveForge</Title>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Company>Code Shayk</Company>
+    <Title>ActiveForge ORM</Title>
     <Product>ActiveForge ORM</Product>
+    <Description>
+      Lightweight Active Record ORM for .NET 8. Provides type-safe field wrappers (TString,
+      TInt, TDecimal, …), composable query predicates, LINQ query translation, nested
+      transactions, Unit of Work with depth-tracked connection lifetime, Castle DynamicProxy
+      service interception via [Transaction], and DI auto-scan via IService + IActiveForgeBuilder.
+      Add a provider package (ActiveForge.SqlServer, ActiveForge.PostgreSQL,
+      ActiveForge.MongoDB, ActiveForge.SQLite) to target a specific database.
+    </Description>
+    <PackageTags>orm;active-record;crud;persistence;query;query-builder;query-language;orm-framework;orm-library;active-record-design-pattern;object-persistence;core</PackageTags>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Castle.Core" Version="5.1.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
   </ItemGroup>
+
 </Project>

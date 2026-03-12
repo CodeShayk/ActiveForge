@@ -116,7 +116,7 @@ int     m = new TInt(7);      // TInt → int
 ```csharp
 using ActiveForge;
 
-var conn = new SqlServerConnection(connectionString, new FactoryBase());
+var conn = new SqlServerConnection(connectionString, new BaseFactory());
 conn.Connect();
 // ... use the connection ...
 conn.Disconnect();

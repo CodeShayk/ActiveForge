@@ -4,16 +4,16 @@ using Microsoft.Data.SqlClient;
 namespace ActiveForge.Adapters.SqlServer
 {
     /// <summary>
-    /// SQL Server implementation of <see cref="TransactionBase"/> backed by
+    /// SQL Server implementation of <see cref="BaseTransaction"/> backed by
     /// <see cref="SqlTransaction"/> from <c>Microsoft.Data.SqlClient</c>.
     /// <para>
     /// Wraps the commit/rollback/dispose lifecycle of a SQL Server transaction behind the
-    /// provider-agnostic <see cref="TransactionBase"/> API consumed by the ORM engine.
+    /// provider-agnostic <see cref="BaseTransaction"/> API consumed by the ORM engine.
     /// Instances are created by <see cref="SqlAdapterConnection.BeginTransaction"/> and
     /// must not be constructed directly by application code.
     /// </para>
     /// </summary>
-    public class SqlAdapterTransaction : TransactionBase
+    public class SqlAdapterTransaction : BaseTransaction
     {
         /// <summary>The underlying SQL Server transaction managed by this adapter.</summary>
         private readonly SqlTransaction _tx;

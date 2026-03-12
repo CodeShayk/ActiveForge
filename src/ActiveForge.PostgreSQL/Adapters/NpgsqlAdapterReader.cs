@@ -5,7 +5,7 @@ using Npgsql;
 namespace ActiveForge.Adapters.PostgreSQL
 {
     /// <summary>
-    /// PostgreSQL implementation of <see cref="ReaderBase"/> backed by
+    /// PostgreSQL implementation of <see cref="BaseReader"/> backed by
     /// <see cref="NpgsqlDataReader"/> from the <c>Npgsql</c> library.
     /// <para>
     /// Each method delegates directly to the corresponding member on the wrapped
@@ -15,7 +15,7 @@ namespace ActiveForge.Adapters.PostgreSQL
     /// constructed directly by application code.
     /// </para>
     /// </summary>
-    public class NpgsqlAdapterReader : ReaderBase
+    public class NpgsqlAdapterReader : BaseReader
     {
         /// <summary>The underlying Npgsql data reader managed by this adapter.</summary>
         private readonly NpgsqlDataReader _reader;
@@ -51,7 +51,7 @@ namespace ActiveForge.Adapters.PostgreSQL
 
         /// <summary>
         /// Returns the raw value of the column at the specified zero-based ordinal for the
-        /// current row. Does not perform a null check; use <see cref="ReaderBase.ColumnValue(int)"/>
+        /// current row. Does not perform a null check; use <see cref="BaseReader.ColumnValue(int)"/>
         /// for null-safe access.
         /// </summary>
         /// <param name="ordinal">The zero-based column index.</param>
@@ -100,7 +100,7 @@ namespace ActiveForge.Adapters.PostgreSQL
         /// <summary>
         /// Exposes the underlying <see cref="NpgsqlDataReader"/> directly for PostgreSQL-
         /// specific code paths that require access to members not covered by the
-        /// <see cref="ReaderBase"/> API (e.g. Npgsql-specific type accessors or
+        /// <see cref="BaseReader"/> API (e.g. Npgsql-specific type accessors or
         /// asynchronous read methods).
         /// </summary>
         /// <returns>The native <see cref="NpgsqlDataReader"/> managed by this adapter.</returns>

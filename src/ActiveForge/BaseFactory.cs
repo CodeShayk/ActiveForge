@@ -9,18 +9,18 @@ namespace ActiveForge
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <c>FactoryBase</c> is used by <c>DataConnection</c> when it needs to instantiate a
+    /// <c>BaseFactory</c> is used by <c>DataConnection</c> when it needs to instantiate a
     /// <c>DataObject</c> subclass from a <c>Type</c> token.  By registering a mapping from an
     /// abstract base type to a concrete subclass you can make the ORM return specialised objects
     /// without changing the query call site.
     /// </para>
     /// <para>
-    /// Subclass <c>FactoryBase</c>, override <see cref="CreateTypeMap"/>, and call
+    /// Subclass <c>BaseFactory</c>, override <see cref="CreateTypeMap"/>, and call
     /// <see cref="AddTypeMapping"/> for each abstract→concrete pair.  Pass the factory instance
     /// to the <c>DataConnection</c> constructor or set it on <c>DataConnection.Factory</c>.
     /// </para>
     /// </remarks>
-    public class FactoryBase
+    public class BaseFactory
     {
         private readonly Dictionary<Type, Type> _typeMap = new Dictionary<Type, Type>();
 
@@ -28,7 +28,7 @@ namespace ActiveForge
         /// Initialises a new factory and invokes <see cref="CreateTypeMap"/> so that subclasses
         /// can register their type mappings during construction.
         /// </summary>
-        public FactoryBase() { CreateTypeMap(); }
+        public BaseFactory() { CreateTypeMap(); }
 
         /// <summary>
         /// Override this method and call <see cref="AddTypeMapping"/> for each abstract→concrete

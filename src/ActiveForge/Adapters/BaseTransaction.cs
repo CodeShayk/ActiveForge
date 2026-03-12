@@ -10,11 +10,11 @@ namespace ActiveForge
     /// <c>SQLiteAdapterTransaction</c>) delegate each operation to the underlying
     /// native transaction object.
     /// <para>
-    /// Instances are created by <see cref="ConnectionBase.BeginTransaction"/> and
-    /// associated with commands via <see cref="CommandBase.SetTransaction"/>.
+    /// Instances are created by <see cref="BaseConnection.BeginTransaction"/> and
+    /// associated with commands via <see cref="BaseCommand.SetTransaction"/>.
     /// </para>
     /// </summary>
-    public abstract class TransactionBase : IDisposable
+    public abstract class BaseTransaction : IDisposable
     {
         /// <summary>
         /// Commits all changes made within the transaction to the database.

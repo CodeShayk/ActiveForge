@@ -16,7 +16,7 @@ namespace ActiveForge.Tests.Transactions
         {
             var mock = new Mock<IUnitOfWork>(MockBehavior.Strict);
             mock.Setup(u => u.InTransaction).Returns(false);
-            mock.Setup(u => u.CreateTransaction(It.IsAny<IsolationLevel>())).Returns((TransactionBase)null);
+            mock.Setup(u => u.CreateTransaction(It.IsAny<IsolationLevel>())).Returns((BaseTransaction)null);
 
             if (throwOnCommit)
                 mock.Setup(u => u.Commit()).Throws<InvalidOperationException>();
@@ -63,7 +63,7 @@ namespace ActiveForge.Tests.Transactions
             var mock = new Mock<IUnitOfWork>(MockBehavior.Strict);
             mock.Setup(u => u.CreateTransaction(It.IsAny<IsolationLevel>()))
                 .Callback<IsolationLevel>(l => captured = l)
-                .Returns((TransactionBase)null);
+                .Returns((BaseTransaction)null);
             mock.Setup(u => u.Commit()).Verifiable();
             mock.Setup(u => u.Dispose()).Verifiable();
 
@@ -145,7 +145,7 @@ namespace ActiveForge.Tests.Transactions
             var mock = new Mock<IUnitOfWork>(MockBehavior.Strict);
             mock.Setup(u => u.CreateTransaction(It.IsAny<IsolationLevel>()))
                 .Callback<IsolationLevel>(l => captured = l)
-                .Returns((TransactionBase)null);
+                .Returns((BaseTransaction)null);
             mock.Setup(u => u.Commit()).Verifiable();
             mock.Setup(u => u.Dispose()).Verifiable();
 

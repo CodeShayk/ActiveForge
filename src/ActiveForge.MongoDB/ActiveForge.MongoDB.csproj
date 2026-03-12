@@ -1,12 +1,27 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>ActiveForge.MongoDB</AssemblyName>
+    <RootNamespace>ActiveForge</RootNamespace>
     <Optimize>true</Optimize>
-    <Title>ActiveForge ORM MongoDB</Title>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <NoWarn>0618,1591</NoWarn>
+
+    <!-- ── Package identity ─────────────────────────────────────────────── -->
+    <PackageId>ActiveForge.MongoDB</PackageId>
+    <Title>ActiveForge ORM — MongoDB</Title>
+    <Description>
+      MongoDB provider for ActiveForge ORM. Includes MongoDataConnection (extends DataConnection
+      directly, not DBDataConnection), reflection-based BSON mapping, QueryTerm-to-FilterDefinition
+      translation, auto-increment via __activeforge_counters collection, multi-document transaction
+      support via MongoUnitOfWork, automatic $lookup join pipeline for embedded Record fields, and
+      the AddActiveForgeMongoDB IServiceCollection extension for one-call DI registration.
+      Requires the ActiveForge core package.
+    </Description>
+    <PackageTags>orm;active-record;crud;persistence;query;query-builder;query-language;orm-framework;orm-library;active-record-design-pattern;object-persistence;mongodb</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

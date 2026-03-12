@@ -48,7 +48,7 @@ namespace ActiveForge.Tests.Transactions
         private static (OrderService proxy, Mock<IUnitOfWork> uowMock) CreateProxy()
         {
             var uowMock = new Mock<IUnitOfWork>(MockBehavior.Strict);
-            uowMock.Setup(u => u.CreateTransaction(It.IsAny<IsolationLevel>())).Returns((TransactionBase)null);
+            uowMock.Setup(u => u.CreateTransaction(It.IsAny<IsolationLevel>())).Returns((BaseTransaction)null);
             uowMock.Setup(u => u.Commit()).Verifiable();
             uowMock.Setup(u => u.Rollback()).Verifiable();
 
@@ -97,7 +97,7 @@ namespace ActiveForge.Tests.Transactions
         public void InterceptedMethod_RollsBackOnException()
         {
             var uowMock = new Mock<IUnitOfWork>(MockBehavior.Strict);
-            uowMock.Setup(u => u.CreateTransaction(It.IsAny<IsolationLevel>())).Returns((TransactionBase)null);
+            uowMock.Setup(u => u.CreateTransaction(It.IsAny<IsolationLevel>())).Returns((BaseTransaction)null);
             uowMock.Setup(u => u.Rollback()).Verifiable();
 
             var interceptor = new TransactionInterceptor(uowMock.Object);

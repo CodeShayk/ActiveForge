@@ -6,7 +6,7 @@ namespace ActiveForge
     /// <summary>UTC DateTime database field. Stored as UTC, surfaced as UTC.</summary>
     [Serializable]
     [DebuggerDisplay("Null={Null} Value={InnerValue}")]
-    public class TUtcDateTime : TDateTimeBase
+    public class TUtcDateTime : TBaseDateTime
     {
         public TUtcDateTime()           { }
         public TUtcDateTime(DateTime v) { SetValue(v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime()); }

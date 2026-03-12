@@ -5,12 +5,12 @@ using Microsoft.Data.SqlClient;
 namespace ActiveForge.Adapters.SqlServer
 {
     /// <summary>
-    /// SQL Server implementation of <see cref="ConnectionBase"/> backed by
+    /// SQL Server implementation of <see cref="BaseConnection"/> backed by
     /// <see cref="SqlConnection"/> from <c>Microsoft.Data.SqlClient</c>.
     /// <para>
     /// Wraps the full lifecycle of a SQL Server connection — open, close, transaction
     /// management, command creation, and transaction-state inspection — behind the
-    /// provider-agnostic <see cref="ConnectionBase"/> API consumed by the ORM engine.
+    /// provider-agnostic <see cref="BaseConnection"/> API consumed by the ORM engine.
     /// </para>
     /// <para>
     /// Transaction-state inspection is performed by executing
@@ -22,7 +22,7 @@ namespace ActiveForge.Adapters.SqlServer
     /// </list>
     /// </para>
     /// </summary>
-    public class SqlAdapterConnection : ConnectionBase
+    public class SqlAdapterConnection : BaseConnection
     {
         /// <summary>The underlying SQL Server connection managed by this adapter.</summary>
         private readonly SqlConnection _conn;
@@ -73,16 +73,16 @@ namespace ActiveForge.Adapters.SqlServer
         /// </summary>
         /// <param name="level">The <see cref="IsolationLevel"/> for the new transaction.</param>
         /// <returns>A <see cref="SqlAdapterTransaction"/> representing the started transaction.</returns>
-        public override TransactionBase BeginTransaction(IsolationLevel level)
+        public override BaseTransaction BeginTransaction(IsolationLevel level)
             => new SqlAdapterTransaction(_conn.BeginTransaction(level));
 
         /// <summary>
         /// Creates a new <see cref="SqlAdapterCommand"/> for the given SQL text, bound to
-        /// this connection. The command's timeout is inherited from <see cref="ConnectionBase.GetTimeout"/>.
+        /// this connection. The command's timeout is inherited from <see cref="BaseConnection.GetTimeout"/>.
         /// </summary>
         /// <param name="sql">The SQL text (or stored-procedure name) to execute.</param>
         /// <returns>A <see cref="SqlAdapterCommand"/> ready for parameter binding and execution.</returns>
-        public override CommandBase CreateCommand(string sql)
+        public override BaseCommand CreateCommand(string sql)
             => new SqlAdapterCommand(sql, this);
 
         /// <summary>
@@ -110,7 +110,7 @@ namespace ActiveForge.Adapters.SqlServer
         /// </summary>
         /// <param name="transaction">The transaction whose state is to be inspected.</param>
         /// <returns>A <see cref="TransactionStates"/> value describing the current state.</returns>
-        public override TransactionStates TransactionState(TransactionBase transaction)
+        public override TransactionStates TransactionState(BaseTransaction transaction)
         {
             if (transaction is SqlAdapterTransaction sat)
             {

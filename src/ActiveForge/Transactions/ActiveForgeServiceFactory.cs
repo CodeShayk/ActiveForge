@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Castle.DynamicProxy;
 using Microsoft.Extensions.Logging;
 
@@ -13,9 +12,9 @@ namespace ActiveForge.Transactions
     /// <para>
     /// <b>Interface types</b> (<c>TService</c> is an interface) — uses
     /// <c>CreateInterfaceProxyWithTarget</c>.  The concrete class does not need to be non-sealed
-    /// or have virtual methods.  Attributes (<c>[ConnectionScope]</c>, <c>[Transaction]</c>)
-    /// must be placed on the concrete implementation methods; the interceptors always check the
-    /// implementation method (<c>IInvocation.MethodInvocationTarget</c>) first.
+    /// or have virtual methods.  <c>[Transaction]</c> attributes must be placed on the concrete
+    /// implementation methods; the interceptor always checks
+    /// <c>IInvocation.MethodInvocationTarget</c> first.
     /// </para>
     /// <para>
     /// <b>Class types</b> (<c>TService</c> is a concrete class) — uses
@@ -23,9 +22,9 @@ namespace ActiveForge.Transactions
     /// must be <c>virtual</c>.
     /// </para>
     /// <para>
-    /// Interceptor order: <see cref="ConnectionScopeInterceptor"/> (outer) →
-    /// <see cref="TransactionInterceptor"/> (inner).  The connection is opened first and closed
-    /// last; the transaction always runs against an open connection.
+    /// Connection lifetime is managed automatically by <see cref="BaseUnitOfWork"/>: the
+    /// connection is opened when the outermost transaction begins and closed when it commits
+    /// or rolls back.  <c>[ConnectionScope]</c> is no longer required.
     /// </para>
     /// </remarks>
     public static class ActiveForgeServiceFactory
@@ -77,8 +76,8 @@ namespace ActiveForge.Transactions
             {
                 // Interface proxy — implementation does not need virtual methods.
                 // MethodInvocationTarget on IInvocation will point to the concrete method
-                // so attribute resolution in the interceptors finds [ConnectionScope] /
-                // [Transaction] even though they are on the implementation, not the interface.
+                // so attribute resolution in the interceptor finds [Transaction] even when
+                // it is on the implementation rather than the interface.
                 return _generator.CreateInterfaceProxyWithTarget(
                     serviceType,
                     instance,
@@ -99,15 +98,10 @@ namespace ActiveForge.Transactions
             IUnitOfWork    unitOfWork,
             ILogger        logger)
         {
-            var list = new List<IInterceptor>
-            {
-                new ConnectionScopeInterceptor(connection, logger)
-            };
+            if (unitOfWork == null)
+                return Array.Empty<IInterceptor>();
 
-            if (unitOfWork != null)
-                list.Add(new TransactionInterceptor(unitOfWork));
-
-            return list.ToArray();
+            return new IInterceptor[] { new TransactionInterceptor(unitOfWork) };
         }
     }
 }

@@ -9,7 +9,7 @@ namespace ActiveForge
     /// Provides field-subset support, reflection helpers, and field description caching.
     /// </summary>
     [Serializable]
-    public abstract class RecordBase : IComparable
+    public abstract class BaseRecord : IComparable
     {
         // ── Static type caches ────────────────────────────────────────────────────────
         private static readonly ConcurrentDictionary<FieldInfo, FieldDescriptionEntry> _fieldDescCache
@@ -34,7 +34,7 @@ namespace ActiveForge
 
         public virtual bool IsEquivalentConstrainedLinkedObject(Record comparison) => false;
 
-        public virtual RecordParameterCollectionBase GetDefaultObjectParameters() => null;
+        public virtual BaseRecordParameterCollection GetDefaultObjectParameters() => null;
 
         // ── Field description helpers ─────────────────────────────────────────────────
 
@@ -62,8 +62,8 @@ namespace ActiveForge
             return entry.Sensitive;
         }
 
-        public virtual RecordBase CreateCompatibleObject()
-            => (RecordBase)Activator.CreateInstance(GetType());
+        public virtual BaseRecord CreateCompatibleObject()
+            => (BaseRecord)Activator.CreateInstance(GetType());
 
         // ── IComparable ───────────────────────────────────────────────────────────────
 

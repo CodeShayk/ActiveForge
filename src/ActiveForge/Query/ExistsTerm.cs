@@ -42,7 +42,7 @@ namespace ActiveForge.Query
         public override string GetDeleteSQL(RecordBinding binding, ref int termNumber)
             => throw new System.NotImplementedException("ExistsTerm does not support delete SQL.");
 
-        public override void BindParameters(Record obj, RecordBinding binding, CommandBase command, ref int termNumber)
+        public override void BindParameters(Record obj, RecordBinding binding, BaseCommand command, ref int termNumber)
             => ((Query<T>)Value).BindParameters(command, ref termNumber);
     }
 }

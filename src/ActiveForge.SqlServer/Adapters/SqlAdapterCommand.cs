@@ -5,13 +5,13 @@ using Microsoft.Data.SqlClient;
 namespace ActiveForge.Adapters.SqlServer
 {
     /// <summary>
-    /// SQL Server implementation of <see cref="CommandBase"/> backed by
+    /// SQL Server implementation of <see cref="BaseCommand"/> backed by
     /// <see cref="SqlCommand"/> from <c>Microsoft.Data.SqlClient</c>.
     /// <para>
     /// Each instance wraps a single <see cref="SqlCommand"/> that is initialised at
     /// construction time. The command is bound to the native <see cref="SqlConnection"/>
     /// extracted from the supplied <see cref="SqlAdapterConnection"/>, and its timeout is
-    /// inherited from <see cref="ConnectionBase.GetTimeout"/>.
+    /// inherited from <see cref="BaseConnection.GetTimeout"/>.
     /// </para>
     /// <para>
     /// Provider-specific behaviour: <see cref="AddNativeParameter"/> unwraps any
@@ -23,7 +23,7 @@ namespace ActiveForge.Adapters.SqlServer
     /// server.
     /// </para>
     /// </summary>
-    public class SqlAdapterCommand : CommandBase
+    public class SqlAdapterCommand : BaseCommand
     {
         /// <summary>The underlying SQL Server command object managed by this adapter.</summary>
         private SqlCommand _cmd;
@@ -77,7 +77,7 @@ namespace ActiveForge.Adapters.SqlServer
         }
 
         /// <summary>
-        /// Executes the command and returns a <see cref="ReaderBase"/> that streams the
+        /// Executes the command and returns a <see cref="BaseReader"/> that streams the
         /// result set using <see cref="CommandBehavior.Default"/> (random-access column
         /// reads). Enlists the current ambient transaction before execution.
         /// </summary>
@@ -85,7 +85,7 @@ namespace ActiveForge.Adapters.SqlServer
         /// <exception cref="PersistenceException">
         /// Thrown when <see cref="SqlException"/> is raised by the provider.
         /// </exception>
-        public override ReaderBase ExecuteReader()
+        public override BaseReader ExecuteReader()
         {
             AttachTransaction();
             try   { return new SqlAdapterReader(_cmd.ExecuteReader(CommandBehavior.Default)); }
@@ -93,7 +93,7 @@ namespace ActiveForge.Adapters.SqlServer
         }
 
         /// <summary>
-        /// Executes the command and returns a <see cref="ReaderBase"/> that streams the
+        /// Executes the command and returns a <see cref="BaseReader"/> that streams the
         /// result set using <see cref="CommandBehavior.SequentialAccess"/>, which avoids
         /// buffering column data and can reduce memory pressure for large result sets.
         /// Enlists the current ambient transaction before execution.
@@ -102,7 +102,7 @@ namespace ActiveForge.Adapters.SqlServer
         /// <exception cref="PersistenceException">
         /// Thrown when <see cref="SqlException"/> is raised by the provider.
         /// </exception>
-        public override ReaderBase ExecuteSequentialReader()
+        public override BaseReader ExecuteSequentialReader()
         {
             AttachTransaction();
             try   { return new SqlAdapterReader(_cmd.ExecuteReader(CommandBehavior.SequentialAccess)); }
@@ -180,7 +180,7 @@ namespace ActiveForge.Adapters.SqlServer
         /// <summary>
         /// Enlists the command in the current ambient transaction by assigning the native
         /// <see cref="SqlTransaction"/> to <see cref="SqlCommand.Transaction"/>.
-        /// Does nothing if no transaction has been set via <see cref="CommandBase.SetTransaction"/>.
+        /// Does nothing if no transaction has been set via <see cref="BaseCommand.SetTransaction"/>.
         /// </summary>
         private void AttachTransaction()
         {

@@ -47,8 +47,8 @@ namespace ActiveForge.Transactions
         /// <typeparamref name="TInterface"/> with Castle DynamicProxy interception.
         /// <para>
         /// An interface proxy is created so <typeparamref name="TImplementation"/> does not
-        /// need virtual methods.  Place <c>[ConnectionScope]</c> and <c>[Transaction]</c>
-        /// on <typeparamref name="TImplementation"/> — the interceptors resolve attributes
+        /// need virtual methods.  Place <c>[Transaction]</c> on
+        /// <typeparamref name="TImplementation"/> — the interceptor resolves attributes
         /// from the concrete method via <c>IInvocation.MethodInvocationTarget</c>.
         /// </para>
         /// </summary>

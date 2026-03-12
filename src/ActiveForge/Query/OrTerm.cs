@@ -68,11 +68,11 @@ namespace ActiveForge.Query
         /// </summary>
         /// <param name="obj">The <see cref="Record"/> instance whose field values are used.</param>
         /// <param name="binding">The <see cref="RecordBinding"/> that maps fields to columns.</param>
-        /// <param name="command">The <see cref="CommandBase"/> to which parameters are added.</param>
+        /// <param name="command">The <see cref="BaseCommand"/> to which parameters are added.</param>
         /// <param name="termNumber">
         /// Running counter that must match the value used when <see cref="GetSQL"/> was called.
         /// </param>
-        public override void BindParameters(Record obj, RecordBinding binding, CommandBase command, ref int termNumber)
+        public override void BindParameters(Record obj, RecordBinding binding, BaseCommand command, ref int termNumber)
         {
             _term1.BindParameters(obj, binding, command, ref termNumber);
             _term2.BindParameters(obj, binding, command, ref termNumber);

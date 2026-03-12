@@ -14,14 +14,14 @@ namespace ActiveForge
     /// </para>
     /// <para>
     /// Use <see cref="TField.SetValue(object)"/> or the typed overload inherited from
-    /// <c>TDateTimeBase</c> to assign a value, <see cref="TField.GetValue()"/> to retrieve
+    /// <c>TBaseDateTime</c> to assign a value, <see cref="TField.GetValue()"/> to retrieve
     /// it as <see cref="object"/>, or rely on the implicit conversions between
     /// <c>TUtcDate</c> and <c>DateTime</c> for transparent usage.
     /// </para>
     /// </summary>
     [Serializable]
     [DebuggerDisplay("Null={Null} Value={InnerValue}")]
-    public class TUtcDate : TDateTimeBase
+    public class TUtcDate : TBaseDateTime
     {
         /// <summary>Initialises a new null <see cref="TUtcDate"/>.</summary>
         public TUtcDate()           { }

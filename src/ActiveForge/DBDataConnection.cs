@@ -74,11 +74,11 @@ namespace ActiveForge
         // ── Instance state ────────────────────────────────────────────────────────
         protected readonly object       _syncRoot   = new object();
         protected string                _connectString;
-        protected ConnectionBase        _connection;
-        protected TransactionBase       _transaction;
+        protected BaseConnection        _connection;
+        protected BaseTransaction       _transaction;
         protected int                   _transactionDepth  = 0;
         protected bool                  _transactionFailed = false;
-        protected FactoryBase           _factory;
+        protected BaseFactory           _factory;
         protected int                   _timeout    = 30;
         protected bool                  _databaseDatesInUTC = false;
 
@@ -93,7 +93,7 @@ namespace ActiveForge
 
         protected DBDataConnection(string connectString) : this(connectString, null) { }
 
-        protected DBDataConnection(string connectString, FactoryBase factory)
+        protected DBDataConnection(string connectString, BaseFactory factory)
         {
             _connectString = connectString;
             _factory       = factory;
@@ -102,7 +102,7 @@ namespace ActiveForge
 
         // ── Abstract dialect methods (implemented in SqlServerConnection) ──────────
 
-        protected abstract ConnectionBase CreateConnection(string connectString);
+        protected abstract BaseConnection CreateConnection(string connectString);
 
         /// <summary>Wraps a SELECT into a row-limiting form (e.g. TOP N / LIMIT N).</summary>
         public abstract string LimitRowCount(int count, string fieldsAndFrom);
@@ -253,13 +253,13 @@ namespace ActiveForge
         }
 
         public int GetTransactionDepth() => _transactionDepth;
-        protected TransactionBase GetInnerTransaction() => _transaction;
+        protected BaseTransaction GetInnerTransaction() => _transaction;
 
         /// <summary>
         /// Decrements <see cref="_transactionDepth"/> and clears the internal transaction
         /// reference after a UoW-managed transaction commits or rolls back via
         /// <see cref="DataConnection.RunWrite{T}"/>.  This is necessary because
-        /// <see cref="UnitOfWorkBase"/> commits the underlying <see cref="TransactionBase"/>
+        /// <see cref="BaseUnitOfWork"/> commits the underlying <see cref="BaseTransaction"/>
         /// directly rather than going through <see cref="CommitTransaction"/>, so the
         /// provider's depth counter must be synced here.
         /// </summary>
@@ -298,10 +298,10 @@ namespace ActiveForge
 
         // DataConnection abstract transaction interface
 
-        public override TransactionBase BeginTransaction()
+        public override BaseTransaction BeginTransaction()
             => BeginTransaction(IsolationLevel.ReadCommitted);
 
-        public override TransactionBase BeginTransaction(IsolationLevel level)
+        public override BaseTransaction BeginTransaction(IsolationLevel level)
         {
             lock (_syncRoot)
             {
@@ -316,13 +316,13 @@ namespace ActiveForge
             }
         }
 
-        public override void CommitTransaction(TransactionBase transaction)
+        public override void CommitTransaction(BaseTransaction transaction)
             => CommitInternal();
 
-        public override void RollbackTransaction(TransactionBase transaction)
+        public override void RollbackTransaction(BaseTransaction transaction)
             => RollbackInternal();
 
-        public override TransactionStates TransactionState(TransactionBase transaction)
+        public override TransactionStates TransactionState(BaseTransaction transaction)
         {
             if (_transactionDepth == 0) return TransactionStates.None;
             if (_transactionFailed)     return TransactionStates.RolledBack;
@@ -331,9 +331,9 @@ namespace ActiveForge
 
         // ── Utility ───────────────────────────────────────────────────────────────
 
-        public CommandBase CreateCommand(string sql) => _connection.CreateCommand(sql);
+        public BaseCommand CreateCommand(string sql) => _connection.CreateCommand(sql);
 
-        protected CommandBase CreateCommand(string sql, bool useTransaction)
+        protected BaseCommand CreateCommand(string sql, bool useTransaction)
         {
             var cmd = CreateCommand(sql);
             if (useTransaction && _transactionDepth > 0)
@@ -394,7 +394,7 @@ namespace ActiveForge
 
         // ── Factory ───────────────────────────────────────────────────────────────
 
-        public void AssignFactory(FactoryBase factory) => _factory = factory;
+        public void AssignFactory(BaseFactory factory) => _factory = factory;
 
         // ── INSERT ────────────────────────────────────────────────────────────────
 
@@ -801,7 +801,7 @@ namespace ActiveForge
         public override bool QueryFirst(Record obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset)
             => QueryFirst(obj, term, sortOrder, fieldSubset, null);
 
-        public override bool QueryFirst(Record obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset, RecordParameterCollectionBase objectParameters)
+        public override bool QueryFirst(Record obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset, BaseRecordParameterCollection objectParameters)
         {
             lock (_syncRoot)
             {
@@ -1092,7 +1092,7 @@ namespace ActiveForge
             }
         }
 
-        public override ReaderBase ExecSQL(string sql)
+        public override BaseReader ExecSQL(string sql)
         {
             if (!IsConnected) Connect();
             var cmd = CreateCommand(sql);
@@ -1100,7 +1100,7 @@ namespace ActiveForge
             return cmd.ExecuteReader();
         }
 
-        public override ReaderBase ExecSQL(string sql, Dictionary<string, CommandBase.Parameter> parameters)
+        public override BaseReader ExecSQL(string sql, Dictionary<string, BaseCommand.Parameter> parameters)
         {
             if (!IsConnected) Connect();
             var cmd = CreateCommand(sql);
@@ -1176,13 +1176,13 @@ namespace ActiveForge
 
         // ── OBJECT BINDING ────────────────────────────────────────────────────────
 
-        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache)
+        public override RecordBinding GetObjectBinding(BaseRecord obj, bool targetExists, bool useCache)
             => GetObjectBinding(obj, targetExists, useCache, null, false);
 
-        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[] expectedTypes)
+        public override RecordBinding GetObjectBinding(BaseRecord obj, bool targetExists, bool useCache, Type[] expectedTypes)
             => GetObjectBinding(obj, targetExists, useCache, expectedTypes, false);
 
-        public override RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[] expectedTypes, bool includeLookupDataObjects)
+        public override RecordBinding GetObjectBinding(BaseRecord obj, bool targetExists, bool useCache, Type[] expectedTypes, bool includeLookupDataObjects)
         {
             if (useCache && expectedTypes == null)
             {
@@ -1205,10 +1205,10 @@ namespace ActiveForge
             return new RecordBinding(obj, this, targetExists, null, expectedTypes, _factory, includeLookupDataObjects);
         }
 
-        public override RecordBinding GetChangedObjectBinding(RecordBase obj, RecordBase changedObj)
+        public override RecordBinding GetChangedObjectBinding(BaseRecord obj, BaseRecord changedObj)
             => new RecordBinding(obj, this, true, changedObj, null, _factory, false);
 
-        public override RecordBinding GetDynamicObjectBinding(RecordBase obj, ReaderBase reader)
+        public override RecordBinding GetDynamicObjectBinding(BaseRecord obj, BaseReader reader)
         {
             int fieldCount = reader.ColumnCount();
             var binding    = new RecordBinding();
@@ -1308,7 +1308,7 @@ namespace ActiveForge
             return false;
         }
 
-        protected virtual string PopulateIdentity(Record obj, RecordBinding binding, CommandBase command)
+        protected virtual string PopulateIdentity(Record obj, RecordBinding binding, BaseCommand command)
             => ""; // overridden in SqlServerConnection
 
         protected virtual bool InsertIdentityFields => false;
@@ -1478,8 +1478,8 @@ namespace ActiveForge
         // ── SQL GENERATION — QUERY STUB ───────────────────────────────────────────
 
         protected string GetQuerySQLStub(RecordBinding binding, FieldSubset fieldSubset, List<FieldBinding> fieldBindingSubset, int rowCount,
-            Dictionary<Type, FieldSubset> fieldSubsets, RecordParameterCollectionBase objectParameters,
-            Dictionary<Type, RecordParameterCollectionBase> concreteTypeObjectParameters,
+            Dictionary<Type, FieldSubset> fieldSubsets, BaseRecordParameterCollection objectParameters,
+            Dictionary<Type, BaseRecordParameterCollection> concreteTypeObjectParameters,
             IReadOnlyList<JoinOverride> joinOverrides = null)
         {
             var fields = new StringBuilder(512);
@@ -1562,14 +1562,14 @@ namespace ActiveForge
                         specs[i].JoinType = ov.JoinType;
         }
 
-        protected string GetJoinSQL(RecordBinding binding, Dictionary<Type, FieldSubset> fieldSubsets, bool withUpdateLock, Dictionary<Type, RecordParameterCollectionBase> concreteTypeObjectParams)
+        protected string GetJoinSQL(RecordBinding binding, Dictionary<Type, FieldSubset> fieldSubsets, bool withUpdateLock, Dictionary<Type, BaseRecordParameterCollection> concreteTypeObjectParams)
         {
             var specs = new List<JoinSpecification>();
             binding.GetPolymorphicJoinSpecifications(ref specs, withUpdateLock, fieldSubsets);
             return JoinSQLFromJoinSpecifications(specs, withUpdateLock, concreteTypeObjectParams);
         }
 
-        protected string JoinSQLFromJoinSpecifications(List<JoinSpecification> specs, bool withUpdateLock, Dictionary<Type, RecordParameterCollectionBase> concreteTypeObjectParams)
+        protected string JoinSQLFromJoinSpecifications(List<JoinSpecification> specs, bool withUpdateLock, Dictionary<Type, BaseRecordParameterCollection> concreteTypeObjectParams)
         {
             var sb = new StringBuilder();
             foreach (var join in specs)
@@ -1611,29 +1611,29 @@ namespace ActiveForge
 
         // ── ROW FETCH ─────────────────────────────────────────────────────────────
 
-        public void FetchRow(Record obj, ReaderBase reader, RecordBinding binding, List<FieldBinding> fieldBindings, bool omitPK)
+        public void FetchRow(Record obj, BaseReader reader, RecordBinding binding, List<FieldBinding> fieldBindings, bool omitPK)
             => FetchRow(obj, reader, binding, fieldBindings, omitPK, false);
 
-        public void FetchRow(Record obj, ReaderBase reader, RecordBinding binding, List<FieldBinding> fieldBindings, bool omitPK, bool shallow)
+        public void FetchRow(Record obj, BaseReader reader, RecordBinding binding, List<FieldBinding> fieldBindings, bool omitPK, bool shallow)
         {
             binding.FetchRowValues(fieldBindings, FetchField, obj, reader, omitPK, shallow, 1);
             obj.PerformPostFetchProcesses();
         }
 
-        public Record FetchRow(ReaderBase reader, RecordBinding binding, List<FieldBinding> fieldBindings, bool omitPK)
+        public Record FetchRow(BaseReader reader, RecordBinding binding, List<FieldBinding> fieldBindings, bool omitPK)
         {
             Record obj = binding.FetchRowValues(fieldBindings, FetchField, reader, omitPK, false, this, 1);
             if (obj != null) obj.PerformPostFetchProcesses();
             return obj;
         }
 
-        public object FetchValue(ReaderBase reader, FieldBinding fieldBinding)
+        public object FetchValue(BaseReader reader, FieldBinding fieldBinding)
         {
             object col = reader.ColumnValue(fieldBinding.Alias.Length > 0 ? fieldBinding.Alias : fieldBinding.Info.TargetName);
             return col == DBNull.Value ? null : col;
         }
 
-        public void FetchField(Record obj, ReaderBase reader, FieldBinding fieldBinding, RecordBinding binding, bool omitPK, bool omitPKForOrdinals)
+        public void FetchField(Record obj, BaseReader reader, FieldBinding fieldBinding, RecordBinding binding, bool omitPK, bool omitPKForOrdinals)
         {
             var info = fieldBinding.Info;
             if (info.IsInPK && omitPK) return;
@@ -1672,7 +1672,7 @@ namespace ActiveForge
 
         // ── PARAMETER BINDING ─────────────────────────────────────────────────────
 
-        protected void BindInsertParameters(Record obj, RecordBinding binding, CommandBase cmd, bool includePK)
+        protected void BindInsertParameters(Record obj, RecordBinding binding, BaseCommand cmd, bool includePK)
         {
             foreach (var fb in binding.UpdateFields)
             {
@@ -1691,7 +1691,7 @@ namespace ActiveForge
             }
         }
 
-        protected void BindDeleteParameters(Record obj, RecordBinding binding, CommandBase cmd)
+        protected void BindDeleteParameters(Record obj, RecordBinding binding, BaseCommand cmd)
         {
             foreach (var fb in binding.UpdateFields)
             {
@@ -1704,7 +1704,7 @@ namespace ActiveForge
             }
         }
 
-        protected void BindUpdateParameters(Record obj, RecordBinding binding, CommandBase cmd)
+        protected void BindUpdateParameters(Record obj, RecordBinding binding, BaseCommand cmd)
         {
             foreach (var fb in binding.UpdateFields)
             {
@@ -1724,7 +1724,7 @@ namespace ActiveForge
             }
         }
 
-        protected void BindReadParameters(Record obj, RecordBinding binding, CommandBase cmd)
+        protected void BindReadParameters(Record obj, RecordBinding binding, BaseCommand cmd)
         {
             foreach (var fb in binding.Fields)
             {
@@ -1734,24 +1734,24 @@ namespace ActiveForge
             }
         }
 
-        protected void BindQueryParameters(Record obj, RecordBinding binding, CommandBase cmd, QueryTerm query)
+        protected void BindQueryParameters(Record obj, RecordBinding binding, BaseCommand cmd, QueryTerm query)
         {
             int termNumber = 1;
             BindQueryParameters(obj, binding, cmd, query, ref termNumber);
         }
 
-        protected void BindQueryParameters(Record obj, RecordBinding binding, CommandBase cmd, QueryTerm query, ref int termNumber)
+        protected void BindQueryParameters(Record obj, RecordBinding binding, BaseCommand cmd, QueryTerm query, ref int termNumber)
         {
             query?.BindParameters(obj, binding, cmd, ref termNumber);
         }
 
-        protected void BindJoinParameters(Record obj, RecordBinding binding, CommandBase cmd)
+        protected void BindJoinParameters(Record obj, RecordBinding binding, BaseCommand cmd)
         {
             // No translation join parameters in this port.
         }
 
-        protected void BindFunctionParameters(Record obj, RecordBinding binding, CommandBase cmd,
-            RecordParameterCollectionBase objectParameters, Dictionary<Type, RecordParameterCollectionBase> concreteTypeObjectParams)
+        protected void BindFunctionParameters(Record obj, RecordBinding binding, BaseCommand cmd,
+            BaseRecordParameterCollection objectParameters, Dictionary<Type, BaseRecordParameterCollection> concreteTypeObjectParams)
         {
             int idx = 0;
             objectParameters?.BindFunctionParameters(cmd, ref idx, GetParameterMark());
@@ -1861,7 +1861,7 @@ namespace ActiveForge
 
         private string FormatParamDebug(Record obj, TargetFieldInfo info)
         {
-            bool sensitive = RecordBase.GetFieldSensitive(info.FieldInfo);
+            bool sensitive = BaseRecord.GetFieldSensitive(info.FieldInfo);
             string val = sensitive ? "***" : (info.GetValue(obj)?.ToString() ?? "null");
             return $"{GetParameterMark()}{info.TargetName}={val}";
         }
@@ -1945,7 +1945,7 @@ namespace ActiveForge
 
         // ── TABLE EXISTS ──────────────────────────────────────────────────────────
 
-        public override bool TableExists(RecordBase obj)
+        public override bool TableExists(BaseRecord obj)
         {
             // Attempt a SELECT TOP 1 to test existence; dialect may override
             try
@@ -1970,7 +1970,7 @@ namespace ActiveForge
             return cache?.GetValidationMessage(key) ?? defaultValue;
         }
 
-        public override string GetFieldDescription(FieldInfo fi, RecordBase obj)
+        public override string GetFieldDescription(FieldInfo fi, BaseRecord obj)
         {
             var cache = GetInstanceCache();
             string key = obj.GetType().FullName + "." + fi.Name;
@@ -1982,7 +1982,7 @@ namespace ActiveForge
             return desc;
         }
 
-        public override string GetDataObjectDescription(RecordBase obj)
+        public override string GetDataObjectDescription(BaseRecord obj)
         {
             var cache = GetInstanceCache();
             string key = obj.GetType().FullName;
@@ -2302,7 +2302,7 @@ namespace ActiveForge
                 return results;
             }
 
-            protected virtual void BindQueryParameters(CommandBase cmd)
+            protected virtual void BindQueryParameters(BaseCommand cmd)
             {
                 if (_term != null)
                     _conn.BindQueryParameters(_object, _binding, cmd, _term);

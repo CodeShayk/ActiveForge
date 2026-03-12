@@ -1,0 +1,25 @@
+<Project>
+
+  <!-- ── Release metadata shared by all source packages ───────────────────── -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Authors>CodeShayk</Authors>
+    <Company>CodeShayk</Company>
+    <Copyright>Copyright © 2026 CodeShayk</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageProjectUrl>https://github.com/CodeShayk/ActiveForge/wiki</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/CodeShayk/ActiveForge</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <!-- ── Embed the repository README into every package ───────────────────── -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\README.md"
+          Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

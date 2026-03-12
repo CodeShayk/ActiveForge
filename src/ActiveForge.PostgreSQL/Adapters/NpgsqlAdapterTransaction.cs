@@ -4,11 +4,11 @@ using Npgsql;
 namespace ActiveForge.Adapters.PostgreSQL
 {
     /// <summary>
-    /// PostgreSQL implementation of <see cref="TransactionBase"/> backed by
+    /// PostgreSQL implementation of <see cref="BaseTransaction"/> backed by
     /// <see cref="NpgsqlTransaction"/> from the <c>Npgsql</c> library.
     /// <para>
     /// Wraps the commit/rollback/dispose lifecycle of a PostgreSQL transaction behind the
-    /// provider-agnostic <see cref="TransactionBase"/> API consumed by the ORM engine.
+    /// provider-agnostic <see cref="BaseTransaction"/> API consumed by the ORM engine.
     /// Instances are created by <see cref="NpgsqlAdapterConnection.BeginTransaction"/> and
     /// must not be constructed directly by application code.
     /// </para>
@@ -20,7 +20,7 @@ namespace ActiveForge.Adapters.PostgreSQL
     /// querying <c>txid_current_if_assigned()</c>.
     /// </para>
     /// </summary>
-    public class NpgsqlAdapterTransaction : TransactionBase
+    public class NpgsqlAdapterTransaction : BaseTransaction
     {
         /// <summary>The underlying Npgsql transaction managed by this adapter.</summary>
         private readonly NpgsqlTransaction _tx;

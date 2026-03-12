@@ -31,7 +31,7 @@ namespace ActiveForge
 
         public SQLiteConnection(string connectString) : base(connectString) { }
 
-        public SQLiteConnection(string connectString, FactoryBase factory) : base(connectString, factory) { }
+        public SQLiteConnection(string connectString, BaseFactory factory) : base(connectString, factory) { }
 
         // ── Dialect ───────────────────────────────────────────────────────────────────
 
@@ -76,7 +76,7 @@ namespace ActiveForge
 
         // ── Connection factory ────────────────────────────────────────────────────────
 
-        protected override ConnectionBase CreateConnection(string connectString)
+        protected override BaseConnection CreateConnection(string connectString)
             => new SQLiteAdapterConnection(connectString);
 
         // ── Identity retrieval ────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ namespace ActiveForge
         /// Reads <c>last_insert_rowid()</c> after an INSERT and assigns the new identity
         /// value to the identity field declared on <paramref name="obj"/>.
         /// </summary>
-        protected override string PopulateIdentity(Record obj, RecordBinding binding, CommandBase _)
+        protected override string PopulateIdentity(Record obj, RecordBinding binding, BaseCommand _)
         {
             var cmd = CreateCommand("SELECT last_insert_rowid()");
             if (_transactionDepth > 0) cmd.SetTransaction(_transaction);
@@ -140,7 +140,7 @@ namespace ActiveForge
         /// <summary>
         /// Checks whether a table exists using <c>sqlite_master</c>.
         /// </summary>
-        public override bool TableExists(RecordBase obj)
+        public override bool TableExists(BaseRecord obj)
         {
             string src = RecordMetaDataCache.GetTypeMetaData(obj.GetType()).SourceName;
             Connect();

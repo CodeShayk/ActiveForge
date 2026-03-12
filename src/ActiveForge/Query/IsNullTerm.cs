@@ -63,7 +63,7 @@ namespace ActiveForge.Query
         /// <param name="binding">Unused.</param>
         /// <param name="command">Unused.</param>
         /// <param name="termNumber">Unchanged on return.</param>
-        public override void BindParameters(Record obj, RecordBinding binding, CommandBase command, ref int termNumber) { }
+        public override void BindParameters(Record obj, RecordBinding binding, BaseCommand command, ref int termNumber) { }
 
         /// <summary>
         /// No-op: <see cref="IsNullTerm"/> has no parameter values to report.

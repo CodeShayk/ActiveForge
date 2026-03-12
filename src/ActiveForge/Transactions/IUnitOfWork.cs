@@ -13,7 +13,7 @@ namespace ActiveForge.Transactions
         bool InTransaction { get; }
 
         /// <summary>Begins a new database transaction on the underlying connection.</summary>
-        TransactionBase CreateTransaction(IsolationLevel level = IsolationLevel.ReadCommitted);
+        BaseTransaction CreateTransaction(IsolationLevel level = IsolationLevel.ReadCommitted);
 
         /// <summary>Commits the current transaction.</summary>
         void Commit();

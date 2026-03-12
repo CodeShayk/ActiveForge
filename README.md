@@ -27,7 +27,7 @@ All connection types live in the `ActiveForge` namespace, so a single `using Act
 ### 🗂 Entities & Mapping
 - **Active Record pattern** — entities carry both data and persistence behaviour; no separate repository class required
 - **Type-safe field wrappers** — `TString`, `TInt`, `TDecimal`, `TPrimaryKey`, `TForeignKey`, and 25+ more; each tracks null/loaded state and supports implicit conversion
-- **Polymorphic mapping** — map abstract base types to concrete subtypes via `FactoryBase`
+- **Polymorphic mapping** — map abstract base types to concrete subtypes via `BaseFactory`
 - **Custom field mappers** — implement `IDBFieldMapper` for non-standard type conversions
 - **Field encryption** — transparent encrypt/decrypt via `[Encrypted]` attribute
 
@@ -40,12 +40,12 @@ All connection types live in the `ActiveForge` namespace, so a single `using Act
 
 ### 💾 Data Management
 - **Transactions** — manual nested transactions via `BeginTransaction` / `CommitTransaction` / `RollbackTransaction`
-- **Unit of Work** — `IUnitOfWork`, `UnitOfWorkBase`, provider-specific implementations, `With.Transaction`, `[Transaction]` attribute, Castle DynamicProxy interceptor. `[Transaction]` — wraps a service method in a `IUnitOfWork` transaction via Castle DynamicProxy; combine with `[ConnectionScope]` for the full open → begin → commit → close lifecycle
-- **Connection-level lifecycle** — set `conn.UnitOfWork = uow` once; every write operation (`Insert`, `Update`, `Delete`, `ProcessActionQueue`, `ExecStoredProcedure`) automatically opens the connection, begins a transaction, commits, and closes — no proxy required; coordinates transparently with `[ConnectionScope]` via `IsOpen`. `[ConnectionScope]` — marks service methods/classes where the `DataConnection` is opened before and closed after; nested calls share one connection via `IsOpen` state.
+- **Unit of Work** — `IUnitOfWork`, `BaseUnitOfWork`, provider-specific implementations (`SqlServerUnitOfWork`, `PostgreSQLUnitOfWork`, `MongoUnitOfWork`, `SQLiteUnitOfWork`), `With.Transaction`, `[Transaction]` attribute, Castle DynamicProxy interceptor. `[Transaction]` wraps a service method in an `IUnitOfWork` transaction; the UoW opens the connection before the first `CreateTransaction()` call and closes it after the outermost commit or rollback.
+- **Connection-level lifecycle** — set `conn.UnitOfWork = uow` once; every write operation (`Insert`, `Update`, `Delete`, `ProcessActionQueue`, `ExecStoredProcedure`) automatically opens the connection, begins a transaction, commits, and closes — no proxy required.
 - **Action queue** — batch operations via `QueueForInsert` / `QueueForUpdate` / `QueueForDelete` → `ProcessActionQueue`
 
 ### 🌐 DI & Service Proxy Integration
-- **Auto-scan registration** — `AddActiveForgeSqlServer(...).AddServices(assembly)` discovers all `IService` implementations and registers them as interface-proxied scoped services in one call. `IService` marker — implement on any service class for automatic discovery and proxy registration. `IActiveForgeBuilder` — fluent builder returned by all `AddTurquoise*` methods; chain `.AddServices()`, `.AddService<I, T>()` for granular control.
+- **Auto-scan registration** — `AddActiveForgeSqlServer(...).AddServices(assembly)` discovers all `IService` implementations and registers them as interface-proxied scoped services in one call. `IService` marker — implement on any service class for automatic discovery and proxy registration. `IActiveForgeBuilder` — fluent builder returned by all `AddActiveForge*` methods; chain `.AddServices()`, `.AddService<I, T>()` for granular control.
 
 ---
 
@@ -213,7 +213,6 @@ open → begin → commit → close with no virtual methods or framework couplin
 
 ```csharp
 using ActiveForge;
-using ActiveForge.Attributes;
 using ActiveForge.Transactions;
 
 // ── Interface (consumed by controllers / other services)
@@ -229,11 +228,9 @@ public class OrderService : IOrderService, IService
     private readonly DataConnection _conn;
     public OrderService(DataConnection conn) { _conn = conn; }
 
-    [ConnectionScope]               // connection opens before, closes after
     public Order GetById(int id) { ... }
 
-    [ConnectionScope]               // connection opens
-    [Transaction]                   // transaction wraps the body
+    [Transaction]                   // opens connection, begins tx, commits/rolls back, closes connection
     public void Ship(int orderId)
     {
         var order = new Order(_conn);
@@ -285,11 +282,9 @@ With.Transaction(uow, () =>
 | [Getting Started](docs/getting-started.md) | Step-by-step tutorial |
 | [Field Types](docs/field-types.md) | All `TField` types and their operators |
 | [Query Builder](docs/query-builder.md) | Composing WHERE, ORDER BY, and pagination |
-| [Transactions](docs/transactions.md) | Manual transaction and action queue patterns |
-| [Unit of Work](docs/unit-of-work.md) | `IUnitOfWork`, `With.Transaction`, Castle interceptor |
+| [Transactions & DI](docs/transactions-and-di.md) | Manual transactions, `IUnitOfWork`, `With.Transaction`, `[Transaction]` interceptor, DI service proxies |
 | [LINQ Querying](docs/linq-querying.md) | `conn.Query<T>()` LINQ support |
 | [Field Subsets](docs/field-subsets.md) | Partial fetches and partial updates |
-| [DI & Service Proxies](docs/di-service-proxies.md) | `AddActiveForge*`, `AddActiveForgeService<T>`, `[ConnectionScope]`, `ActiveForgeServiceFactory` |
 | [Advanced](docs/advanced.md) | Encryption, custom mappers, polymorphism |
 | [**Wiki**](docs/wiki.md) | Comprehensive reference — all concepts with examples |
 
@@ -306,7 +301,7 @@ ActiveForge/
 │   │   ├── Fields/                     ← TString, TInt, TDecimal, ... (25+ types)
 │   │   ├── Linq/                       ← LINQ query support
 │   │   ├── Query/                      ← QueryTerm, SortOrder, EqualTerm, ...
-│   │   └── Transactions/               ← IUnitOfWork, UnitOfWorkBase, With, ConnectionScopeInterceptor,
+│   │   └── Transactions/               ← IUnitOfWork, BaseUnitOfWork, With,
 │   │                                      TransactionInterceptor, ActiveForgeServiceFactory
 │   ├── ActiveForge.SqlServer/        ← SQL Server provider
 │   │   ├── Adapters/                   ← SqlAdapterCommand/Connection/Reader/Transaction

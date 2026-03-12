@@ -16,12 +16,12 @@ A complete reference for every concept in ActiveForge: architecture, field types
 8. [Sorting and Pagination](#8-sorting-and-pagination)
 9. [LINQ Query Support](#9-linq-query-support)
 10. [Transactions (Manual API)](#10-transactions-manual-api)
-11. [Unit of Work, Transactions, and Connection Scope](#11-unit-of-work-iunitofwork)
+11. [Unit of Work & Transactions](#11-unit-of-work--transactions)
 12. [Action Queue (Batch Operations)](#12-action-queue-batch-operations)
 13. [Field Subsets (Partial Fetch / Update)](#13-field-subsets-partial-fetch--update)
 14. [Field Encryption](#14-field-encryption)
 15. [Custom Field Mappers](#15-custom-field-mappers)
-16. [Polymorphic Mapping (FactoryBase)](#16-polymorphic-mapping-factorybase)
+16. [Polymorphic Mapping (BaseFactory)](#16-polymorphic-mapping-basefactory)
 17. [Optimistic Locking](#17-optimistic-locking)
 18. [Lazy Streaming](#18-lazy-streaming)
 19. [Raw SQL and Stored Procedures](#19-raw-sql-and-stored-procedures)
@@ -380,7 +380,7 @@ using ActiveForge;
 
 var conn = new SqlServerConnection(
     "Server=.;Database=MyDB;Integrated Security=True;TrustServerCertificate=True;",
-    new FactoryBase());
+    new BaseFactory());
 conn.Connect();
 ```
 
@@ -390,7 +390,7 @@ using ActiveForge;
 
 var conn = new PostgreSQLConnection(
     "Host=localhost;Database=mydb;Username=app;Password=secret;",
-    new FactoryBase());
+    new BaseFactory());
 conn.Connect();
 ```
 
@@ -413,7 +413,7 @@ conn.Disconnect();  // closes it
 
 ### 5.3 Factory Pattern
 
-Pass a `FactoryBase` to control how the ORM instantiates objects. The default `FactoryBase` uses `Activator.CreateInstance`. Override `Create(Type)` for polymorphic mapping (see [§15](#15-polymorphic-mapping-factorybase)).
+Pass a `BaseFactory` to control how the ORM instantiates objects. The default `BaseFactory` uses `Activator.CreateInstance`. Override `Create(Type)` for polymorphic mapping (see [§16](#16-polymorphic-mapping-basefactory)).
 
 ### 5.4 Provider Dialect Comparison
 
@@ -914,25 +914,20 @@ TransactionState state = conn.TransactionState();
 
 ---
 
-## 11. Unit of Work, Transactions, and Connection Scope
+## 11. Unit of Work & Transactions
 
 *(Namespace: `ActiveForge.Transactions`; requires Castle.Core NuGet for interceptors)*
 
 ### 11.1 Overview
 
-ActiveForge provides two complementary Castle DynamicProxy interceptors for managing the
-connection and transaction lifecycle at the service-method boundary:
+`IUnitOfWork` manages connection lifetime and transaction nesting behind a clean abstraction.
+`BaseUnitOfWork` opens the database connection when the first `CreateTransaction()` call is
+made (depth 0 → 1) and closes it when the outermost `Commit()` or `Rollback()` completes —
+but only if the UoW was the one that opened it.  This means no manual `Connect()` or
+`Disconnect()` calls are required around transactional code.
 
-| Interceptor | Attribute | What it does |
-|-------------|-----------|--------------|
-| `ConnectionScopeInterceptor` | `[ConnectionScope]` | Opens `DataConnection` before the method; closes it in `finally` |
-| `TransactionInterceptor` | `[Transaction]` | Wraps the method in a `IUnitOfWork` transaction |
-
-`IUnitOfWork` wraps a `DataConnection`'s transaction lifecycle behind a clean abstraction, enabling:
-- **`With.Transaction`** functional helper
-- **`[Transaction]`** attribute-based automatic interception via Castle DynamicProxy
-- **Ambient registration** via `ActiveForgeServiceLocator`
-- **`[ConnectionScope]`** attribute for automatic connection open/close (§11.10)
+Castle DynamicProxy's `TransactionInterceptor` is the sole interceptor; it handles both
+connection and transaction lifecycle automatically.
 
 ### 11.2 IUnitOfWork Interface
 
@@ -940,19 +935,26 @@ connection and transaction lifecycle at the service-method boundary:
 public interface IUnitOfWork : IDisposable
 {
     bool InTransaction { get; }
-    TransactionBase CreateTransaction(IsolationLevel level = IsolationLevel.ReadCommitted);
+    BaseTransaction CreateTransaction(IsolationLevel level = IsolationLevel.ReadCommitted);
     void Commit();
     void Rollback();
 }
 ```
 
-### 11.3 SqlServerUnitOfWork
+### 11.3 Provider-specific implementations
+
+| Provider | Class | Package |
+|----------|-------|---------|
+| SQL Server | `SqlServerUnitOfWork` | `ActiveForge.SqlServer` |
+| PostgreSQL | `PostgreSQLUnitOfWork` | `ActiveForge.PostgreSQL` |
+| MongoDB | `MongoUnitOfWork` | `ActiveForge.MongoDB` |
+| SQLite | `SQLiteUnitOfWork` | `ActiveForge.SQLite` |
 
 ```csharp
+// No Connect() needed — BaseUnitOfWork opens the connection on first CreateTransaction()
+var conn = new SqlServerConnection("Server=...;Database=...;...");
 using IUnitOfWork uow = new SqlServerUnitOfWork(conn);
 ```
-
-Wraps the underlying `SqlServerConnection` and delegates `BeginTransaction` to it.
 
 ### 11.4 With.Transaction
 
@@ -982,10 +984,10 @@ With.SnapshotTransaction(uow, () => { ... });
 
 ### 11.5 Nested Transactions
 
-The depth counter is managed by `UnitOfWorkBase`. Inner `With.Transaction` calls reuse the existing ADO.NET transaction:
+The depth counter is managed by `BaseUnitOfWork`. Inner `With.Transaction` calls reuse the existing ADO.NET transaction:
 
 ```csharp
-With.Transaction(uow, () =>         // depth 0→1, real tx begins
+With.Transaction(uow, () =>         // depth 0→1, opens connection + real tx begins
 {
     product.Insert();
 
@@ -994,42 +996,45 @@ With.Transaction(uow, () =>         // depth 0→1, real tx begins
         orderLine.Insert();
     });                             // depth 2→1
 
-});                                 // depth 1→0, COMMIT
+});                                 // depth 1→0, COMMIT + connection closed
 ```
 
 **Rollback semantics:** If an inner scope rolls back (exception), `_rollbackOnly` is set. When the outermost scope tries to commit, it rolls back instead.
 
 ### 11.6 [Transaction] Attribute
 
-Decorate virtual methods with `[Transaction]` to have them automatically wrapped in a transaction when proxied:
+Decorate methods with `[Transaction]` to have them automatically wrapped in a transaction when proxied.
+The `TransactionInterceptor` also opens the connection on the first call (via `BaseUnitOfWork`)
+and closes it on completion — no separate connection-scope attribute is required.
 
 ```csharp
-public class ProductService
+public class ProductService : IProductService, IService
 {
-    protected readonly SqlServerConnection _conn;
-    public ProductService(SqlServerConnection conn) { _conn = conn; }
+    private readonly DataConnection _conn;
+    public ProductService(DataConnection conn) { _conn = conn; }
 
     [Transaction(IsolationLevel.ReadCommitted)]
-    public virtual int CreateProduct(string name, decimal price)
+    public int CreateProduct(string name, decimal price)
     {
         var p = new Product(_conn);
         p.Name.SetValue(name);
         p.Price.SetValue(price);
         p.InStock.SetValue(true);
-        p.CreatedAt.SetValue(DateTime.UtcNow);
         _conn.Insert(p);
         return (int)p.ID.GetValue();
+        // connection opened before first DB call; commits here; connection closed
     }
 
-    // No [Transaction] — passes through without starting a transaction.
-    public virtual int CountProducts()
+    // No [Transaction] — no connection or transaction management
+    public int CountProducts()
         => _conn.QueryCount(new Product(_conn));
 }
 ```
 
-- `[Transaction]` can be placed at **method level** or **class level** (applies to all virtual methods).
-- Methods without the attribute are passed through unchanged.
-- The intercepted method must be **virtual** (required by Castle DynamicProxy).
+- `[Transaction]` can be placed at **method level** or **class level** (applies to all methods).
+- Methods without the attribute pass through unchanged.
+- When using an interface proxy (the default for `IService` services), place `[Transaction]` on
+  the **implementation class** — the interceptor reads `IInvocation.MethodInvocationTarget`.
 
 ### 11.7 Setting Up Castle DynamicProxy Interception
 
@@ -1038,23 +1043,53 @@ public class ProductService
 ```csharp
 using Castle.DynamicProxy;
 
+var conn        = new SqlServerConnection("...");
 using IUnitOfWork uow  = new SqlServerUnitOfWork(conn);
-var interceptor         = new TransactionInterceptor(uow);
-var generator           = new ProxyGenerator();
+var interceptor = new TransactionInterceptor(uow);
+var generator   = new ProxyGenerator();
 
 ProductService real  = new ProductService(conn);
 ProductService proxy = (ProductService)generator.CreateClassProxyWithTarget(
     typeof(ProductService), real, interceptor);
 
-int id = proxy.CreateProduct("Widget", 9.99m);  // transaction committed automatically
+int id = proxy.CreateProduct("Widget", 9.99m);  // connection opened, transaction committed automatically
 ```
 
-#### For DataConnection Subclasses (C1 Strategy)
+#### IService auto-registration and DI
+
+Services that implement `IService` are registered by `AddServices()` as Castle **interface
+proxies** — no `virtual` keyword required on any method.
 
 ```csharp
-// Proxy the connection itself so every virtual method on it gets intercepted:
-SqlServerConnection proxied =
-    DataConnectionProxyFactory.Create<SqlServerConnection>(conn, uow);
+// Program.cs
+builder.Services
+    .AddActiveForgeSqlServer("Server=...;...")
+    .AddServices(typeof(Program).Assembly);
+
+// Service definition
+public interface IOrderService
+{
+    Order GetById(int id);
+    void  Ship(int orderId);
+}
+
+public class OrderService : IOrderService, IService
+{
+    private readonly DataConnection _conn;
+    public OrderService(DataConnection conn) { _conn = conn; }
+
+    // No [Transaction] — no UoW involved, connection auto-managed per read call
+    public Order GetById(int id) { ... }
+
+    [Transaction]   // opens connection, begins tx, commits on return, closes connection
+    public void Ship(int orderId) { ... }
+}
+
+// Controller — injects by interface; proxy is transparent
+public class CheckoutController : ControllerBase
+{
+    public CheckoutController(IOrderService orders) { _orders = orders; }
+}
 ```
 
 ### 11.8 ActiveForgeServiceLocator (Ambient DI)
@@ -1084,128 +1119,21 @@ ActiveForgeServiceLocator.Reset();
 |----------|-----------|
 | Exception inside `With.Transaction` | `Rollback()` called; exception re-thrown |
 | Inner scope rolls back | `_rollbackOnly` set; outer scope will roll back even if it tries to commit |
-| `Dispose()` with open transaction | Transaction is rolled back automatically |
+| `Dispose()` with open transaction | Transaction is rolled back; connection closed if UoW owns it |
 | `Commit()` when `_rollbackOnly` | Silently converts to `Rollback()` |
-| `CreateTransaction()` when already active and same isolation level | Depth incremented; no new ADO.NET transaction |
+| `CreateTransaction()` when already active | Depth incremented; no new ADO.NET transaction |
 
-### 11.10 [ConnectionScope] — Connection Lifecycle for Service Methods
-
-`[ConnectionScope]` and its Castle DynamicProxy interceptor `ConnectionScopeInterceptor` complement
-`[Transaction]` by managing the connection open/close lifecycle at the service-method boundary,
-leaving the caller completely free of connection boilerplate.
-
-#### Attribute
-
-```csharp
-using ActiveForge.Attributes;
-
-// Method level — only this method gets the scope
-[ConnectionScope]
-public void DoWork() { ... }
-
-// Class level — every method on the class gets the scope
-[ConnectionScope]
-public class OrderService : IOrderService, IService { ... }
-```
-
-Place the attribute on the **implementation class** (not the interface). When using an interface
-proxy (the default for `IService` services), `ConnectionScopeInterceptor` reads the attribute from
-`IInvocation.MethodInvocationTarget` — the concrete method — so attributes on the interface are
-supported as a fallback only.
-
-#### How it works
-
-```
-Call enters proxy
-  → ConnectionScopeInterceptor checks IsOpen
-      if NOT open → Connect()
-      → method body executes
-  → finally: if we opened the connection → Disconnect()
-```
-
-The interceptor uses `DataConnection.IsOpen` to decide whether to open/close — it never
-double-opens. This means:
-
-- A `[ConnectionScope]` method that calls another `[ConnectionScope]` method on the same proxy
-  reuses the already-open connection; the connection closes only when the outermost scope returns.
-- Entity writes inside a `[ConnectionScope]` method (`p.Insert()`, `p.Delete()`, …) use the
-  open connection transparently — `RunWrite` checks `IsOpen` and skips the re-connect.
-
-#### Combining with [Transaction]
-
-```csharp
-[ConnectionScope]   // opens connection before, closes after (in finally)
-[Transaction]       // begins UoW transaction after connection is open; commits on return
-public void Ship(int orderId)
-{
-    var order = new Order(_conn);
-    order.ID.SetValue(orderId);
-    _conn.Read(order);
-    order.Status.SetValue("Shipped");
-    order.Update(RecordLock.UpdateOption.IgnoreLock);
-    // commit on success; rollback + close on exception
-}
-```
-
-Interceptor execution order (outermost first):
-
-```
-ConnectionScopeInterceptor → Connect()
-  TransactionInterceptor    → UoW.CreateTransaction()
-    → real method executes
-  TransactionInterceptor    → UoW.Commit() (or Rollback on exception)
-ConnectionScopeInterceptor → Disconnect() [always, in finally]
-```
-
-#### IService auto-registration and DI
-
-Services that implement `IService` are registered by `AddServices()` as Castle **interface
-proxies** — no `virtual` keyword required on any method.
-
-```csharp
-// Program.cs
-builder.Services
-    .AddActiveForgeSqlServer("Server=...;...")
-    .AddServices(typeof(Program).Assembly);
-
-// Service definition
-public interface IOrderService
-{
-    Order GetById(int id);
-    void  Ship(int orderId);
-}
-
-public class OrderService : IOrderService, IService
-{
-    private readonly DataConnection _conn;
-    public OrderService(DataConnection conn) { _conn = conn; }
-
-    [ConnectionScope]
-    public Order GetById(int id) { ... }
-
-    [ConnectionScope]
-    [Transaction]
-    public void Ship(int orderId) { ... }
-}
-
-// Controller — injects by interface; proxy is transparent
-public class CheckoutController : ControllerBase
-{
-    public CheckoutController(IOrderService orders) { _orders = orders; }
-}
-```
-
-#### Standalone (no DI)
+### 11.10 Standalone (no DI)
 
 ```csharp
 var conn = new SqlServerConnection("Server=...;...");
 var uow  = new SqlServerUnitOfWork(conn);
 var svc  = ActiveForgeServiceFactory.Create<IOrderService>(new OrderService(conn), conn, uow);
 
-svc.Ship(42);   // proxy opens connection, starts transaction, executes, commits, closes
+svc.Ship(42);   // proxy begins transaction (opening connection), executes, commits, closes
 ```
 
-#### Connection-level lifecycle without a proxy
+### 11.11 Connection-level lifecycle without a proxy
 
 For code that doesn't go through a service proxy, assign `UnitOfWork` on the connection once. Every
 write operation (`Insert`, `Update`, `Delete`, `ProcessActionQueue`, `ExecStoredProcedure`)
@@ -1390,9 +1318,9 @@ Register on a specific field type or globally via the connection.
 
 ---
 
-## 16. Polymorphic Mapping (FactoryBase)
+## 16. Polymorphic Mapping (BaseFactory)
 
-`FactoryBase` maps abstract base types to concrete subtypes. The ORM uses the map when it needs to instantiate an object during query hydration.
+`BaseFactory` maps abstract base types to concrete subtypes. The ORM uses the map when it needs to instantiate an object during query hydration.
 
 **Static type substitution** — the common case:
 
@@ -1424,7 +1352,7 @@ public class Rectangle : Shape
 }
 
 // Factory: always map Shape → Circle when Circle is the only concrete subtype
-public class ShapeFactory : FactoryBase
+public class ShapeFactory : BaseFactory
 {
     protected override void CreateTypeMap()
     {
@@ -1549,7 +1477,7 @@ foreach (Product p in conn.Query<Product>().Where(p => p.InStock == true))
 
 ### 19.1 ExecSQL (Direct Results)
 
-Executes raw SQL and returns a `ReaderBase` for manual iteration.
+Executes raw SQL and returns a `BaseReader` for manual iteration.
 
 ```csharp
 using var reader = conn.ExecSQL("SELECT COUNT(*) FROM Products");
@@ -1617,8 +1545,8 @@ ActiveForge (core — no provider dependency)
 ├── TField subtypes (25+)
 ├── QueryTerm tree (EqualTerm, AndTerm, InTerm, …)
 ├── LINQ layer (OrmQueryable, ExpressionToQueryTermVisitor, …)
-├── Adapter abstractions (ConnectionBase, CommandBase, ReaderBase, TransactionBase)
-└── Transactions (IUnitOfWork, UnitOfWorkBase, With, TransactionInterceptor, …)
+├── Adapter abstractions (BaseConnection, BaseCommand, BaseReader, BaseTransaction)
+└── Transactions (IUnitOfWork, BaseUnitOfWork, With, TransactionInterceptor, …)
 
 ActiveForge.SqlServer (depends on ActiveForge + Microsoft.Data.SqlClient)
 ├── SqlServerConnection : DBDataConnection
@@ -1626,7 +1554,7 @@ ActiveForge.SqlServer (depends on ActiveForge + Microsoft.Data.SqlClient)
 ├── Adapters/SqlAdapterCommand        (wraps SqlCommand)
 ├── Adapters/SqlAdapterReader         (wraps SqlDataReader)
 ├── Adapters/SqlAdapterTransaction    (wraps SqlTransaction)
-└── Transactions/SqlServerUnitOfWork  : UnitOfWorkBase
+└── Transactions/SqlServerUnitOfWork  : BaseUnitOfWork
 
 ActiveForge.PostgreSQL (depends on ActiveForge + Npgsql)
 ├── PostgreSQLConnection : DBDataConnection
@@ -1634,7 +1562,7 @@ ActiveForge.PostgreSQL (depends on ActiveForge + Npgsql)
 ├── Adapters/NpgsqlAdapterCommand     (wraps NpgsqlCommand)
 ├── Adapters/NpgsqlAdapterReader      (wraps NpgsqlDataReader)
 ├── Adapters/NpgsqlAdapterTransaction (wraps NpgsqlTransaction)
-└── Transactions/PostgreSQLUnitOfWork : UnitOfWorkBase
+└── Transactions/PostgreSQLUnitOfWork : BaseUnitOfWork
 
 ActiveForge.MongoDB (depends on ActiveForge + MongoDB.Driver)
 ├── MongoDataConnection : DataConnection   ← extends DataConnection directly (not DBDataConnection)
@@ -1642,7 +1570,7 @@ ActiveForge.MongoDB (depends on ActiveForge + MongoDB.Driver)
 ├── Internal/MongoTypeCache                (per-type collection name + field descriptors)
 ├── Internal/MongoMapper                   (Record ↔ BsonDocument serialization)
 ├── Internal/MongoQueryTranslator          (QueryTerm → FilterDefinition, SortOrder → SortDefinition)
-└── Transactions/MongoUnitOfWork : UnitOfWorkBase
+└── Transactions/MongoUnitOfWork : BaseUnitOfWork
 ```
 
 All provider types use the `ActiveForge` namespace — the same namespace as the core types they extend. This means consuming code only needs `using ActiveForge;`.
@@ -1690,28 +1618,44 @@ Translates a `LambdaExpression` predicate into a `QueryTerm` tree:
 
 Local variable capture is handled by compiling and invoking the captured sub-expression: `Expression.Lambda(expr).Compile().DynamicInvoke()`.
 
-### 21.4 UnitOfWorkBase Depth Counter
+### 21.4 BaseUnitOfWork Depth Counter and Connection Ownership
 
 ```
-State: _depth = 0, _rollbackOnly = false, _currentTransaction = null
+State: _depth = 0, _rollbackOnly = false, _currentTransaction = null,
+       _ownedConnection = false
 
 CreateTransaction() called:
-  if _depth == 0:  BeginTransactionCore(level) → _currentTransaction
+  if _depth == 0:
+    _ownedConnection = !_connection.IsOpen
+    if _ownedConnection: _connection.Connect()
+    BeginTransactionCore(level) → _currentTransaction
   _depth++
 
 Commit() called:
   _depth--
   if _depth == 0:
-    if _rollbackOnly: _currentTransaction.Rollback()
-    else:             _currentTransaction.Commit()
+    if _rollbackOnly: CommitOrRollback(commit: false)
+    else:             CommitOrRollback(commit: true)
 
 Rollback() called:
   _rollbackOnly = true
   _depth--
-  if _depth == 0: _currentTransaction.Rollback()
+  if _depth == 0: CommitOrRollback(commit: false)
+
+CommitOrRollback(commit):
+  try:
+    if commit: _currentTransaction.Commit()
+    else:      _currentTransaction.Rollback()
+  finally:
+    _currentTransaction.Dispose(); _currentTransaction = null
+    _rollbackOnly = false
+    notify connection (NotifyTransactionCommitted / NotifyTransactionRolledBack)
+    if _ownedConnection: _connection.Disconnect(); _ownedConnection = false
 
 Dispose():
-  if _depth > 0: Rollback(); _currentTransaction.Dispose()
+  if _depth > 0: _currentTransaction.Rollback() [swallow exceptions]
+  _currentTransaction?.Dispose()
+  if _ownedConnection: _connection.Disconnect() [swallow exceptions]
 ```
 
 ### 21.5 CombinedSortOrder
@@ -2676,70 +2620,22 @@ public class Shipment : IdentityRecord
 
 ### 25.4 Service / Proxy Attributes
 
-#### `[ConnectionScope]`
-
-Marks a method or class so that `ConnectionScopeInterceptor` automatically opens the `DataConnection` before the call and closes it in a `finally` block. Depth-tracked: nested scopes reuse the existing open connection.
-
-```csharp
-using ActiveForge.Attributes;
-
-// Method-level — only this method gets a managed connection scope
-public class ProductService : IProductService, IService
-{
-    private readonly DataConnection _conn;
-    public ProductService(DataConnection conn) { _conn = conn; }
-
-    [ConnectionScope]
-    public Product GetById(int id)
-    {
-        var p = new Product(_conn);
-        p.ID.SetValue(id);
-        p.Read();
-        return p;
-    }
-}
-
-// Class-level — every method on the class is scoped
-[ConnectionScope]
-public class ReportService : IReportService, IService
-{
-    private readonly DataConnection _conn;
-    public ReportService(DataConnection conn) { _conn = conn; }
-
-    public List<Product> GetTopSellers() { ... }
-    public int           CountByCategory(int catId) { ... }
-}
-```
-
-Can be combined with `[Transaction]` (connection opens first, transaction begins second):
-
-```csharp
-[ConnectionScope]
-[Transaction]
-public void PlaceOrder(int customerId, List<int> productIds) { ... }
-```
-
----
-
 #### `[Transaction]`
 
-Marks a method or class so that `TransactionInterceptor` wraps the call in a `IUnitOfWork` transaction. Commits on successful return; rolls back on exception.
+Marks a method or class so that `TransactionInterceptor` wraps the call in an `IUnitOfWork`
+transaction. Commits on successful return; rolls back on exception. `BaseUnitOfWork` also opens
+the connection before the first `CreateTransaction()` call and closes it when the outermost
+commit or rollback completes — no separate connection-scope attribute is needed.
 
 ```csharp
 using ActiveForge.Transactions;
 
 public class OrderService : IOrderService, IService
 {
-    private readonly DataConnection    _conn;
-    private readonly IUnitOfWork       _uow;
+    private readonly DataConnection _conn;
 
-    public OrderService(DataConnection conn, IUnitOfWork uow)
-    {
-        _conn = conn;
-        _uow  = uow;
-    }
+    public OrderService(DataConnection conn) { _conn = conn; }
 
-    [ConnectionScope]
     [Transaction]                                      // ReadCommitted by default
     public int PlaceOrder(int customerId)
     {
@@ -2748,9 +2644,9 @@ public class OrderService : IOrderService, IService
         order.Status.SetValue("new");
         order.Insert();
         return (int)order.ID.GetValue();
+        // connection opened before first DB access; committed + closed here
     }
 
-    [ConnectionScope]
     [Transaction(IsolationLevel.Serializable)]         // explicit isolation level
     public void CancelOrder(int orderId)
     {
@@ -3335,7 +3231,7 @@ conn.Disconnect();
 
 ### 27.3 Polymorphic Records — Full Example
 
-`FactoryBase` maps abstract base types to concrete subtypes. Register mappings in `CreateTypeMap()`. Pass the factory instance to the connection constructor. When the ORM hydrates a query result it calls `FactoryBase.MapType(typeof(BaseType))` to determine which concrete class to instantiate.
+`BaseFactory` maps abstract base types to concrete subtypes. Register mappings in `CreateTypeMap()`. Pass the factory instance to the connection constructor. When the ORM hydrates a query result it calls `BaseFactory.MapType(typeof(BaseType))` to determine which concrete class to instantiate.
 
 ```csharp
 using ActiveForge;
@@ -3379,11 +3275,11 @@ public class SmsNotification : Notification
 
 // ── Factory — static type substitution ───────────────────────────────────────
 //
-// FactoryBase.AddTypeMapping registers a static base→concrete substitution.
+// BaseFactory.AddTypeMapping registers a static base→concrete substitution.
 // All rows queried as Notification will be instantiated as the mapped type.
 // Use the expectedTypes overload when multiple concrete types are in the result.
 
-public class NotificationFactory : FactoryBase
+public class NotificationFactory : BaseFactory
 {
     protected override void CreateTypeMap()
     {

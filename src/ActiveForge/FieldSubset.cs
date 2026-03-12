@@ -12,7 +12,7 @@ namespace ActiveForge
     {
         private static readonly System.Type _primaryKeyType = typeof(TPrimaryKey);
 
-        protected FactoryBase  Factory          = null;
+        protected BaseFactory  Factory          = null;
         protected System.Type  RootObjectType   = null;
         protected Dictionary<string, FieldInclude> Fields = new Dictionary<string, FieldInclude>();
         protected Dictionary<string, JoinInclude>  Joins  = new Dictionary<string, JoinInclude>();
@@ -29,10 +29,10 @@ namespace ActiveForge
         // ── Constructors ─────────────────────────────────────────────────────────────
 
         /// <summary>Excludes all fields initially (caller adds what's needed).</summary>
-        public FieldSubset(RecordBase rootObject, FactoryBase factory)
+        public FieldSubset(BaseRecord rootObject, BaseFactory factory)
             : this(rootObject, InitialState.ExcludeAll, factory) { }
 
-        public FieldSubset(RecordBase rootObject, InitialState state, FactoryBase factory)
+        public FieldSubset(BaseRecord rootObject, InitialState state, BaseFactory factory)
         {
             Factory = factory;
             Populate(rootObject, state);
@@ -218,13 +218,13 @@ namespace ActiveForge
             }
         }
 
-        public bool IncludesField(RecordBase root, RecordBase enclosing, TField field)
+        public bool IncludesField(BaseRecord root, BaseRecord enclosing, TField field)
         {
             bool complete = false;
             return IncludesFieldInternal(root, enclosing, field, ref complete);
         }
 
-        private bool IncludesFieldInternal(RecordBase root, RecordBase enclosing, TField field, ref bool complete)
+        private bool IncludesFieldInternal(BaseRecord root, BaseRecord enclosing, TField field, ref bool complete)
         {
             if (root == enclosing)
             {
@@ -244,7 +244,7 @@ namespace ActiveForge
                 {
                     if (pair.Value.Include)
                     {
-                        var nextRoot = (RecordBase)pair.Value.FieldInfo.GetValue(root);
+                        var nextRoot = (BaseRecord)pair.Value.FieldInfo.GetValue(root);
                         bool result  = pair.Value.FieldSubset.IncludesFieldInternal(nextRoot, enclosing, field, ref complete);
                         if (complete) return result;
                     }
@@ -253,13 +253,13 @@ namespace ActiveForge
             return false;
         }
 
-        public bool IncludesEmbeddedObject(RecordBase root, RecordBase enclosing, RecordBase embedded)
+        public bool IncludesEmbeddedObject(BaseRecord root, BaseRecord enclosing, BaseRecord embedded)
         {
             bool complete = false;
             return IncludesEmbeddedObjectInternal(root, enclosing, embedded, ref complete);
         }
 
-        private bool IncludesEmbeddedObjectInternal(RecordBase root, RecordBase enclosing, RecordBase embedded, ref bool complete)
+        private bool IncludesEmbeddedObjectInternal(BaseRecord root, BaseRecord enclosing, BaseRecord embedded, ref bool complete)
         {
             if (root == enclosing)
             {
@@ -267,7 +267,7 @@ namespace ActiveForge
                 {
                     if (pair.Value.Include)
                     {
-                        var testObj = (RecordBase)pair.Value.FieldInfo.GetValue(root);
+                        var testObj = (BaseRecord)pair.Value.FieldInfo.GetValue(root);
                         if (testObj == embedded)
                         {
                             complete = true;
@@ -282,7 +282,7 @@ namespace ActiveForge
                 {
                     if (pair.Value.Include)
                     {
-                        var nextRoot = (RecordBase)pair.Value.FieldInfo.GetValue(root);
+                        var nextRoot = (BaseRecord)pair.Value.FieldInfo.GetValue(root);
                         bool result  = pair.Value.FieldSubset.IncludesEmbeddedObjectInternal(nextRoot, enclosing, embedded, ref complete);
                         if (complete) return result;
                     }
@@ -347,35 +347,35 @@ namespace ActiveForge
 
         // ── Individual include / exclude ─────────────────────────────────────────────
 
-        public void Include(RecordBase root, RecordBase enclosing, TField field)
+        public void Include(BaseRecord root, BaseRecord enclosing, TField field)
         {
             var rc = IncludeField(root, enclosing, field, true);
             if (!rc) throw new PersistenceException("Error including field in FieldSubset: " + rc.GetValue());
         }
 
-        public void Exclude(RecordBase root, RecordBase enclosing, TField field)
+        public void Exclude(BaseRecord root, BaseRecord enclosing, TField field)
         {
             var rc = IncludeField(root, enclosing, field, false);
             if (!rc) throw new PersistenceException("Error excluding field in FieldSubset: " + rc.GetValue());
         }
 
-        public void Include(RecordBase root, RecordBase enclosing, RecordBase joinTarget)
+        public void Include(BaseRecord root, BaseRecord enclosing, BaseRecord joinTarget)
             => Include(root, enclosing, joinTarget, InitialState.Default);
 
-        public void Include(RecordBase root, RecordBase enclosing, RecordBase joinTarget, InitialState state)
+        public void Include(BaseRecord root, BaseRecord enclosing, BaseRecord joinTarget, InitialState state)
         {
             var rc = IncludeJoin(root, enclosing, joinTarget, true, state);
             if (!rc) throw new PersistenceException(
                 $"Trying to include {enclosing.GetType().Name} in {root.GetType().Name} — {rc}");
         }
 
-        public void Exclude(RecordBase root, RecordBase enclosing, RecordBase joinTarget)
+        public void Exclude(BaseRecord root, BaseRecord enclosing, BaseRecord joinTarget)
         {
             var rc = IncludeJoin(root, enclosing, joinTarget, false, InitialState.IncludeAll);
             if (!rc) throw new PersistenceException("Error excluding join in FieldSubset: " + rc.GetValue());
         }
 
-        private ReturnCode IncludeField(RecordBase root, RecordBase enclosing, TField field, bool include)
+        private ReturnCode IncludeField(BaseRecord root, BaseRecord enclosing, TField field, bool include)
         {
             var rc = new ReturnCode(ReturnCode.Value.ObjectNotFound);
             var meta = RecordMetaDataCache.GetTypeMetaData(RootObjectType);
@@ -399,7 +399,7 @@ namespace ActiveForge
             {
                 foreach (var entry in meta.DataObjects)
                 {
-                    var nextObj = (RecordBase)entry.FieldInfo.GetValue(root);
+                    var nextObj = (BaseRecord)entry.FieldInfo.GetValue(root);
                     if (Joins.TryGetValue(entry.Name, out var ji))
                     {
                         rc = ji.FieldSubset.IncludeField(nextObj, enclosing, field, include);
@@ -414,7 +414,7 @@ namespace ActiveForge
             return rc;
         }
 
-        private ReturnCode IncludeJoin(RecordBase root, RecordBase enclosing, RecordBase target, bool include, InitialState state)
+        private ReturnCode IncludeJoin(BaseRecord root, BaseRecord enclosing, BaseRecord target, bool include, InitialState state)
         {
             var rc   = new ReturnCode(ReturnCode.Value.ObjectNotFound);
             var meta = RecordMetaDataCache.GetTypeMetaData(RootObjectType);
@@ -423,7 +423,7 @@ namespace ActiveForge
                 rc.SetValue(ReturnCode.Value.JoinNotFound);
                 foreach (var entry in meta.DataObjects)
                 {
-                    var nextObj = (RecordBase)entry.FieldInfo.GetValue(root);
+                    var nextObj = (BaseRecord)entry.FieldInfo.GetValue(root);
                     if (nextObj == target)
                     {
                         if (Joins.TryGetValue(entry.Name, out var ji))
@@ -443,7 +443,7 @@ namespace ActiveForge
             {
                 foreach (var entry in meta.DataObjects)
                 {
-                    var nextObj = (RecordBase)entry.FieldInfo.GetValue(root);
+                    var nextObj = (BaseRecord)entry.FieldInfo.GetValue(root);
                     if (Joins.TryGetValue(entry.Name, out var ji))
                     {
                         rc = ji.FieldSubset.IncludeJoin(nextObj, enclosing, target, include, state);
@@ -476,13 +476,13 @@ namespace ActiveForge
 
         // ── Embedded object navigation ───────────────────────────────────────────────
 
-        public FieldSubset FieldSubsetForEmbeddedObject(RecordBase root, RecordBase embedded)
+        public FieldSubset FieldSubsetForEmbeddedObject(BaseRecord root, BaseRecord embedded)
         {
             if (root == embedded) return this;
             var meta = RecordMetaDataCache.GetTypeMetaData(RootObjectType);
             foreach (var entry in meta.DataObjects)
             {
-                var nextObj = (RecordBase)entry.FieldInfo.GetValue(root);
+                var nextObj = (BaseRecord)entry.FieldInfo.GetValue(root);
                 if (Joins.TryGetValue(entry.Name, out var ji))
                 {
                     var result = ji.FieldSubset.FieldSubsetForEmbeddedObject(nextObj, embedded);
@@ -492,7 +492,7 @@ namespace ActiveForge
             return null;
         }
 
-        public System.Collections.Generic.IEnumerable<RecordBase> IncludedObjects(RecordBase root, RecordBase enclosing)
+        public System.Collections.Generic.IEnumerable<BaseRecord> IncludedObjects(BaseRecord root, BaseRecord enclosing)
         {
             int count = 0;
             foreach (var pair in Fields)
@@ -503,21 +503,21 @@ namespace ActiveForge
             {
                 if (pair.Value.Include)
                 {
-                    var next = (RecordBase)pair.Value.FieldInfo.GetValue(enclosing);
+                    var next = (BaseRecord)pair.Value.FieldInfo.GetValue(enclosing);
                     foreach (var obj in pair.Value.FieldSubset.IncludedObjects(root, next))
                         yield return obj;
                 }
             }
         }
 
-        public System.Collections.Generic.List<IncludedField> GetIncludedFields(RecordBase root)
+        public System.Collections.Generic.List<IncludedField> GetIncludedFields(BaseRecord root)
         {
             var result = new System.Collections.Generic.List<IncludedField>();
             GetIncludedFieldsInternal(root, root, result);
             return result;
         }
 
-        private void GetIncludedFieldsInternal(RecordBase root, RecordBase enclosing, System.Collections.Generic.List<IncludedField> result)
+        private void GetIncludedFieldsInternal(BaseRecord root, BaseRecord enclosing, System.Collections.Generic.List<IncludedField> result)
         {
             foreach (var pair in Fields)
             {
@@ -535,7 +535,7 @@ namespace ActiveForge
             {
                 if (pair.Value.Include)
                 {
-                    var next = (RecordBase)pair.Value.FieldInfo.GetValue(root);
+                    var next = (BaseRecord)pair.Value.FieldInfo.GetValue(root);
                     pair.Value.FieldSubset.GetIncludedFieldsInternal(root, next, result);
                 }
             }
@@ -543,7 +543,7 @@ namespace ActiveForge
 
         // ── Populate from metadata ───────────────────────────────────────────────────
 
-        private void Populate(RecordBase root, InitialState state)
+        private void Populate(BaseRecord root, InitialState state)
         {
             RootObjectType = root.GetType();
             var meta = RecordMetaDataCache.GetTypeMetaData(RootObjectType);
@@ -551,7 +551,7 @@ namespace ActiveForge
             foreach (var entry in meta.DataObjects)
             {
                 bool include = IncludeFieldInLoad(entry.FieldInfo, state);
-                Joins.Add(entry.Name, new JoinInclude(include, state, (RecordBase)entry.FieldInfo.GetValue(root), Factory, entry.FieldInfo));
+                Joins.Add(entry.Name, new JoinInclude(include, state, (BaseRecord)entry.FieldInfo.GetValue(root), Factory, entry.FieldInfo));
             }
             foreach (var entry in meta.TFields)
             {
@@ -592,8 +592,8 @@ namespace ActiveForge
         public class IncludedField
         {
             public TField     Field;
-            public RecordBase RootObject;
-            public RecordBase EnclosingObject;
+            public BaseRecord RootObject;
+            public BaseRecord EnclosingObject;
         }
 
         protected class FieldInclude
@@ -624,7 +624,7 @@ namespace ActiveForge
             public FieldInfo   FieldInfo;
             public FieldSubset FieldSubset;
 
-            public JoinInclude(bool include, InitialState state, RecordBase joinTarget, FactoryBase factory, FieldInfo fieldInfo)
+            public JoinInclude(bool include, InitialState state, BaseRecord joinTarget, BaseFactory factory, FieldInfo fieldInfo)
             {
                 Include    = include;
                 FieldInfo  = fieldInfo;

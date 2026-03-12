@@ -66,7 +66,7 @@ namespace ActiveForge.MongoDB.Tests
         public void ExecSQL_RawStringWithParams_ThrowsNotSupported()
         {
             Action act = () => _conn.ExecSQL("SELECT 1",
-                new System.Collections.Generic.Dictionary<string, CommandBase.Parameter>());
+                new System.Collections.Generic.Dictionary<string, BaseCommand.Parameter>());
             act.Should().Throw<NotSupportedException>();
         }
 

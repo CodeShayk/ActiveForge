@@ -5,12 +5,12 @@ using Microsoft.Data.Sqlite;
 namespace ActiveForge.Adapters.SQLite
 {
     /// <summary>
-    /// SQLite implementation of <see cref="ConnectionBase"/> backed by
+    /// SQLite implementation of <see cref="BaseConnection"/> backed by
     /// <see cref="SqliteConnection"/> from <c>Microsoft.Data.Sqlite</c>.
     /// <para>
     /// Wraps the full lifecycle of a SQLite connection — open, close, transaction
     /// management, command creation, and transaction-state inspection — behind the
-    /// provider-agnostic <see cref="ConnectionBase"/> API consumed by the ORM engine.
+    /// provider-agnostic <see cref="BaseConnection"/> API consumed by the ORM engine.
     /// </para>
     /// <para>
     /// In-memory databases: pass <c>"Data Source=:memory:"</c> as the connection string
@@ -38,7 +38,7 @@ namespace ActiveForge.Adapters.SQLite
     /// <see cref="TransactionStates.NoTransaction"/> otherwise.
     /// </para>
     /// </summary>
-    public class SQLiteAdapterConnection : ConnectionBase
+    public class SQLiteAdapterConnection : BaseConnection
     {
         /// <summary>The underlying SQLite connection managed by this adapter.</summary>
         private readonly SqliteConnection _conn;
@@ -100,7 +100,7 @@ namespace ActiveForge.Adapters.SQLite
         /// </summary>
         /// <param name="level">The requested <see cref="IsolationLevel"/>.</param>
         /// <returns>A <see cref="SQLiteAdapterTransaction"/> representing the started transaction.</returns>
-        public override TransactionBase BeginTransaction(IsolationLevel level)
+        public override BaseTransaction BeginTransaction(IsolationLevel level)
         {
             // Microsoft.Data.Sqlite supports ReadCommitted and Serializable only.
             // Map unsupported levels to the nearest supported equivalent.
@@ -117,11 +117,11 @@ namespace ActiveForge.Adapters.SQLite
         /// <summary>
         /// Creates a new <see cref="SQLiteAdapterCommand"/> for the given SQL text, bound
         /// to this connection. The command's timeout is inherited from
-        /// <see cref="ConnectionBase.GetTimeout"/>.
+        /// <see cref="BaseConnection.GetTimeout"/>.
         /// </summary>
         /// <param name="sql">The SQL text to execute. Stored-procedure names are not supported by SQLite.</param>
         /// <returns>A <see cref="SQLiteAdapterCommand"/> ready for parameter binding and execution.</returns>
-        public override CommandBase CreateCommand(string sql)
+        public override BaseCommand CreateCommand(string sql)
             => new SQLiteAdapterCommand(sql, this);
 
         /// <summary>
@@ -146,7 +146,7 @@ namespace ActiveForge.Adapters.SQLite
         /// </summary>
         /// <param name="transaction">The transaction whose state is to be inspected.</param>
         /// <returns>A <see cref="TransactionStates"/> value describing the current state.</returns>
-        public override TransactionStates TransactionState(TransactionBase transaction)
+        public override TransactionStates TransactionState(BaseTransaction transaction)
         {
             // SQLite transactions are always committable when present.
             return transaction is SQLiteAdapterTransaction

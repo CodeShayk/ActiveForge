@@ -1,22 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
     <AssemblyName>ActiveForge.SqlServer</AssemblyName>
     <RootNamespace>ActiveForge</RootNamespace>
-    <Version>1.0.0</Version>
-    <Authors>ActiveForge</Authors>
-    <Description>SQL Server provider for ActiveForge ORM</Description>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>0618,1591</NoWarn>
+
+    <!-- ── Package identity ─────────────────────────────────────────────── -->
+    <PackageId>ActiveForge.SqlServer</PackageId>
+    <Title>ActiveForge ORM — SQL Server</Title>
+    <Description>
+      SQL Server provider for ActiveForge ORM. Includes SqlServerConnection (extends
+      DBDataConnection), ADO.NET adapter layer (SqlAdapterCommand/Connection/Reader/Transaction),
+      SqlServerUnitOfWork, and the AddActiveForgeSqlServer IServiceCollection extension for
+      one-call DI registration. Requires the ActiveForge core package.
+    </Description>
+    <PackageTags>orm;active-record;crud;persistence;query;query-builder;query-language;orm-framework;orm-library;active-record-design-pattern;object-persistence;sql-server</PackageTags>
   </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ActiveForge\ActiveForge.csproj" />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
   </ItemGroup>
+
 </Project>

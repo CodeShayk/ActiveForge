@@ -15,7 +15,7 @@ namespace ActiveForge.Transactions
     /// <para>
     /// If a transaction is already active (InTransaction == true) the method enlists in the
     /// ambient transaction instead of starting a new one; the depth counter in
-    /// <see cref="UnitOfWorkBase"/> handles the nesting safely.
+    /// <see cref="BaseUnitOfWork"/> handles the nesting safely.
     /// </para>
     /// <para>
     /// <b>Interface proxy support:</b> attribute resolution checks

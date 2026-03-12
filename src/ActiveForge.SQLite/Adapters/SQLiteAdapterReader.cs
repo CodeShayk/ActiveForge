@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 namespace ActiveForge.Adapters.SQLite
 {
     /// <summary>
-    /// SQLite implementation of <see cref="ReaderBase"/> backed by
+    /// SQLite implementation of <see cref="BaseReader"/> backed by
     /// <see cref="SqliteDataReader"/> from <c>Microsoft.Data.Sqlite</c>.
     /// <para>
     /// Each method delegates directly to the corresponding member on the wrapped
@@ -15,7 +15,7 @@ namespace ActiveForge.Adapters.SQLite
     /// constructed directly by application code.
     /// </para>
     /// </summary>
-    public class SQLiteAdapterReader : ReaderBase
+    public class SQLiteAdapterReader : BaseReader
     {
         /// <summary>The underlying SQLite data reader managed by this adapter.</summary>
         private readonly SqliteDataReader _reader;
@@ -51,7 +51,7 @@ namespace ActiveForge.Adapters.SQLite
 
         /// <summary>
         /// Returns the raw value of the column at the specified zero-based ordinal for the
-        /// current row. Does not perform a null check; use <see cref="ReaderBase.ColumnValue(int)"/>
+        /// current row. Does not perform a null check; use <see cref="BaseReader.ColumnValue(int)"/>
         /// for null-safe access.
         /// </summary>
         /// <param name="ordinal">The zero-based column index.</param>
@@ -101,7 +101,7 @@ namespace ActiveForge.Adapters.SQLite
         /// <summary>
         /// Exposes the underlying <see cref="SqliteDataReader"/> directly for SQLite-
         /// specific code paths that require access to members not covered by the
-        /// <see cref="ReaderBase"/> API (e.g. <c>GetBytes</c> for BLOB columns, or
+        /// <see cref="BaseReader"/> API (e.g. <c>GetBytes</c> for BLOB columns, or
         /// SQLite-specific schema methods).
         /// </summary>
         /// <returns>The native <see cref="SqliteDataReader"/> managed by this adapter.</returns>

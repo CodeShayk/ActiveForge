@@ -41,10 +41,19 @@ namespace ActiveForge
         /// Wraps a write operation with automatic connection open/close and transaction
         /// begin/commit/rollback, honouring the current <see cref="UnitOfWork"/> and the
         /// current <see cref="IsOpen"/> state.
+        /// <para>
+        /// When a <see cref="UnitOfWork"/> is present it owns the connection lifetime:
+        /// <see cref="IUnitOfWork.CreateTransaction"/> opens the connection and
+        /// <see cref="IUnitOfWork.Commit"/>/<see cref="IUnitOfWork.Rollback"/> close it.
+        /// When no UoW is set the connection is opened and closed around this single call.
+        /// </para>
         /// </summary>
         protected virtual T RunWrite<T>(Func<T> operation)
         {
-            bool openedConn = !IsOpen;
+            // Only self-manage the connection when there is no UnitOfWork.
+            // When a UoW is present it opens the connection in CreateTransaction and
+            // closes it after Commit/Rollback — we must not double-open or double-close.
+            bool openedConn = !IsOpen && UnitOfWork == null;
             if (openedConn) Connect();
 
             bool startedTx = UnitOfWork != null && !UnitOfWork.InTransaction;
@@ -58,7 +67,6 @@ namespace ActiveForge
                 {
                     UnitOfWork.Commit();
                     committed = true;
-                    OnUoWCommitted();
                 }
                 return result;
             }
@@ -72,12 +80,10 @@ namespace ActiveForge
                     }
                     catch (Exception rollbackEx)
                     {
-                        OnUoWRolledBack();
                         throw new AggregateException(
                             "Transaction rollback failed after an operation failure.",
                             primaryEx, rollbackEx);
                     }
-                    OnUoWRolledBack();
                 }
                 throw;
             }
@@ -92,19 +98,43 @@ namespace ActiveForge
             => RunWrite<object>(() => { operation(); return null; });
 
         /// <summary>
-        /// Called by <see cref="RunWrite{T}"/> after a <see cref="UnitOfWork"/>-managed
-        /// transaction is successfully committed.  Override in provider subclasses to sync
-        /// any internal transaction-depth counters that were incremented when the UoW
-        /// called <c>BeginTransaction</c> on this connection.
+        /// Wraps a read operation with automatic connection open/close when no transaction
+        /// is already active.  If the connection is already open (e.g. inside a
+        /// <c>[Transaction]</c> scope) it is reused and left open on exit.
+        /// </summary>
+        protected virtual T RunRead<T>(Func<T> operation)
+        {
+            bool openedConn = !IsOpen;
+            if (openedConn) Connect();
+            try
+            {
+                return operation();
+            }
+            finally
+            {
+                if (openedConn) Disconnect();
+            }
+        }
+
+        /// <summary>Void overload of <see cref="RunRead{T}"/>.</summary>
+        protected void RunRead(Action operation)
+            => RunRead<object>(() => { operation(); return null; });
+
+        /// <summary>
+        /// Called by <see cref="BaseUnitOfWork"/> after a transaction is successfully committed.
+        /// Override in provider subclasses to sync any internal transaction-depth counters.
         /// </summary>
         protected virtual void OnUoWCommitted() { }
 
         /// <summary>
-        /// Called by <see cref="RunWrite{T}"/> after a <see cref="UnitOfWork"/>-managed
-        /// transaction is rolled back due to an exception.  Override in provider subclasses
-        /// to sync internal state.
+        /// Called by <see cref="BaseUnitOfWork"/> after a transaction is rolled back.
+        /// Override in provider subclasses to sync internal state.
         /// </summary>
         protected virtual void OnUoWRolledBack() { }
+
+        // Called by BaseUnitOfWork (same assembly) — routes to the protected hooks above.
+        internal void NotifyTransactionCommitted()  => OnUoWCommitted();
+        internal void NotifyTransactionRolledBack() => OnUoWRolledBack();
 
         // ── CRUD ──────────────────────────────────────────────────────────────────────
 
@@ -134,7 +164,7 @@ namespace ActiveForge
         // ── QueryFirst ────────────────────────────────────────────────────────────────
 
         public abstract bool QueryFirst(Record obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset);
-        public abstract bool QueryFirst(Record obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset, RecordParameterCollectionBase objectParameters);
+        public abstract bool QueryFirst(Record obj, QueryTerm term, SortOrder sortOrder, FieldSubset fieldSubset, BaseRecordParameterCollection objectParameters);
 
         // ── QueryCount ────────────────────────────────────────────────────────────────
 
@@ -186,8 +216,8 @@ namespace ActiveForge
         public abstract RecordCollection ExecSQL(Record obj, string sql, Dictionary<string, object> parameters);
         public abstract RecordCollection ExecSQL(Record obj, string sql, int start, int count);
         public abstract RecordCollection ExecSQL(Record obj, string sql, int start, int count, Dictionary<string, object> parameters);
-        public abstract ReaderBase       ExecSQL(string sql);
-        public abstract ReaderBase       ExecSQL(string sql, Dictionary<string, CommandBase.Parameter> parameters);
+        public abstract BaseReader       ExecSQL(string sql);
+        public abstract BaseReader       ExecSQL(string sql, Dictionary<string, BaseCommand.Parameter> parameters);
         public virtual  string           ExecSQLParameterName(string name) => GetParameterMark() + name;
 
         // ── Stored procedures ─────────────────────────────────────────────────────────
@@ -200,11 +230,11 @@ namespace ActiveForge
 
         // ── Binding ───────────────────────────────────────────────────────────────────
 
-        public abstract RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache);
-        public abstract RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[] expectedTypes);
-        public abstract RecordBinding GetObjectBinding(RecordBase obj, bool targetExists, bool useCache, Type[] expectedTypes, bool includeLookupDataObjects);
-        public abstract RecordBinding GetChangedObjectBinding(RecordBase obj, RecordBase changedObj);
-        public abstract RecordBinding GetDynamicObjectBinding(RecordBase obj, ReaderBase reader);
+        public abstract RecordBinding GetObjectBinding(BaseRecord obj, bool targetExists, bool useCache);
+        public abstract RecordBinding GetObjectBinding(BaseRecord obj, bool targetExists, bool useCache, Type[] expectedTypes);
+        public abstract RecordBinding GetObjectBinding(BaseRecord obj, bool targetExists, bool useCache, Type[] expectedTypes, bool includeLookupDataObjects);
+        public abstract RecordBinding GetChangedObjectBinding(BaseRecord obj, BaseRecord changedObj);
+        public abstract RecordBinding GetDynamicObjectBinding(BaseRecord obj, BaseReader reader);
 
         // ── Schema / field info ───────────────────────────────────────────────────────
 
@@ -212,7 +242,7 @@ namespace ActiveForge
         public abstract List<TargetFieldInfo>  GetTargetFieldInfo(string sourceName);
         public abstract TargetFieldInfo        GetTargetFieldInfoFromCache(string sourceName, string targetFieldName);
         public abstract void                   AddTargetFieldInfoToCache(string sourceName, string targetFieldName, TargetFieldInfo info);
-        public abstract bool                   TableExists(RecordBase obj);
+        public abstract bool                   TableExists(BaseRecord obj);
 
         // ── Dialect helpers ───────────────────────────────────────────────────────────
 
@@ -266,16 +296,16 @@ namespace ActiveForge
 
         // ── Transaction support ───────────────────────────────────────────────────────
 
-        public abstract TransactionBase BeginTransaction();
-        public abstract TransactionBase BeginTransaction(System.Data.IsolationLevel level);
-        public abstract void            CommitTransaction(TransactionBase transaction);
-        public abstract void            RollbackTransaction(TransactionBase transaction);
-        public abstract TransactionStates TransactionState(TransactionBase transaction);
+        public abstract BaseTransaction BeginTransaction();
+        public abstract BaseTransaction BeginTransaction(System.Data.IsolationLevel level);
+        public abstract void            CommitTransaction(BaseTransaction transaction);
+        public abstract void            RollbackTransaction(BaseTransaction transaction);
+        public abstract TransactionStates TransactionState(BaseTransaction transaction);
 
         // ── Field descriptions ────────────────────────────────────────────────────────
 
         public abstract string GetValidationMessage(string key, string defaultValue);
-        public abstract string GetFieldDescription(FieldInfo fi, RecordBase obj);
-        public abstract string GetDataObjectDescription(RecordBase obj);
+        public abstract string GetFieldDescription(FieldInfo fi, BaseRecord obj);
+        public abstract string GetDataObjectDescription(BaseRecord obj);
     }
 }

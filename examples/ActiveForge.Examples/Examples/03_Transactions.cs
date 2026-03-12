@@ -31,7 +31,7 @@ namespace ActiveForge.Examples.Examples
 
             Console.WriteLine("Inserting two products in a single transaction...");
 
-            TransactionBase tx = conn.BeginTransaction();
+            BaseTransaction tx = conn.BeginTransaction();
             try
             {
                 var p1 = new Product(conn);

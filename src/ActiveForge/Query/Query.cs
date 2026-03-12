@@ -59,7 +59,7 @@ namespace ActiveForge.Query
         }
 
         /// <summary>Binds the query parameters of this sub-query to the given command.</summary>
-        public void BindParameters(CommandBase cmd, ref int termNumber)
+        public void BindParameters(BaseCommand cmd, ref int termNumber)
         {
             if (_term == null) return;
             bool includeLookups = _obj.ShouldIncludeLookupDataObjectsInBinding(_term, _sortOrder);

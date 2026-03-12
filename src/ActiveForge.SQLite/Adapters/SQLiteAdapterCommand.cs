@@ -5,13 +5,13 @@ using Microsoft.Data.Sqlite;
 namespace ActiveForge.Adapters.SQLite
 {
     /// <summary>
-    /// SQLite implementation of <see cref="CommandBase"/> backed by
+    /// SQLite implementation of <see cref="BaseCommand"/> backed by
     /// <see cref="SqliteCommand"/> from <c>Microsoft.Data.Sqlite</c>.
     /// <para>
     /// Each instance wraps a single <see cref="SqliteCommand"/> that is initialised at
     /// construction time. The command is bound to the native <see cref="SqliteConnection"/>
     /// extracted from the supplied <see cref="SQLiteAdapterConnection"/>, and its timeout
-    /// is inherited from <see cref="ConnectionBase.GetTimeout"/>.
+    /// is inherited from <see cref="BaseConnection.GetTimeout"/>.
     /// </para>
     /// <para>
     /// Provider-specific behaviour — TField unwrapping: <c>Microsoft.Data.Sqlite</c> is
@@ -28,7 +28,7 @@ namespace ActiveForge.Adapters.SQLite
     /// <see cref="SetToStoredProcedure"/> throws <see cref="NotSupportedException"/>.
     /// </para>
     /// </summary>
-    public class SQLiteAdapterCommand : CommandBase
+    public class SQLiteAdapterCommand : BaseCommand
     {
         /// <summary>The underlying SQLite command object managed by this adapter.</summary>
         private SqliteCommand _cmd;
@@ -82,7 +82,7 @@ namespace ActiveForge.Adapters.SQLite
         }
 
         /// <summary>
-        /// Executes the command and returns a <see cref="ReaderBase"/> that streams the
+        /// Executes the command and returns a <see cref="BaseReader"/> that streams the
         /// result set using <see cref="CommandBehavior.Default"/> (random-access column
         /// reads). Enlists the current ambient transaction before execution.
         /// </summary>
@@ -90,7 +90,7 @@ namespace ActiveForge.Adapters.SQLite
         /// <exception cref="PersistenceException">
         /// Thrown when <see cref="SqliteException"/> is raised by the provider.
         /// </exception>
-        public override ReaderBase ExecuteReader()
+        public override BaseReader ExecuteReader()
         {
             AttachTransaction();
             try   { return new SQLiteAdapterReader(_cmd.ExecuteReader(CommandBehavior.Default)); }
@@ -98,7 +98,7 @@ namespace ActiveForge.Adapters.SQLite
         }
 
         /// <summary>
-        /// Executes the command and returns a <see cref="ReaderBase"/> that streams the
+        /// Executes the command and returns a <see cref="BaseReader"/> that streams the
         /// result set using <see cref="CommandBehavior.SequentialAccess"/>. Enlists the
         /// current ambient transaction before execution.
         /// </summary>
@@ -106,7 +106,7 @@ namespace ActiveForge.Adapters.SQLite
         /// <exception cref="PersistenceException">
         /// Thrown when <see cref="SqliteException"/> is raised by the provider.
         /// </exception>
-        public override ReaderBase ExecuteSequentialReader()
+        public override BaseReader ExecuteSequentialReader()
         {
             AttachTransaction();
             try   { return new SQLiteAdapterReader(_cmd.ExecuteReader(CommandBehavior.SequentialAccess)); }
@@ -189,7 +189,7 @@ namespace ActiveForge.Adapters.SQLite
         /// <summary>
         /// Enlists the command in the current ambient transaction by assigning the native
         /// <see cref="SqliteTransaction"/> to <see cref="SqliteCommand.Transaction"/>.
-        /// Does nothing if no transaction has been set via <see cref="CommandBase.SetTransaction"/>.
+        /// Does nothing if no transaction has been set via <see cref="BaseCommand.SetTransaction"/>.
         /// </summary>
         private void AttachTransaction()
         {

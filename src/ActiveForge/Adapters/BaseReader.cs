@@ -16,7 +16,7 @@ namespace ActiveForge
     /// are implemented here in terms of the abstract members and require no override.
     /// </para>
     /// </summary>
-    public abstract class ReaderBase : IDisposable
+    public abstract class BaseReader : IDisposable
     {
         /// <summary>
         /// Advances the reader to the next row.

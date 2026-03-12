@@ -37,7 +37,7 @@ namespace ActiveForge
             this IServiceCollection services,
             string connectionString,
             string databaseName,
-            FactoryBase factory = null)
+            BaseFactory factory = null)
         {
             if (services         == null) throw new ArgumentNullException(nameof(services));
             if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));

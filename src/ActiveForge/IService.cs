@@ -7,9 +7,10 @@ namespace ActiveForge
     /// <remarks>
     /// <para>
     /// Implement this interface (alongside a dedicated service interface) on any class that
-    /// should have its connection lifecycle and transactions managed automatically via
-    /// <see cref="ActiveForge.Transactions.ConnectionScopeInterceptor"/> and
+    /// should have its transactions managed automatically via
     /// <see cref="ActiveForge.Transactions.TransactionInterceptor"/>.
+    /// Connection lifetime is handled implicitly: the connection opens when the outermost
+    /// <c>[Transaction]</c> method begins and closes when it completes.
     /// </para>
     /// <para>
     /// Call <c>builder.AddServices(typeof(MyApp).Assembly)</c> (on the
@@ -33,10 +34,8 @@ namespace ActiveForge
     ///     private readonly DataConnection _conn;
     ///     public OrderService(DataConnection conn) { _conn = conn; }
     ///
-    ///     [ConnectionScope]
     ///     public Order GetById(int id) { ... }
     ///
-    ///     [ConnectionScope]
     ///     [Transaction]
     ///     public void Ship(int orderId) { ... }
     /// }

@@ -5,13 +5,13 @@ using Npgsql;
 namespace ActiveForge.Adapters.PostgreSQL
 {
     /// <summary>
-    /// PostgreSQL implementation of <see cref="CommandBase"/> backed by
+    /// PostgreSQL implementation of <see cref="BaseCommand"/> backed by
     /// <see cref="NpgsqlCommand"/> from the <c>Npgsql</c> library.
     /// <para>
     /// Each instance wraps a single <see cref="NpgsqlCommand"/> that is initialised at
     /// construction time. The command is bound to the native <see cref="NpgsqlConnection"/>
     /// extracted from the supplied <see cref="NpgsqlAdapterConnection"/>, and its timeout
-    /// is inherited from <see cref="ConnectionBase.GetTimeout"/>.
+    /// is inherited from <see cref="BaseConnection.GetTimeout"/>.
     /// </para>
     /// <para>
     /// Provider-specific behaviour: <see cref="AddNativeParameter"/> unwraps any
@@ -23,7 +23,7 @@ namespace ActiveForge.Adapters.PostgreSQL
     /// <see cref="PersistenceException"/> with a <c>"PostgreSQL error: …"</c> prefix.
     /// </para>
     /// </summary>
-    public class NpgsqlAdapterCommand : CommandBase
+    public class NpgsqlAdapterCommand : BaseCommand
     {
         /// <summary>The underlying Npgsql command object managed by this adapter.</summary>
         private NpgsqlCommand _cmd;
@@ -77,7 +77,7 @@ namespace ActiveForge.Adapters.PostgreSQL
         }
 
         /// <summary>
-        /// Executes the command and returns a <see cref="ReaderBase"/> that streams the
+        /// Executes the command and returns a <see cref="BaseReader"/> that streams the
         /// result set using <see cref="CommandBehavior.Default"/> (random-access column
         /// reads). Enlists the current ambient transaction before execution.
         /// </summary>
@@ -85,7 +85,7 @@ namespace ActiveForge.Adapters.PostgreSQL
         /// <exception cref="PersistenceException">
         /// Thrown when <see cref="NpgsqlException"/> is raised by the provider.
         /// </exception>
-        public override ReaderBase ExecuteReader()
+        public override BaseReader ExecuteReader()
         {
             AttachTransaction();
             try   { return new NpgsqlAdapterReader((NpgsqlDataReader)_cmd.ExecuteReader(CommandBehavior.Default)); }
@@ -93,7 +93,7 @@ namespace ActiveForge.Adapters.PostgreSQL
         }
 
         /// <summary>
-        /// Executes the command and returns a <see cref="ReaderBase"/> that streams the
+        /// Executes the command and returns a <see cref="BaseReader"/> that streams the
         /// result set using <see cref="CommandBehavior.SequentialAccess"/>, which avoids
         /// buffering column data and can reduce memory pressure for large result sets.
         /// Enlists the current ambient transaction before execution.
@@ -102,7 +102,7 @@ namespace ActiveForge.Adapters.PostgreSQL
         /// <exception cref="PersistenceException">
         /// Thrown when <see cref="NpgsqlException"/> is raised by the provider.
         /// </exception>
-        public override ReaderBase ExecuteSequentialReader()
+        public override BaseReader ExecuteSequentialReader()
         {
             AttachTransaction();
             try   { return new NpgsqlAdapterReader((NpgsqlDataReader)_cmd.ExecuteReader(CommandBehavior.SequentialAccess)); }
@@ -178,7 +178,7 @@ namespace ActiveForge.Adapters.PostgreSQL
         /// <summary>
         /// Enlists the command in the current ambient transaction by assigning the native
         /// <see cref="NpgsqlTransaction"/> to <see cref="NpgsqlCommand.Transaction"/>.
-        /// Does nothing if no transaction has been set via <see cref="CommandBase.SetTransaction"/>.
+        /// Does nothing if no transaction has been set via <see cref="BaseCommand.SetTransaction"/>.
         /// </summary>
         private void AttachTransaction()
         {

@@ -27,7 +27,7 @@ namespace ActiveForge
     /// </summary>
     [Serializable]
     [DebuggerDisplay("Null={Null} Value={InnerValue}")]
-    public class TDate : TDateTimeBase
+    public class TDate : TBaseDateTime
     {
         /// <summary>
         /// Initialises a new <see cref="TDate"/> in the null state with
@@ -46,7 +46,7 @@ namespace ActiveForge
         /// <summary>
         /// Initialises a new <see cref="TDate"/> from an untyped object via
         /// <see cref="TField.SetValue(object)"/>.  Supports any value that the base
-        /// <see cref="TDateTimeBase.SetDerivedValue"/> can convert; the time component
+        /// <see cref="TBaseDateTime.SetDerivedValue"/> can convert; the time component
         /// is stripped after conversion.
         /// </summary>
         /// <param name="v">The value to convert and store.</param>
@@ -97,7 +97,7 @@ namespace ActiveForge
 
         /// <summary>
         /// Sets <c>InnerValue</c> from <paramref name="value"/> via the base
-        /// <see cref="TDateTimeBase.SetDerivedValue"/> conversion, then strips the time
+        /// <see cref="TBaseDateTime.SetDerivedValue"/> conversion, then strips the time
         /// component so only the date portion (<c>InnerValue.Date</c>) is retained.
         /// </summary>
         /// <param name="value">The non-null source value.</param>

@@ -5,12 +5,12 @@ using Npgsql;
 namespace ActiveForge.Adapters.PostgreSQL
 {
     /// <summary>
-    /// PostgreSQL implementation of <see cref="ConnectionBase"/> backed by
+    /// PostgreSQL implementation of <see cref="BaseConnection"/> backed by
     /// <see cref="NpgsqlConnection"/> from the <c>Npgsql</c> library.
     /// <para>
     /// Wraps the full lifecycle of a PostgreSQL connection — open, close, transaction
     /// management, command creation, and transaction-state inspection — behind the
-    /// provider-agnostic <see cref="ConnectionBase"/> API consumed by the ORM engine.
+    /// provider-agnostic <see cref="BaseConnection"/> API consumed by the ORM engine.
     /// </para>
     /// <para>
     /// Transaction-state inspection is performed by executing
@@ -23,7 +23,7 @@ namespace ActiveForge.Adapters.PostgreSQL
     /// returns <see cref="TransactionStates.NonCommittableTransaction"/>.
     /// </para>
     /// </summary>
-    public class NpgsqlAdapterConnection : ConnectionBase
+    public class NpgsqlAdapterConnection : BaseConnection
     {
         /// <summary>The underlying PostgreSQL connection managed by this adapter.</summary>
         private readonly NpgsqlConnection _conn;
@@ -76,17 +76,17 @@ namespace ActiveForge.Adapters.PostgreSQL
         /// </summary>
         /// <param name="level">The <see cref="IsolationLevel"/> for the new transaction.</param>
         /// <returns>A <see cref="NpgsqlAdapterTransaction"/> representing the started transaction.</returns>
-        public override TransactionBase BeginTransaction(IsolationLevel level)
+        public override BaseTransaction BeginTransaction(IsolationLevel level)
             => new NpgsqlAdapterTransaction(_conn.BeginTransaction(level));
 
         /// <summary>
         /// Creates a new <see cref="NpgsqlAdapterCommand"/> for the given SQL text, bound
         /// to this connection. The command's timeout is inherited from
-        /// <see cref="ConnectionBase.GetTimeout"/>.
+        /// <see cref="BaseConnection.GetTimeout"/>.
         /// </summary>
         /// <param name="sql">The SQL text (or function name) to execute.</param>
         /// <returns>A <see cref="NpgsqlAdapterCommand"/> ready for parameter binding and execution.</returns>
-        public override CommandBase CreateCommand(string sql)
+        public override BaseCommand CreateCommand(string sql)
             => new NpgsqlAdapterCommand(sql, this);
 
         /// <summary>
@@ -125,7 +125,7 @@ namespace ActiveForge.Adapters.PostgreSQL
         /// </summary>
         /// <param name="transaction">The transaction whose state is to be inspected.</param>
         /// <returns>A <see cref="TransactionStates"/> value describing the current state.</returns>
-        public override TransactionStates TransactionState(TransactionBase transaction)
+        public override TransactionStates TransactionState(BaseTransaction transaction)
         {
             if (transaction is NpgsqlAdapterTransaction nat)
             {
