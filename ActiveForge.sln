@@ -42,6 +42,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "github", "github", "{45231C
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
 		.github\workflows\master-build.yml = .github\workflows\master-build.yml
+		.github\workflows\master-codeql.yml = .github\workflows\master-codeql.yml
+		.github\workflows\release-ci.yml = .github\workflows\release-ci.yml
+		.github\workflows\release-codeql.yml = .github\workflows\release-codeql.yml
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{497629F0-306C-4BC9-99D1-B5C6EA2B2E6F}"

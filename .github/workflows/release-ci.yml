@@ -20,6 +20,34 @@ jobs:
       contents: read
       packages: write
 
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Pa55w0rd!"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Pa55w0rd!' -No -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: Pa55w0rd
+          POSTGRES_DB: postgres
+        ports:
+          - 5455:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,7 +94,29 @@ jobs:
       - name: Build
         run: dotnet build ActiveForge.sln --configuration Release --no-restore
 
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d --name mongo \
+            -p 27017:27017 \
+            mongo:7 --replSet rs0 --bind_ip_all
+          # Wait for mongod to accept connections
+          for i in $(seq 1 30); do
+            docker exec mongo mongosh --quiet --eval "db.adminCommand('ping')" \
+              && break || sleep 2
+          done
+          # Initialise the single-node replica set
+          docker exec mongo mongosh --quiet --eval \
+            "rs.initiate({_id:'rs0',members:[{_id:0,host:'127.0.0.1:27017'}]})"
+          # Wait until the node becomes PRIMARY
+          for i in $(seq 1 20); do
+            STATUS=$(docker exec mongo mongosh --quiet --eval "rs.status().myState")
+            [ "$STATUS" = "1" ] && break || sleep 2
+          done
+
       - name: Test
+        env:
+          SS_ADMIN_CONNSTR: "Server=localhost,1433;Database=master;User Id=sa;Password=Pa55w0rd!;TrustServerCertificate=True"
+          PG_ADMIN_CONNSTR: "Host=localhost;Port=5455;Database=postgres;Username=postgres;Password=Pa55w0rd"
         run: dotnet test ActiveForge.sln --configuration Release --no-build --framework net8.0
 
       - name: Pack — Core
