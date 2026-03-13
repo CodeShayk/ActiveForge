@@ -358,3 +358,12 @@ ActiveForge/
 │   └── ActiveForge.Examples/         ← Runnable console examples
 └── docs/                               ← Documentation
 ```
+## Contributing
+We welcome contributions! Please see our Contributing Guide for details.
+- 🐛 Bug Reports - Create an [issue](https://github.com/CodeShayk/ActiveForge/issues/new/choose)
+- 💡 Feature Requests - Start a [discussion](https://github.com/CodeShayk/ActiveForge/discussions)
+- 📝 Documentation - Help improve our [docs](https://github.com/CodeShayk/ActiveForge/wiki)
+- 💻 Code - Submit [pull](https://github.com/CodeShayk/ActiveForge/pulls) requests
+
+## Credits
+Thank you for reading. Please fork, explore, contribute and report. Happy Coding !! :)
