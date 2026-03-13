@@ -10,13 +10,13 @@ A lightweight, Active Record-style ORM for .NET 8 +, with first-class support fo
 
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| [![NuGet version](https://badge.fury.io/nu/ActiveForge.Core.svg)](https://badge.fury.io/nu/ActiveForge.Core) | Core — entities, fields, predicates, LINQ, transactions, adapters, Castle proxy factory |
-| [![NuGet version](https://badge.fury.io/nu/ActiveForge.SqlServer.svg)](https://badge.fury.io/nu/ActiveForge.SqlServer) | SQL Server provider — `SqlServerConnection`, ADO.NET adapters, `SqlServerUnitOfWork`, DI extensions |
-| [![NuGet version](https://badge.fury.io/nu/ActiveForge.PostgreSQL.svg)](https://badge.fury.io/nu/ActiveForge.PostgreSQL)| PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork`, DI extensions |
-| [![NuGet version](https://badge.fury.io/nu/ActiveForge.MongoDB.svg)](https://badge.fury.io/nu/ActiveForge.MongoDB)| MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork`, DI extensions |
-| [![NuGet version](https://badge.fury.io/nu/ActiveForge.SQLite.svg)](https://badge.fury.io/nu/ActiveForge.SQLite)| SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork`, DI extensions |
+| Package | Version | Description |
+|------|---------|-------------|
+|**ActiveForge.Core**| [![NuGet version](https://badge.fury.io/nu/ActiveForge.Core.svg)](https://badge.fury.io/nu/ActiveForge.Core) | Core — entities, fields, predicates, LINQ, transactions, adapters, Castle proxy factory for automatic transaction handling.|
+|**ActiveForge.SqlServer** | [![NuGet version](https://badge.fury.io/nu/ActiveForge.SqlServer.svg)](https://badge.fury.io/nu/ActiveForge.SqlServer) | SQL Server provider — `SqlServerConnection`, ADO.NET adapters, `SqlServerUnitOfWork`, DI extensions |
+|**ActiveForge.PostgreSQL** | [![NuGet version](https://badge.fury.io/nu/ActiveForge.PostgreSQL.svg)](https://badge.fury.io/nu/ActiveForge.PostgreSQL)| PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork`, DI extensions |
+|**ActiveForge.MongoDB** | [![NuGet version](https://badge.fury.io/nu/ActiveForge.MongoDB.svg)](https://badge.fury.io/nu/ActiveForge.MongoDB)| MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork`, DI extensions |
+|**ActiveForge.SQLite** | [![NuGet version](https://badge.fury.io/nu/ActiveForge.SQLite.svg)](https://badge.fury.io/nu/ActiveForge.SQLite)| SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork`, DI extensions |
 
 All connection types live in the `ActiveForge` namespace, so a single `using ActiveForge;` is sufficient regardless of the provider chosen.
 
