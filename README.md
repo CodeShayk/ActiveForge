@@ -75,13 +75,19 @@ ActiveForge streamlines data-centric development with a cohesive approach to ent
 ---
 
 ## Requirements
-
-- .NET 8.0
-- One provider package:
-  - SQL Server → `ActiveForge.SqlServer` (wraps `Microsoft.Data.SqlClient` 5.2.1)
-  - PostgreSQL → `ActiveForge.PostgreSQL` (wraps `Npgsql` 8.0.3)
-  - MongoDB → `ActiveForge.MongoDB` (wraps `MongoDB.Driver` 2.28.0)
-  - SQLite → `ActiveForge.SQLite` (wraps `Microsoft.Data.Sqlite` 8.0.0)
+  ┌────────────┬──────────────────────────────────────────────────────────────────────────────────────────────┐
+  │  Project   │                                           Targets                                            │
+  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Core       │ net8.0;net9.0;net10.0;net472;netstandard2.0;netstandard2.1                                   │
+  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ SqlServer  │ net8.0;net9.0;net10.0;net472;netstandard2.0;netstandard2.1                                   │
+  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ PostgreSQL │ net8.0;net9.0;net10.0 — Npgsql 8 limits this                                                 │
+  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ SQLite     │ net8.0;net9.0;net10.0;netstandard2.0;netstandard2.1 — net472 excluded (native binaries risk) │
+  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ MongoDB    │ net8.0;net9.0;net10.0;net472;netstandard2.0;netstandard2.1                                   │
+  └────────────┴──────────────────────────────────────────────────────────────────────────────────────────────┘
 
 ---
 

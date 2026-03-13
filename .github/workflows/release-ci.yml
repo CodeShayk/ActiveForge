@@ -7,6 +7,11 @@ on:
     tags:
       - 'v*'
 
+# Cancel in-progress runs on the same branch when a new push arrives
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
     name: Build, Pack & Publish
@@ -14,6 +19,34 @@ jobs:
     permissions:
       contents: read
       packages: write
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Pa55w0rd!"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Pa55w0rd!' -No -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: Pa55w0rd
+          POSTGRES_DB: postgres
+        ports:
+          - 5455:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout
@@ -35,16 +68,17 @@ jobs:
       - name: Set package version
         id: pkg_version
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "version=${{ steps.gitversion.outputs.majorMinorPatch }}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=$(echo '${{ github.ref_name }}' | sed 's/^v//')" >> $GITHUB_OUTPUT
           else
             echo "version=${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Print version
         run: |
-          echo "SemVer      : ${{ steps.gitversion.outputs.semVer }}"
+          echo "SemVer         : ${{ steps.gitversion.outputs.semVer }}"
           echo "MajorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}"
+          echo "PreReleaseTag  : ${{ steps.gitversion.outputs.preReleaseTag }}"
           echo "Package version: ${{ steps.pkg_version.outputs.version }}"
 
       - name: Setup .NET
@@ -56,45 +90,67 @@ jobs:
             10.0.x
 
       - name: Restore
-        run: dotnet restore ActiveForge/ActiveForge.sln
+        run: dotnet restore ActiveForge.sln
 
       - name: Build
-        run: dotnet build ActiveForge/ActiveForge.sln --configuration Release --no-restore
+        run: dotnet build ActiveForge.sln --configuration Release --no-restore
+
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d --name mongo \
+            -p 27017:27017 \
+            mongo:7 --replSet rs0 --bind_ip_all
+          # Wait for mongod to accept connections
+          for i in $(seq 1 30); do
+            docker exec mongo mongosh --quiet --eval "db.adminCommand('ping')" \
+              && break || sleep 2
+          done
+          # Initialise the single-node replica set
+          docker exec mongo mongosh --quiet --eval \
+            "rs.initiate({_id:'rs0',members:[{_id:0,host:'127.0.0.1:27017'}]})"
+          # Wait until the node becomes PRIMARY
+          for i in $(seq 1 20); do
+            STATUS=$(docker exec mongo mongosh --quiet --eval "rs.status().myState")
+            [ "$STATUS" = "1" ] && break || sleep 2
+          done
 
       - name: Test
-        run: dotnet test ActiveForge/ActiveForge.sln --configuration Release --no-build --framework net8.0
+        env:
+          SS_ADMIN_CONNSTR: "Server=localhost,1433;Database=master;User Id=sa;Password=Pa55w0rd!;TrustServerCertificate=True"
+          PG_ADMIN_CONNSTR: "Host=localhost;Port=5455;Database=postgres;Username=postgres;Password=Pa55w0rd"
+        run: dotnet test ActiveForge.sln --configuration Release --no-build --framework net8.0
 
       - name: Pack — Core
         run: |
-          dotnet pack ActiveForge/src/ActiveForge/ActiveForge.csproj \
+          dotnet pack src/ActiveForge/ActiveForge.csproj \
             --configuration Release --no-build \
             -p:PackageVersion=${{ steps.pkg_version.outputs.version }} \
             --output ./artifacts
 
       - name: Pack — SqlServer
         run: |
-          dotnet pack ActiveForge/src/ActiveForge.SqlServer/ActiveForge.SqlServer.csproj \
+          dotnet pack src/ActiveForge.SqlServer/ActiveForge.SqlServer.csproj \
             --configuration Release --no-build \
             -p:PackageVersion=${{ steps.pkg_version.outputs.version }} \
             --output ./artifacts
 
       - name: Pack — PostgreSQL
         run: |
-          dotnet pack ActiveForge/src/ActiveForge.PostgreSQL/ActiveForge.PostgreSQL.csproj \
+          dotnet pack src/ActiveForge.PostgreSQL/ActiveForge.PostgreSQL.csproj \
             --configuration Release --no-build \
             -p:PackageVersion=${{ steps.pkg_version.outputs.version }} \
             --output ./artifacts
 
       - name: Pack — SQLite
         run: |
-          dotnet pack ActiveForge/src/ActiveForge.SQLite/ActiveForge.SQLite.csproj \
+          dotnet pack src/ActiveForge.SQLite/ActiveForge.SQLite.csproj \
             --configuration Release --no-build \
             -p:PackageVersion=${{ steps.pkg_version.outputs.version }} \
             --output ./artifacts
 
       - name: Pack — MongoDB
         run: |
-          dotnet pack ActiveForge/src/ActiveForge.MongoDB/ActiveForge.MongoDB.csproj \
+          dotnet pack src/ActiveForge.MongoDB/ActiveForge.MongoDB.csproj \
             --configuration Release --no-build \
             -p:PackageVersion=${{ steps.pkg_version.outputs.version }} \
             --output ./artifacts
@@ -104,14 +160,9 @@ jobs:
 
       - name: Publish to GitHub Packages
         run: |
-          dotnet nuget add source \
-            --username ${{ github.repository_owner }} \
-            --password ${{ secrets.GITHUB_TOKEN }} \
-            --store-password-in-clear-text \
-            --name github \
-            "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
           dotnet nuget push "./artifacts/*.nupkg" \
-            --source github \
+            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --skip-duplicate
 
       - name: Publish to NuGet.org
