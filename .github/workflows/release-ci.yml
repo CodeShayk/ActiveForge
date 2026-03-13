@@ -61,45 +61,45 @@ jobs:
             10.0.x
 
       - name: Restore
-        run: dotnet restore ActiveForge/ActiveForge.sln
+        run: dotnet restore ActiveForge.sln
 
       - name: Build
-        run: dotnet build ActiveForge/ActiveForge.sln --configuration Release --no-restore
+        run: dotnet build ActiveForge.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test ActiveForge/ActiveForge.sln --configuration Release --no-build --framework net8.0
+        run: dotnet test ActiveForge.sln --configuration Release --no-build --framework net8.0
 
       - name: Pack — Core
         run: |
-          dotnet pack ActiveForge/src/ActiveForge/ActiveForge.csproj \
+          dotnet pack src/ActiveForge/ActiveForge.csproj \
             --configuration Release --no-build \
             -p:PackageVersion=${{ steps.pkg_version.outputs.version }} \
             --output ./artifacts
 
       - name: Pack — SqlServer
         run: |
-          dotnet pack ActiveForge/src/ActiveForge.SqlServer/ActiveForge.SqlServer.csproj \
+          dotnet pack src/ActiveForge.SqlServer/ActiveForge.SqlServer.csproj \
             --configuration Release --no-build \
             -p:PackageVersion=${{ steps.pkg_version.outputs.version }} \
             --output ./artifacts
 
       - name: Pack — PostgreSQL
         run: |
-          dotnet pack ActiveForge/src/ActiveForge.PostgreSQL/ActiveForge.PostgreSQL.csproj \
+          dotnet pack src/ActiveForge.PostgreSQL/ActiveForge.PostgreSQL.csproj \
             --configuration Release --no-build \
             -p:PackageVersion=${{ steps.pkg_version.outputs.version }} \
             --output ./artifacts
 
       - name: Pack — SQLite
         run: |
-          dotnet pack ActiveForge/src/ActiveForge.SQLite/ActiveForge.SQLite.csproj \
+          dotnet pack src/ActiveForge.SQLite/ActiveForge.SQLite.csproj \
             --configuration Release --no-build \
             -p:PackageVersion=${{ steps.pkg_version.outputs.version }} \
             --output ./artifacts
 
       - name: Pack — MongoDB
         run: |
-          dotnet pack ActiveForge/src/ActiveForge.MongoDB/ActiveForge.MongoDB.csproj \
+          dotnet pack src/ActiveForge.MongoDB/ActiveForge.MongoDB.csproj \
             --configuration Release --no-build \
             -p:PackageVersion=${{ steps.pkg_version.outputs.version }} \
             --output ./artifacts
