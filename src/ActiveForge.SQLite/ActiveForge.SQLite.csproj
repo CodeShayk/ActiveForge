@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net9.0;net10.0;netstandard2.0;netstandard2.1</TargetFrameworks>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
     <AssemblyName>ActiveForge.SQLite</AssemblyName>
@@ -11,15 +11,35 @@
     <!-- ── Package identity ─────────────────────────────────────────────── -->
     <PackageId>ActiveForge.SQLite</PackageId>
     <Title>ActiveForge ORM — SQLite</Title>
+    <Product>ActiveForge ORM</Product>
     <Description>
-      SQLite provider for ActiveForge ORM. Includes SQLiteConnection (extends DBDataConnection),
-      Microsoft.Data.Sqlite adapter layer (SQLiteAdapterCommand/Connection/Reader/Transaction),
-      SQLiteUnitOfWork, and the AddActiveForgeSQLite IServiceCollection extension for one-call
-      DI registration. Supports in-memory databases (Data Source=:memory:) for testing.
-      Requires the ActiveForge core package.
+      Provides SQLite adapter for ActiveForge ORM. Provides type-safe fields,
+      composable query predicates, LINQ query translation, nested
+      transactions, Unit of Work and DI auto-scan.
     </Description>
     <PackageTags>orm;active-record;crud;persistence;query;query-builder;query-language;orm-framework;orm-library;active-record-design-pattern;object-persistence;sqlite</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>Logo-6.png</PackageIcon>
+    <PackageReleaseNotes>
+      ### v1.0.0 Highlights
+      - Full `Microsoft.Data.Sqlite` adapter layer
+      - `SQLiteConnection` with automatic connection lifecycle management
+      - `SQLiteUnitOfWork` for transactional grouping
+      - One-call DI registration via `AddActiveForgeSQLite()` extension method
+      - In-memory database support (`Data Source=:memory:`) ideal for unit testing
+    </PackageReleaseNotes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\images\Logo-6.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ActiveForge\ActiveForge.csproj" />

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net9.0;net10.0;net472;netstandard2.0;netstandard2.1</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -13,16 +13,37 @@
     <!-- ── Package identity ─────────────────────────────────────────────── -->
     <PackageId>ActiveForge.MongoDB</PackageId>
     <Title>ActiveForge ORM — MongoDB</Title>
+    <Product>ActiveForge ORM</Product>
     <Description>
-      MongoDB provider for ActiveForge ORM. Includes MongoDataConnection (extends DataConnection
-      directly, not DBDataConnection), reflection-based BSON mapping, QueryTerm-to-FilterDefinition
-      translation, auto-increment via __activeforge_counters collection, multi-document transaction
-      support via MongoUnitOfWork, automatic $lookup join pipeline for embedded Record fields, and
-      the AddActiveForgeMongoDB IServiceCollection extension for one-call DI registration.
-      Requires the ActiveForge core package.
+      Provides MongoDB adapter for ActiveForge ORM. Provides type-safe fields,
+      composable query predicates, LINQ query translation, nested
+      transactions, Unit of Work and DI auto-scan.
     </Description>
     <PackageTags>orm;active-record;crud;persistence;query;query-builder;query-language;orm-framework;orm-library;active-record-design-pattern;object-persistence;mongodb</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>Logo-6.png</PackageIcon>
+    <RepositoryUrl>https://github.com/CodeShayk/ActiveForge</RepositoryUrl>
+    <PackageReleaseNotes>
+      ### v1.0.0 Highlights
+      - Reflection-based BSON mapping (no external serializer configuration required)
+      - `QueryTerm`-to-MongoDB `FilterDefinition` translation
+      - Auto-increment ID support via `__activeforge_counters` collection
+      - Multi-document transaction support via `MongoUnitOfWork`
+      - Automatic `$lookup` aggregation pipeline for embedded Record fields (JOINs)
+      - One-call DI registration via `AddActiveForgeMongoDB()` extension method.
+    </PackageReleaseNotes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\images\Logo-6.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="MongoDB.Driver" Version="2.28.0" />

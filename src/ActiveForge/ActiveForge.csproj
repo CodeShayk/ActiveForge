@@ -1,27 +1,59 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net9.0;net10.0;net472;netstandard2.0;netstandard2.1</TargetFrameworks>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
-    <AssemblyName>ActiveForge</AssemblyName>
+    <AssemblyName>ActiveForge.Core</AssemblyName>
     <RootNamespace>ActiveForge</RootNamespace>
     <NoWarn>0618,1591</NoWarn>
 
     <!-- ── Package identity ─────────────────────────────────────────────── -->
     <PackageId>ActiveForge.Core</PackageId>
-    <Title>ActiveForge ORM</Title>
+    <Title>ActiveForge ORM — Core</Title>
     <Product>ActiveForge ORM</Product>
     <Description>
-      Lightweight Active Record ORM for .NET 8. Provides type-safe field wrappers (TString,
-      TInt, TDecimal, …), composable query predicates, LINQ query translation, nested
-      transactions, Unit of Work with depth-tracked connection lifetime, Castle DynamicProxy
-      service interception via [Transaction], and DI auto-scan via IService + IActiveForgeBuilder.
-      Add a provider package (ActiveForge.SqlServer, ActiveForge.PostgreSQL,
+      Lightweight Active Record ORM for .NET. Provides type-safe fields,
+      composable query predicates, LINQ query translation, nested
+      transactions, Unit of Work and DI auto-scan.
+
+      Important: Add a provider package (ActiveForge.SqlServer, ActiveForge.PostgreSQL,
       ActiveForge.MongoDB, ActiveForge.SQLite) to target a specific database.
+      
+      Alternatively, implement your own provider by referencing this core package and implementing the required abstractions.
+      Please see the documentation for details: https://github.com/CodeShayk/ActiveForge/blob/master/docs/provider-appendix.md
+      
     </Description>
     <PackageTags>orm;active-record;crud;persistence;query;query-builder;query-language;orm-framework;orm-library;active-record-design-pattern;object-persistence;core</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>Logo-6.png</PackageIcon>
+    <RepositoryUrl>https://github.com/CodeShayk/ActiveForge</RepositoryUrl>
+    <PackageReleaseNotes>
+      ### v1.0.0 Highlights
+      - Active Record pattern — entities contain both state and persistence logic
+      - 25+ type-safe field types with nullability tracking and automatic conversion
+      - Composable predicates (equality, containment, ranges, null checks, pattern matching)
+      - Full LINQ query support with auto-translation to ORM operations
+      - Built-in pagination with metadata and lazy streaming for memory efficiency
+      - Explicit and nested transaction support with `[Transaction]` attribute interception
+      - Unit of Work pattern for grouping multiple changes
+      - Batch operations for reducing database round-trips
+      - Field encryption via `[Encrypted]` attribute
+      - Polymorphic mapping and custom field mappers
+      - DI auto-discovery and fluent builder API
+  </PackageReleaseNotes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\images\Logo-6.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Castle.Core" Version="5.1.1" />
