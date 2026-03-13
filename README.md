@@ -4,7 +4,7 @@
 [![master-build](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-build.yml/badge.svg)](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-build.yml)
 [![master-codeql](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-codeql.yml/badge.svg)](https://github.com/CodeShayk/ActiveForge/actions/workflows/master-codeql.yml)
 
-A lightweight, Active Record-style ORM for .NET 8 +, with first-class support for SQL Server, PostgreSQL, and MongoDB.
+A lightweight, Active Record-style ORM for .NET with first-class support for SQL Server, PostgreSQL, and MongoDB.
 
 ---
 
@@ -12,11 +12,11 @@ A lightweight, Active Record-style ORM for .NET 8 +, with first-class support fo
 
 | Package | Version | Description |
 |------|---------|-------------|
-|**ActiveForge.Core**| [![NuGet version](https://badge.fury.io/nu/ActiveForge.Core.svg)](https://badge.fury.io/nu/ActiveForge.Core) | Core — entities, fields, predicates, LINQ, transactions, adapters, Castle proxy factory for automatic transaction handling.|
-|**ActiveForge.SqlServer** | [![NuGet version](https://badge.fury.io/nu/ActiveForge.SqlServer.svg)](https://badge.fury.io/nu/ActiveForge.SqlServer) | SQL Server provider — `SqlServerConnection`, ADO.NET adapters, `SqlServerUnitOfWork`, DI extensions |
-|**ActiveForge.PostgreSQL** | [![NuGet version](https://badge.fury.io/nu/ActiveForge.PostgreSQL.svg)](https://badge.fury.io/nu/ActiveForge.PostgreSQL)| PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork`, DI extensions |
-|**ActiveForge.MongoDB** | [![NuGet version](https://badge.fury.io/nu/ActiveForge.MongoDB.svg)](https://badge.fury.io/nu/ActiveForge.MongoDB)| MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork`, DI extensions |
-|**ActiveForge.SQLite** | [![NuGet version](https://badge.fury.io/nu/ActiveForge.SQLite.svg)](https://badge.fury.io/nu/ActiveForge.SQLite)| SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork`, DI extensions |
+|**ActiveForge.Core**| [![ActiveForge.Core](https://badge.fury.io/nu/ActiveForge.Core.svg)](https://badge.fury.io/nu/ActiveForge.Core) | Core — `entities`, `fields`, `predicates`, `LINQ`, `transactions`, `adapters`, Castle proxy factory for automatic `UoW handling`.|
+|**ActiveForge.SqlServer** | [![ActiveForge.SqlServer](https://badge.fury.io/nu/ActiveForge.SqlServer.svg)](https://badge.fury.io/nu/ActiveForge.SqlServer) | SQL Server provider — `SqlServerConnection`, ADO.NET adapters, `SqlServerUnitOfWork`, DI extensions |
+|**ActiveForge.PostgreSQL** | [![ActiveForge.PostgreSQL](https://badge.fury.io/nu/ActiveForge.PostgreSQL.svg)](https://badge.fury.io/nu/ActiveForge.PostgreSQL)| PostgreSQL provider — `PostgreSQLConnection`, Npgsql adapters, `PostgreSQLUnitOfWork`, DI extensions |
+|**ActiveForge.MongoDB** | [![ActiveForge.MongoDB](https://badge.fury.io/nu/ActiveForge.MongoDB.svg)](https://badge.fury.io/nu/ActiveForge.MongoDB)| MongoDB provider — `MongoDataConnection`, BSON mapping, `MongoUnitOfWork`, DI extensions |
+|**ActiveForge.SQLite** | [![ActiveForge.SQLite](https://badge.fury.io/nu/ActiveForge.SQLite.svg)](https://badge.fury.io/nu/ActiveForge.SQLite)| SQLite provider — `SQLiteConnection`, Microsoft.Data.Sqlite adapters, `SQLiteUnitOfWork`, DI extensions |
 
 All connection types live in the `ActiveForge` namespace, so a single `using ActiveForge;` is sufficient regardless of the provider chosen.
 
@@ -74,20 +74,14 @@ ActiveForge streamlines data-centric development with a cohesive approach to ent
   Simplifies service composition, testing, and enables proxy/interceptor scenarios.
 ---
 
-## Requirements
-  ┌────────────┬──────────────────────────────────────────────────────────────────────────────────────────────┐
-  │  Project   │                                           Targets                                            │
-  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ Core       │ net8.0;net9.0;net10.0;net472;netstandard2.0;netstandard2.1                                   │
-  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ SqlServer  │ net8.0;net9.0;net10.0;net472;netstandard2.0;netstandard2.1                                   │
-  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ PostgreSQL │ net8.0;net9.0;net10.0 — Npgsql 8 limits this                                                 │
-  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ SQLite     │ net8.0;net9.0;net10.0;netstandard2.0;netstandard2.1 — net472 excluded (native binaries risk) │
-  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ MongoDB    │ net8.0;net9.0;net10.0;net472;netstandard2.0;netstandard2.1                                   │
-  └────────────┴──────────────────────────────────────────────────────────────────────────────────────────────┘
+## Target Frameworks
+| Package | Frameworks |
+|---------|-----------|
+| `ActiveForge.Core` | `net8.0` · `net9.0` · `net10.0` · `net472` · `netstandard2.0` · `netstandard2.1` |
+| `ActiveForge.SqlServer` | `net8.0` · `net9.0` · `net10.0` · `net472` · `netstandard2.0` · `netstandard2.1` |
+| `ActiveForge.PostgreSQL` | `net8.0` · `net9.0` · `net10.0` — _(limited by Npgsql 8)_ |
+| `ActiveForge.SQLite` | `net8.0` · `net9.0` · `net10.0` · `netstandard2.0` · `netstandard2.1` — _net472 excluded (native binaries risk)_ |
+| `ActiveForge.MongoDB` | `net8.0` · `net9.0` · `net10.0` · `net472` · `netstandard2.0` · `netstandard2.1` |
 
 ---
 
