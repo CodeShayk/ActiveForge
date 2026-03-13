@@ -68,8 +68,8 @@ jobs:
       - name: Set package version
         id: pkg_version
         run: |
-          if [[ -z "${{ steps.gitversion.outputs.preReleaseTag }}" ]]; then
-            echo "version=${{ steps.gitversion.outputs.majorMinorPatch }}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=$(echo '${{ github.ref_name }}' | sed 's/^v//')" >> $GITHUB_OUTPUT
           else
             echo "version=${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_OUTPUT
           fi
@@ -166,7 +166,7 @@ jobs:
             --skip-duplicate
 
       - name: Publish to NuGet.org
-        if: steps.gitversion.outputs.preReleaseTag == ''
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           dotnet nuget push "./artifacts/*.nupkg" \
             --api-key ${{ secrets.NUGET_API_KEY }} \
